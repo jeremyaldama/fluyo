@@ -1,3 +1,59 @@
 <resources>
     <string name="app_name">Fluyo</string>
+
+    <!-- Common -->
+    <string name="action_continue">Continuar</string>
+    <string name="action_back">Atrás</string>
+    <string name="action_skip">Omitir</string>
+    <string name="action_finish">Finalizar</string>
+    <string name="action_sign_out">Cerrar sesión</string>
+    <string name="action_retry">Reintentar</string>
+
+    <!-- Login -->
+    <string name="login_title">Tus gastos, sin esfuerzo</string>
+    <string name="login_subtitle">Registra, organiza y entiende tu dinero — en segundos.</string>
+    <string name="login_continue_google">Continuar con Google</string>
+    <string name="login_legal">Al continuar aceptas nuestros Términos y Política de Privacidad.</string>
+    <string name="login_error_generic">No pudimos iniciar sesión. Intenta de nuevo.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_step_budget_title">Tu presupuesto mensual</string>
+    <string name="onboarding_step_budget_subtitle">¿Cuánto planeas gastar este mes? Puedes cambiarlo después.</string>
+    <string name="onboarding_budget_hint">0.00</string>
+    <string name="onboarding_currency_prefix">S/</string>
+
+    <string name="onboarding_step_categories_title">Tus categorías</string>
+    <string name="onboarding_step_categories_subtitle">Empezamos con estas. Podrás editarlas más adelante.</string>
+
+    <string name="onboarding_step_tour_title">Cómo registras gastos</string>
+    <string name="onboarding_feature_ocr_title">Escanea</string>
+    <string name="onboarding_feature_ocr_body">Toma una foto de tu recibo o captura de Yape — listo.</string>
+    <string name="onboarding_feature_manual_title">A mano</string>
+    <string name="onboarding_feature_manual_body">Escribe el monto y elige la categoría en menos de 5 segundos.</string>
+    <string name="onboarding_feature_whatsapp_title">WhatsApp</string>
+    <string name="onboarding_feature_whatsapp_body">Mándale un mensaje o nota de voz al bot: \"Gasté 15 en almuerzo\".</string>
+    <string name="onboarding_phone_label">Tu número (opcional, para WhatsApp)</string>
+    <string name="onboarding_phone_hint">987 654 321</string>
+    <string name="onboarding_phone_help">Lo usamos para asociar tus mensajes de WhatsApp con tu cuenta.</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_stats">Stats</string>
+    <string name="nav_goals">Metas</string>
+    <string name="nav_profile">Perfil</string>
+
+    <!-- Placeholders -->
+    <string name="placeholder_home">Home — próximamente</string>
+    <string name="placeholder_stats">Stats — próximamente</string>
+    <string name="placeholder_goals">Metas — próximamente</string>
+    <string name="placeholder_profile">Perfil — próximamente</string>
+
+    <!-- Default categories (must match Supabase trigger seed) -->
+    <string name="cat_food">Comida</string>
+    <string name="cat_transport">Transporte</string>
+    <string name="cat_entertainment">Entretenimiento</string>
+    <string name="cat_snacks">Snacks</string>
+    <string name="cat_health">Salud</string>
+    <string name="cat_education">Educación</string>
+    <string name="cat_other">Otros</string>
 </resources>

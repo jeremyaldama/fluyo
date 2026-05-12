@@ -78,31 +78,52 @@ This is a thesis project for the Pontificia Universidad Católica del Perú (PUC
 
 ### Android App
 
-| Component    | Technology                     | Notes                                      |
-| ------------ | ------------------------------ | ------------------------------------------ |
-| Language     | Kotlin                         | All code in Kotlin                         |
-| Min SDK      | 26 (Android 8.0)               | Target SDK: 34 (Android 14)                |
-| UI           | Jetpack Compose                | Material 3, declarative                    |
-| Architecture | Clean Architecture + MVVM      | Domain layer has ZERO Android dependencies |
-| Navigation   | Jetpack Navigation Compose     | Bottom nav with 4 tabs                     |
-| State        | ViewModel + StateFlow          | Unidirectional data flow                   |
-| DI           | Hilt (Dagger)                  | Constructor injection                      |
-| Backend      | Supabase Kotlin SDK            | Auth, Database, Storage                    |
-| OCR          | Google ML Kit Text Recognition | On-device, no server upload                |
-| Charts       | Vico or MPAndroidChart         | Donut chart for categories                 |
-| Testing      | JUnit 5 + Espresso + Mockk     | Domain + UI tests                          |
-| Build        | Gradle (Kotlin DSL)            | Version catalog                            |
+| Component    | Technology                       | Notes                                                          |
+| ------------ | -------------------------------- | -------------------------------------------------------------- |
+| Language     | Kotlin 2.2.10                    | All code in Kotlin                                             |
+| Min SDK      | 24 (Android 7.0)                 | Target SDK / compileSdk: 36 (Android 15)                       |
+| UI           | Jetpack Compose (BOM 2026.02.01) | Material 3, declarative, dynamic color disabled for brand      |
+| Architecture | Clean Architecture + MVVM        | Domain layer has ZERO Android dependencies                     |
+| Navigation   | Jetpack Navigation Compose       | Bottom nav with 4 tabs                                         |
+| State        | ViewModel + StateFlow            | Unidirectional data flow                                       |
+| DI           | Hilt (Dagger) + KSP              | Constructor injection                                          |
+| Backend      | Supabase Kotlin SDK (supabase-kt)| Auth, Postgrest, Storage; Ktor OkHttp transport                |
+| Auth         | Credential Manager + Google ID   | Modern One Tap flow; supabase-kt Compose Auth integration      |
+| OCR          | Google ML Kit Text Recognition   | On-device, no server upload                                    |
+| Charts       | Vico                             | Donut chart for categories (chosen for Compose-native API)     |
+| Testing      | JUnit 5 + Espresso + Mockk       | Domain + UI tests                                              |
+| Build        | Gradle 9.4.1 (Kotlin DSL) + AGP 9.2.1 | Version catalog (`gradle/libs.versions.toml`)             |
+| App ID       | `com.qolve.fluyo`                | Namespace + applicationId                                       |
 
-### WhatsApp Backend (existing)
+### WhatsApp Backend (existing — `whatsapp-bot-be`)
 
-| Component        | Technology          | Notes                                                  |
-| ---------------- | ------------------- | ------------------------------------------------------ |
-| Runtime          | Node.js + NestJS    | Already deployed on DigitalOcean VPS                   |
-| Database         | Supabase PostgreSQL | Same database as Android app (migrate from current PG) |
-| WhatsApp         | WhatsApp Cloud API  | Webhook receiver + message sender                      |
-| Voice Processing | OpenAI Whisper API  | Voice notes → text transcription                       |
-| Text Parsing     | Custom NLP / regex  | Extract amount, category from natural language         |
-| ORM              | Prisma or TypeORM   | Connects to Supabase PG via connection string          |
+**This is a mature, in-production, multi-tenant WhatsApp Business API platform.** It currently serves Tecnigas (auto-repair), MIT/PUCP (university), Qolve Consulting (leads), and PrestaIA (lending). Fluyo will be added as a **new tenant + plugin** (`src/plugins/fluyo/`), it does NOT replace existing tenants.
+
+| Component         | Technology                          | Notes                                                                       |
+| ----------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| Runtime           | Node.js + NestJS 11.1.14            | Deployed on DigitalOcean VPS, containerized (Docker + nginx TLS)            |
+| Database (current)| Self-hosted PostgreSQL 16 + TypeORM | Owns: `tenants`, `contacts`, `conversations`, `messages`, `agents`, `users` |
+| Database (Fluyo)  | Supabase PostgreSQL (separate)      | Fluyo plugin writes to Supabase via `@supabase/supabase-js` (service role)  |
+| Cache / sessions  | Redis (ioredis)                     | Webhook config cache, conversation state                                    |
+| Media             | AWS S3 (`@aws-sdk/client-s3`)       | Receipt images, voice notes                                                 |
+| WhatsApp          | WhatsApp Cloud API                  | Webhook (`/webhook` GET verify + POST receive); multi-app via `phone_number_id` |
+| AI orchestration  | OpenAI function calling (gpt-4o-mini)| Tools dispatched via `PluginRegistry` per tenant `business_type`           |
+| Voice (Fluyo)     | OpenAI Whisper API                  | **Not yet integrated** — Phase 4 adds this for voice-note expense entries  |
+| Text parsing      | OpenAI function-calling tools       | Each plugin exposes its own tools (e.g. `register_expense`)                |
+| Auth (API)        | JWT + API key (Bearer)              | `@TenantId` decorator, `TenantContextInterceptor`                          |
+
+**Architecture (plugin-based):**
+
+```
+src/plugins/{auto-repair, university, qolve-consulting, prestaia, fluyo}/
+  └─ implements `BusinessPlugin` interface (plugin.interface.ts)
+src/ai-orchestration/
+  └─ ToolDispatchService routes OpenAI function calls → correct plugin
+src/whatsapp-core/webhook/
+  └─ WebhookConfigLoaderMiddleware resolves tenant by phone_number_id
+src/common/
+  └─ Guards (ApiKey, JWT, Roles), TenantContextInterceptor
+```
 
 ### Shared Infrastructure (Supabase)
 
@@ -283,7 +304,7 @@ CREATE TRIGGER on_user_created
 ## Android Project Structure
 
 ```
-app/src/main/java/com/Fluyo/app/
+app/src/main/java/com/qolve/fluyo/
 ├── di/
 │   ├── AppModule.kt
 │   ├── SupabaseModule.kt
@@ -429,37 +450,37 @@ Donut chart by category → monthly comparison (positive tone) → week/month fi
 
 ---
 
-## WhatsApp Bot (NestJS on DigitalOcean)
+## WhatsApp Bot (existing NestJS on DigitalOcean) — Fluyo integration
 
-### NestJS connects to Supabase via:
+The backend keeps its primary self-hosted PostgreSQL for **all existing tenants** (Tecnigas/auto-repair, MIT/PUCP/university, Qolve/consulting, PrestaIA/lending). Only the **Fluyo plugin** additionally writes to Supabase using `@supabase/supabase-js` with the service-role key.
+
+### Fluyo plugin env (added to backend `.env` in Phase 4)
 
 ```env
-DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-WHATSAPP_TOKEN=meta_access_token
-WHATSAPP_PHONE_ID=phone_number_id
-OPENAI_API_KEY=for_whisper
+FLUYO_SUPABASE_URL=https://<project>.supabase.co
+FLUYO_SUPABASE_SERVICE_ROLE_KEY=<service_role_key>   # bypasses RLS
+OPENAI_API_KEY=<existing — also used for Whisper transcription>
 ```
 
-### NestJS Module Structure
+WhatsApp credentials live on each `tenant` row already (encrypted via `ENCRYPTION_KEY`). A new Fluyo tenant is provisioned via the existing `POST /tenants` admin endpoint.
+
+### Fluyo plugin layout (Phase 4, target)
 
 ```
-src/
-├── whatsapp/
-│   ├── whatsapp.controller.ts     # Webhook endpoint
-│   ├── whatsapp.service.ts        # Process + reply
-│   └── whatsapp.guard.ts          # Signature verification
-├── expense/
-│   ├── expense.service.ts         # Write to Supabase
-│   └── expense-parser.service.ts  # Text → {amount, category}
-├── voice/
-│   └── voice.service.ts           # Audio → Whisper → text
-├── user/
-│   └── user.service.ts            # Find user by phone
-└── supabase/
-    └── supabase.service.ts        # DB client (service_role)
+src/plugins/fluyo/
+├── fluyo.plugin.ts                 # implements BusinessPlugin (tools: register_expense, get_summary, get_goal)
+├── fluyo.module.ts
+├── services/
+│   ├── supabase.service.ts         # @supabase/supabase-js client, service role
+│   ├── expense.service.ts          # writeExpense(userId, amount, category, source, description)
+│   ├── expense-parser.service.ts   # natural language → {amount, category}; used as OpenAI tool
+│   ├── voice-transcription.service.ts  # WhatsApp audio media → Whisper text
+│   └── user-link.service.ts        # phone_number → users.id in Supabase
+└── tools/
+    └── register-expense.tool.ts    # OpenAI function-calling schema + handler
 ```
+
+User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifies the Fluyo tenant; the plugin then looks up `users.phone_number` in Supabase. If unmatched, the bot replies with onboarding instructions (download the Android app, register, link phone).
 
 ---
 
@@ -483,11 +504,11 @@ src/
 8. ML Kit integration + Yape/Plin parser
 9. OCR confirm screen + gallery/camera picker
 
-### Phase 4: WhatsApp
+### Phase 4: WhatsApp (Fluyo plugin in existing backend)
 
-10. Migrate NestJS DB to Supabase connection
-11. Text parser + voice processing (Whisper)
-12. Phone number linking
+10. Add `src/plugins/fluyo/` plugin in `whatsapp-bot-be`; install `@supabase/supabase-js`; wire `FluyoSupabaseService` with service-role key.
+11. `register_expense` OpenAI tool (parses "Gasté X en Y"); add `VoiceTranscriptionService` calling OpenAI Whisper for audio media.
+12. Phone number linking — match incoming `contact.phone_number` against Supabase `users.phone_number`; reply with onboarding link if unmatched.
 
 ### Phase 5: Goals & Gamification
 
@@ -515,8 +536,8 @@ src/
 - OCR on-device only (ML Kit). No financial data to external APIs.
 - Compliant with Ley N° 29733 (Peruvian data protection)
 - No ads, no premium. Thesis prototype.
-- Min Android 8.0 (API 26)
-- NestJS uses Supabase service_role key (bypasses RLS)
+- Min Android 7.0 (API 24); target Android 15 (API 36)
+- Fluyo backend plugin uses Supabase service_role key (bypasses RLS). Existing backend tenants stay on the self-hosted Postgres.
 
 ## Code Conventions
 
