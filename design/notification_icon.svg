@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fluyo notification icon — monochrome.
+
+  Android renders status-bar icons as a tint over the system color,
+  so all opaque pixels here will be re-colored by Android. Use white-
+  on-transparent for source. Simpler than the launcher icon: drops the
+  accent dot to keep the silhouette readable at 24×24 dp.
+
+  Canvas: 24×24 dp.
+  Safe zone: 22×22 dp center (slight inset to avoid clipping).
+
+  Import via Image Asset Studio → Notification Icons →
+  Asset Type: Image → this file.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 24 24"
+     width="24"
+     height="24">
+  <g fill="#FFFFFF">
+    <!-- Stem -->
+    <rect x="6" y="4" width="3" height="16" rx="0.7" />
+    <!-- Top arm -->
+    <rect x="6" y="4" width="11" height="3" rx="0.7" />
+    <!-- Middle arm -->
+    <rect x="6" y="10" width="8" height="3" rx="0.7" />
+  </g>
+</svg>

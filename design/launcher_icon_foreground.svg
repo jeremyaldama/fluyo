@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fluyo launcher icon — foreground layer.
+
+  Canvas: 108×108 dp (Android adaptive-icon spec).
+  Safe zone for important content: inner 72×72 dp (x 18-90, y 18-90).
+  All visible artwork sits inside the safe zone so launcher masks
+  (circle / squircle / rounded-square) never clip it.
+
+  Pair this with a solid FluyoTeal (#00897B) background layer in
+  Image Asset Studio.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 108 108"
+     width="108"
+     height="108">
+  <g fill="#FFFFFF">
+    <!-- Vertical stem of the F -->
+    <rect x="34" y="26" width="14" height="56" rx="3" />
+    <!-- Top horizontal arm -->
+    <rect x="34" y="26" width="46" height="14" rx="3" />
+    <!-- Middle (shorter) horizontal arm -->
+    <rect x="34" y="48" width="32" height="12" rx="3" />
+    <!-- Accent dot — single flowing data point -->
+    <circle cx="76" cy="76" r="7" />
+  </g>
+</svg>

@@ -122,7 +122,7 @@
     <string name="home_remaining_label">Te queda</string>
     <string name="home_of_budget">de %1$s</string>
     <string name="home_spent_so_far">Gastado este mes: %1$s</string>
-    <string name="home_recent_expenses">Movimientos recientes</string>
+    <string name="home_recent_expenses">Movimientos recientes</string>´
     <string name="home_empty_title">Aún no registras gastos</string>
     <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
 

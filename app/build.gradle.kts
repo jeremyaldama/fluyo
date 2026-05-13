@@ -38,6 +38,22 @@ android {
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
+    // Release signing config. Reads the keystore path + passwords from local.properties
+    // (gitignored). If RELEASE_KEYSTORE_PATH is unset (e.g., on a CI runner that hasn't
+    // been provisioned yet) the config is left blank and `./gradlew :app:bundleRelease`
+    // will simply fail with a clear message instead of silently producing an unsigned AAB.
+    signingConfigs {
+        create("release") {
+            val storeFilePath = localProps.getProperty("RELEASE_KEYSTORE_PATH").orEmpty()
+            if (storeFilePath.isNotEmpty()) {
+                storeFile = file(storeFilePath)
+                storePassword = localProps.getProperty("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -45,6 +61,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only attach the release signing config when the keystore is configured.
+            // Lets debug builds + CI lint runs work without the keystore present.
+            if (localProps.getProperty("RELEASE_KEYSTORE_PATH").orEmpty().isNotEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

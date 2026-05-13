@@ -49,7 +49,16 @@ class NudgeWorker @AssistedInject constructor(
         )
 
         val notification = NotificationCompat.Builder(applicationContext, FluyoChannels.NUDGES_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // Prefer the monochrome ic_stat_nudge drawable once it's been
+            // generated via Image Asset Studio. Falls back to the launcher
+            // icon if the drawable hasn't been added yet (early-build safety).
+            .setSmallIcon(
+                runCatching {
+                    applicationContext.resources.getIdentifier(
+                        "ic_stat_nudge", "drawable", applicationContext.packageName,
+                    )
+                }.getOrNull()?.takeIf { it != 0 } ?: R.mipmap.ic_launcher
+            )
             .setContentTitle(nudge.title)
             .setContentText(nudge.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(nudge.body))
