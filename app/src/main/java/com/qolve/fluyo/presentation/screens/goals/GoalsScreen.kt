@@ -32,7 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.outlined.Flag
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.screens.goals.components.CompletedGoalRow
 import com.qolve.fluyo.presentation.screens.goals.components.ConfettiOverlay
 import com.qolve.fluyo.presentation.screens.goals.components.DepositSheet
@@ -150,19 +152,10 @@ private fun GoalsContent(
 
 @Composable
 private fun GoalsEmptyState() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.goals_empty_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.goals_empty_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    IllustratedEmptyState(
+        icon = Icons.Outlined.Flag,
+        title = stringResource(R.string.goals_empty_title),
+        subtitle = stringResource(R.string.goals_empty_subtitle),
+        accent = MaterialTheme.colorScheme.tertiary,
+    )
 }

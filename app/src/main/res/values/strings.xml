@@ -167,6 +167,25 @@
     <string name="ocr_detected_banner">Detectamos %1$d dato(s). Revísalos antes de guardar.</string>
     <string name="ocr_parse_error">No detectamos el monto. Complétalo a mano abajo.</string>
 
+    <!-- Notification settings -->
+    <string name="profile_notifications_header">Notificaciones</string>
+    <string name="profile_notifications_subtitle">Te avisamos sólo una vez al día.</string>
+    <string name="profile_notifications_hour">Hora del recordatorio</string>
+    <string name="profile_notifications_hour_format">%1$d:00</string>
+    <string name="profile_notifications_change">Cambiar</string>
+    <string name="profile_notifications_hour_dialog_title">Elige la hora</string>
+    <string name="profile_notifications_types">Tipos de aviso</string>
+    <string name="profile_notifications_test">Enviar prueba ahora</string>
+
+    <string name="nudge_type_progress">Avances</string>
+    <string name="nudge_type_progress_desc">Cuando llevas días seguidos registrando</string>
+    <string name="nudge_type_reminder">Recordatorios</string>
+    <string name="nudge_type_reminder_desc">Si pasan días sin registrar nada</string>
+    <string name="nudge_type_budget">Presupuesto</string>
+    <string name="nudge_type_budget_desc">Cuando te acercas al límite del mes</string>
+    <string name="nudge_type_goal">Metas</string>
+    <string name="nudge_type_goal_desc">Cuando estás cerca de completar una meta</string>
+
     <!-- Default categories (must match Supabase trigger seed) -->
     <string name="cat_food">Comida</string>
     <string name="cat_transport">Transporte</string>

@@ -25,6 +25,8 @@ desugar = "2.1.4"
 mlkitText = "16.0.1"
 coroutinesPlayServices = "1.9.0"
 activity = "1.9.3"
+workManager = "2.10.0"
+hiltWork = "1.2.0"
 
 [libraries]
 # AndroidX core
@@ -89,6 +91,11 @@ android-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_li
 # ML Kit on-device text recognition (OCR)
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitText" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
+
+# WorkManager + Hilt-Work for scheduled nudges
+androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
+androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
 
 # Photo Picker contracts (already pulled via activity-compose but pinning for safety)
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }

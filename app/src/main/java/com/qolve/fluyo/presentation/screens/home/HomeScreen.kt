@@ -1,7 +1,6 @@
 package com.qolve.fluyo.presentation.screens.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -10,14 +9,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -27,9 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
-import com.qolve.fluyo.presentation.screens.home.components.BudgetCircle
+import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.screens.home.components.ExpenseRow
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.screens.home.components.HeroHomeCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -40,81 +42,54 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val grouped = remember(state.recentExpenses) {
+    val grouped: List<Pair<LocalDate, List<Expense>>> = remember(state.recentExpenses) {
         state.recentExpenses.groupBy { it.expenseDate }
-            .toSortedMap(compareByDescending { it })
+            .toList()
+            .sortedByDescending { it.first }
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { GreetingHeader(displayName = state.displayName) }
-
-        item { Spacer(Modifier.height(4.dp)) }
-
         item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                BudgetCircle(breakdown = state.breakdown)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(
-                        R.string.home_spent_so_far,
-                        formatPen(state.breakdown.totalSpent),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            HeroHomeCard(
+                displayName = state.displayName,
+                breakdown = state.breakdown,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
 
         item {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.home_recent_expenses),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
 
         if (state.recentExpenses.isEmpty()) {
-            item { EmptyExpenses() }
+            item {
+                IllustratedEmptyState(
+                    icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                    title = stringResource(R.string.home_empty_title),
+                    subtitle = stringResource(R.string.home_empty_subtitle),
+                    accent = MaterialTheme.colorScheme.primary,
+                )
+            }
         } else {
             grouped.forEach { (date, expenses) ->
-                item(key = "header-$date") {
-                    DayHeader(date = date)
-                }
-                items(expenses, key = { it.id }) { expense ->
-                    ExpenseRow(
-                        expense = expense,
-                        category = expense.categoryId?.let { state.categoriesById[it] },
-                    )
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                item(key = "header-$date") { DayHeader(date = date) }
+                item(key = "card-$date") {
+                    DayExpensesCard(
+                        expenses = expenses,
+                        categoriesById = state.categoriesById,
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun GreetingHeader(displayName: String?) {
-    val greeting = displayName?.let { stringResource(R.string.home_greeting_named, it) }
-        ?: stringResource(R.string.home_greeting_generic)
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Text(
-            text = greeting,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-        )
-        Text(
-            text = stringResource(R.string.home_greeting_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -129,7 +104,7 @@ private fun DayHeader(date: LocalDate) {
         text = label,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 0.dp),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Medium,
@@ -137,32 +112,31 @@ private fun DayHeader(date: LocalDate) {
 }
 
 @Composable
-private fun EmptyExpenses() {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-        contentAlignment = Alignment.Center,
+private fun DayExpensesCard(
+    expenses: List<Expense>,
+    categoriesById: Map<String, Category>,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = stringResource(R.string.home_empty_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.home_empty_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            expenses.forEachIndexed { index, expense ->
+                ExpenseRow(
+                    expense = expense,
+                    category = expense.categoryId?.let { categoriesById[it] },
+                )
+                if (index != expenses.lastIndex) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    )
+                }
+            }
         }
     }
 }
 
 private val dayHeaderFmt: DateTimeFormatter =
     DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-PE"))
-
-@Suppress("unused")
-private fun Category.touch() = id
-
-@Suppress("unused")
-private fun Expense.touch() = id

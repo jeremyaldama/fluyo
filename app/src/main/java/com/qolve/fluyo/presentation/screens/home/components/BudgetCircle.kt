@@ -33,6 +33,10 @@ import androidx.compose.ui.res.stringResource
 fun BudgetCircle(
     breakdown: MonthlyBreakdown,
     modifier: Modifier = Modifier,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    captionColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    trackOverride: Color? = null,
 ) {
     val percentage by animateFloatAsState(
         targetValue = breakdown.percentageUsed,
@@ -46,7 +50,7 @@ fun BudgetCircle(
         percentage >= 0.5f -> MaterialTheme.colorScheme.tertiary
         else -> SuccessGreen
     }
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val trackColor = trackOverride ?: MaterialTheme.colorScheme.surfaceVariant
 
     Box(modifier = modifier.size(220.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(220.dp)) {
@@ -73,7 +77,7 @@ fun BudgetCircle(
             Text(
                 text = stringResource(R.string.home_remaining_label),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = labelColor,
             )
             Spacer(Modifier.height(4.dp))
             val remainingText = if (breakdown.isOverBudget) {
@@ -84,7 +88,7 @@ fun BudgetCircle(
             Text(
                 text = remainingText,
                 style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
-                color = if (breakdown.isOverBudget) ErrorRed else MaterialTheme.colorScheme.onSurface,
+                color = if (breakdown.isOverBudget) ErrorRed else valueColor,
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -93,7 +97,7 @@ fun BudgetCircle(
                     formatPen(breakdown.monthlyBudget),
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = captionColor,
             )
         }
     }

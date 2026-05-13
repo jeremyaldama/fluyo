@@ -1,6 +1,7 @@
 package com.qolve.fluyo
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,11 +13,16 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            FluyoTheme {
-                FluyoNavHost()
+        try {
+            enableEdgeToEdge()
+            setContent {
+                FluyoTheme {
+                    FluyoNavHost()
+                }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error initializing app", e)
+            throw e // Re-throw to allow Android to handle the crash properly
         }
     }
 }

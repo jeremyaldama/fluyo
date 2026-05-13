@@ -1,6 +1,8 @@
 package com.qolve.fluyo.presentation.navigation
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -157,6 +159,18 @@ private fun MainShell(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
         uri?.let { onOpenScan(it) }
+    }
+
+    // Ask once for POST_NOTIFICATIONS on Android 13+. The system enforces
+    // "don't ask again" on its own after the user denies twice, so we don't
+    // need extra bookkeeping.
+    val notificationsPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { /* result ignored — worker re-checks at fire time */ }
+    } else null
+    LaunchedEffect(Unit) {
+        notificationsPermission?.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     Scaffold(

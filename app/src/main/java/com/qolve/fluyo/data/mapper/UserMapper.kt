@@ -1,6 +1,7 @@
 package com.qolve.fluyo.data.mapper
 
 import com.qolve.fluyo.data.dto.UserDto
+import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 
 fun UserDto.toDomain(): User = User(
@@ -13,4 +14,10 @@ fun UserDto.toDomain(): User = User(
     currency = currency,
     level = level,
     totalPoints = totalPoints,
+    notificationEnabled = notificationEnabled,
+    notificationHour = notificationHour.coerceIn(0, 23),
+    notificationTypes = notificationTypes
+        .mapNotNull { NudgeType.fromWire(it) }
+        .toSet()
+        .ifEmpty { NudgeType.entries.toSet() },
 )

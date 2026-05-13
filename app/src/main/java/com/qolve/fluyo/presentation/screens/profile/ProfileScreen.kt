@@ -47,8 +47,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
+import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.presentation.screens.profile.components.BadgeTile
 import com.qolve.fluyo.presentation.screens.profile.components.LevelCard
+import com.qolve.fluyo.presentation.screens.profile.components.NotificationSettingsCard
 import com.qolve.fluyo.presentation.util.formatPen
 
 @Composable
@@ -77,6 +79,17 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
                     BudgetRow(
                         currentBudget = state.user?.monthlyBudget ?: 0.0,
                         onEdit = viewModel::openBudgetDialog,
+                    )
+                }
+                item(span = { GridItemSpan(2) }) {
+                    NotificationSettingsCard(
+                        enabled = state.user?.notificationEnabled ?: true,
+                        hour = state.user?.notificationHour ?: 20,
+                        activeTypes = state.user?.notificationTypes ?: NudgeType.entries.toSet(),
+                        onToggleEnabled = viewModel::toggleNotificationsEnabled,
+                        onHourChange = viewModel::setNotificationHour,
+                        onToggleType = viewModel::toggleNotificationType,
+                        onSendTestNudge = viewModel::fireTestNudge,
                     )
                 }
                 item(span = { GridItemSpan(2) }) {

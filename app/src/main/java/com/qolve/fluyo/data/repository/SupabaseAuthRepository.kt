@@ -1,10 +1,12 @@
 package com.qolve.fluyo.data.repository
 
+import com.qolve.fluyo.data.dto.NotificationSettingsUpdateDto
 import com.qolve.fluyo.data.dto.UserDto
 import com.qolve.fluyo.data.dto.UserProfileUpdateDto
 import com.qolve.fluyo.data.dto.UserUpsertDto
 import com.qolve.fluyo.data.mapper.toDomain
 import com.qolve.fluyo.domain.model.AuthState
+import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.domain.repository.AuthRepository
 import io.github.jan.supabase.SupabaseClient
@@ -103,6 +105,26 @@ class SupabaseAuthRepository @Inject constructor(
             phoneNumber = phoneNumber?.takeIf { it.isNotBlank() },
         )
 
+        client.postgrest.from("users")
+            .update(patch) {
+                filter { eq("auth_id", authUser.id) }
+                select()
+            }
+            .decodeSingle<UserDto>()
+            .toDomain()
+    }
+
+    override suspend fun updateNotificationSettings(
+        enabled: Boolean?,
+        hour: Int?,
+        types: Set<NudgeType>?,
+    ): Result<User> = runCatching {
+        val authUser = client.auth.currentUserOrNull() ?: error("No authenticated user")
+        val patch = NotificationSettingsUpdateDto(
+            notificationEnabled = enabled,
+            notificationHour = hour?.coerceIn(0, 23),
+            notificationTypes = types?.map { it.wire },
+        )
         client.postgrest.from("users")
             .update(patch) {
                 filter { eq("auth_id", authUser.id) }

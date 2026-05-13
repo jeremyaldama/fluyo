@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.model.Badge
 import com.qolve.fluyo.domain.model.BadgeType
+import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.domain.model.UserLevel
 import com.qolve.fluyo.domain.model.UserLevelCatalog
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.notifications.NudgeOneShot
+import com.qolve.fluyo.notifications.NudgeScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +40,8 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val badgeRepository: BadgeRepository,
+    private val nudgeScheduler: NudgeScheduler,
+    private val nudgeOneShot: NudgeOneShot,
 ) : ViewModel() {
 
     private val userState = MutableStateFlow<User?>(null)
@@ -123,6 +128,59 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch { authRepository.signOut() }
+    }
+
+    /** Manual smoke-test trigger: enqueues a one-time nudge worker. */
+    fun fireTestNudge() {
+        nudgeOneShot.fireNow()
+    }
+
+    fun toggleNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            authRepository.updateNotificationSettings(enabled = enabled).fold(
+                onSuccess = { updated ->
+                    userState.value = updated
+                    if (updated.notificationEnabled) {
+                        nudgeScheduler.schedule(updated.notificationHour)
+                    } else {
+                        nudgeScheduler.cancel()
+                    }
+                },
+                onFailure = { e ->
+                    sheet.update { it.copy(error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
+    }
+
+    fun setNotificationHour(hour: Int) {
+        val safeHour = hour.coerceIn(0, 23)
+        viewModelScope.launch {
+            authRepository.updateNotificationSettings(hour = safeHour).fold(
+                onSuccess = { updated ->
+                    userState.value = updated
+                    if (updated.notificationEnabled) {
+                        nudgeScheduler.schedule(updated.notificationHour)
+                    }
+                },
+                onFailure = { e ->
+                    sheet.update { it.copy(error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
+    }
+
+    fun toggleNotificationType(type: NudgeType, enabled: Boolean) {
+        val current = userState.value?.notificationTypes ?: NudgeType.entries.toSet()
+        val next = if (enabled) current + type else current - type
+        viewModelScope.launch {
+            authRepository.updateNotificationSettings(types = next).fold(
+                onSuccess = { updated -> userState.value = updated },
+                onFailure = { e ->
+                    sheet.update { it.copy(error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
     }
 
     private fun formatBudgetForInput(value: Double): String =

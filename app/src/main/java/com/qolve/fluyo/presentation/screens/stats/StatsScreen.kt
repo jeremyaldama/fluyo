@@ -43,7 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
+import androidx.compose.material.icons.outlined.QueryStats
 import com.qolve.fluyo.domain.model.CategorySummary
+import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.screens.stats.components.DonutChart
 import com.qolve.fluyo.presentation.screens.stats.components.DonutSlice
 import com.qolve.fluyo.presentation.theme.ErrorRed
@@ -270,19 +272,10 @@ private fun CategoryLegendRow(summary: CategorySummary, total: Double) {
 
 @Composable
 private fun EmptyState() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.stats_empty_title),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.stats_empty_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    IllustratedEmptyState(
+        icon = Icons.Outlined.QueryStats,
+        title = stringResource(R.string.stats_empty_title),
+        subtitle = stringResource(R.string.stats_empty_subtitle),
+        accent = MaterialTheme.colorScheme.secondary,
+    )
 }

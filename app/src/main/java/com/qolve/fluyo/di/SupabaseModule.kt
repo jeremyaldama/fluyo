@@ -28,7 +28,17 @@ object SupabaseModule {
         install(Postgrest)
         install(Storage)
         install(ComposeAuth) {
-            googleNativeLogin(serverClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID)
+            // Only initialize Google login if clientId is provided
+            // This is initialized later in LoginScreen.rememberSignInWithGoogle()
+            if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) {
+                try {
+                    googleNativeLogin(serverClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                } catch (e: Exception) {
+                    // If Google Play Services is not available, log and continue
+                    // The error will be caught when user tries to sign in
+                    android.util.Log.w("SupabaseModule", "Google login not available: ${e.message}")
+                }
+            }
         }
     }
 }

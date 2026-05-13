@@ -14,6 +14,10 @@ data class UserDto(
     val currency: String = "PEN",
     val level: Int = 1,
     @SerialName("total_points") val totalPoints: Int = 0,
+    @SerialName("notification_enabled") val notificationEnabled: Boolean = true,
+    @SerialName("notification_hour") val notificationHour: Int = 20,
+    @SerialName("notification_types")
+    val notificationTypes: List<String> = listOf("progress", "reminder", "budget", "goal"),
 )
 
 @Serializable
@@ -27,4 +31,11 @@ data class UserUpsertDto(
 data class UserProfileUpdateDto(
     @SerialName("monthly_budget") val monthlyBudget: Double? = null,
     @SerialName("phone_number") val phoneNumber: String? = null,
+)
+
+@Serializable
+data class NotificationSettingsUpdateDto(
+    @SerialName("notification_enabled") val notificationEnabled: Boolean? = null,
+    @SerialName("notification_hour") val notificationHour: Int? = null,
+    @SerialName("notification_types") val notificationTypes: List<String>? = null,
 )
