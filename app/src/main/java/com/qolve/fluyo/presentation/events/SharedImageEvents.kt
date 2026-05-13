@@ -12,7 +12,7 @@ import javax.inject.Singleton
  * One-shot bus for images shared into Fluyo from other apps (Yape, Plin,
  * Gallery, camera roll) via the system Share sheet.
  *
- * MainActivity emits when it receives `Intent.ACTION_SEND` with `image/*`.
+ * MainActivity emits when it receives `Intent.ACTION_SEND` with an `image/` MIME.
  * FluyoNavHost subscribes once and navigates to the OCR confirm screen — but
  * only when the user is signed in + onboarded. Otherwise the event is dropped
  * (auth-gating before scan).
