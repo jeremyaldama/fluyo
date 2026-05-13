@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Play Store feature graphic for Fluyo.
+  Target: 1024×500 PNG, < 15 MB.
+  Layout: teal gradient bg, brand mark on the left, wordmark + tagline centered.
+  Soft decorative blobs in opposite corners match the Login screen aesthetic.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1024 500"
+     width="1024"
+     height="500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#4DB6AC"/>
+      <stop offset="55%"  stop-color="#00897B"/>
+      <stop offset="100%" stop-color="#00695C"/>
+    </linearGradient>
+    <radialGradient id="blobCoral" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FF7043" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#FF7043" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobCyan" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#26C6DA" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#26C6DA" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="500" fill="url(#bg)"/>
+
+  <!-- Decorative blobs -->
+  <circle cx="60"  cy="60"  r="280" fill="url(#blobCyan)"/>
+  <circle cx="980" cy="460" r="320" fill="url(#blobCoral)"/>
+
+  <!-- Brand mark (left side) -->
+  <g transform="translate(110, 110)">
+    <!-- White rounded card backdrop for contrast -->
+    <rect x="0" y="0" width="280" height="280" rx="56" fill="#FFFFFF" fill-opacity="0.12"/>
+    <!-- F mark scaled to fit inside the backdrop (260×260 safe zone) -->
+    <g fill="#FFFFFF" transform="translate(72, 56)">
+      <rect x="0"  y="0"   width="36"  height="170" rx="8"/>
+      <rect x="0"  y="0"   width="120" height="36"  rx="8"/>
+      <rect x="0"  y="68"  width="84"  height="32"  rx="8"/>
+      <circle cx="112" cy="148" r="18"/>
+    </g>
+  </g>
+
+  <!-- Wordmark + tagline (right side) -->
+  <g transform="translate(450, 0)">
+    <text x="0" y="220"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-size="120"
+          font-weight="800"
+          fill="#FFFFFF"
+          letter-spacing="-4">Fluyo</text>
+    <text x="0" y="290"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-size="34"
+          font-weight="600"
+          fill="#FFFFFF"
+          fill-opacity="0.92">Tus gastos, sin esfuerzo</text>
+    <text x="0" y="345"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-size="22"
+          font-weight="400"
+          fill="#FFFFFF"
+          fill-opacity="0.78">Escanea Yape, registra en segundos,</text>
+    <text x="0" y="375"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-size="22"
+          font-weight="400"
+          fill="#FFFFFF"
+          fill-opacity="0.78">entiende a dónde va tu plata.</text>
+  </g>
+</svg>

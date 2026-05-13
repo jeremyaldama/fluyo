@@ -8,6 +8,7 @@ import com.qolve.fluyo.domain.model.AuthState
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.notifications.NudgeScheduler
 import com.qolve.fluyo.presentation.events.AppEvents
+import com.qolve.fluyo.presentation.events.SharedImageEvents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.compose.auth.ComposeAuth
@@ -31,6 +32,7 @@ class RootViewModel @Inject constructor(
     private val onboardingPrefs: OnboardingPrefs,
     supabaseClient: SupabaseClient,
     val appEvents: AppEvents,
+    val sharedImageEvents: SharedImageEvents,
     private val nudgeScheduler: NudgeScheduler,
 ) : ViewModel() {
 

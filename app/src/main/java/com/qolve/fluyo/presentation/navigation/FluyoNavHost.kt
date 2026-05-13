@@ -68,6 +68,20 @@ fun FluyoNavHost(
         }
     }
 
+    // System Share-sheet → image incoming from Yape / Plin / Gallery.
+    // We only act on it once the user is signed in and onboarding is done,
+    // otherwise we'd land them on the confirm screen with no Supabase session.
+    LaunchedEffect(state.startRoute) {
+        if (state.startRoute != Routes.MAIN) return@LaunchedEffect
+        rootViewModel.sharedImageEvents.events.collect { uri ->
+            val encoded = Uri.encode(uri.toString())
+            rootNav.navigate(Routes.scanConfirm(encoded)) {
+                launchSingleTop = true
+            }
+            rootViewModel.sharedImageEvents.consume()
+        }
+    }
+
     NavHost(
         navController = rootNav,
         startDestination = Routes.SPLASH,

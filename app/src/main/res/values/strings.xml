@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Fluyo</string>
+    <string name="share_target_label">Registrar en Fluyo</string>
 
     <!-- Common -->
     <string name="action_continue">Continuar</string>

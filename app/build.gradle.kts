@@ -66,6 +66,13 @@ android {
             if (localProps.getProperty("RELEASE_KEYSTORE_PATH").orEmpty().isNotEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // Bundle native debug symbols (.so libraries from ML Kit, DataStore,
+            // androidx.graphics.path) for Play Vitals crash readability. Output goes
+            // to app/build/outputs/native-debug-symbols/release/ and must be uploaded
+            // separately in Play Console → App bundle explorer → Native debug symbols.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
     compileOptions {
