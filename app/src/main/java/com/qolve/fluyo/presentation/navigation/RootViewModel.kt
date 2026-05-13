@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.data.local.OnboardingPrefs
 import com.qolve.fluyo.domain.model.AuthState
 import com.qolve.fluyo.domain.repository.AuthRepository
+import com.qolve.fluyo.presentation.events.AppEvents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.compose.auth.ComposeAuth
@@ -26,6 +27,7 @@ class RootViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val onboardingPrefs: OnboardingPrefs,
     supabaseClient: SupabaseClient,
+    val appEvents: AppEvents,
 ) : ViewModel() {
 
     val composeAuth: ComposeAuth = supabaseClient.composeAuth

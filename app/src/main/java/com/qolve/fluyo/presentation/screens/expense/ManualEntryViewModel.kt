@@ -6,6 +6,9 @@ import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.ExpenseSource
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.usecase.RegisterExpenseUseCase
+import com.qolve.fluyo.data.badge.BadgeEngine
+import com.qolve.fluyo.presentation.events.AppEvent
+import com.qolve.fluyo.presentation.events.AppEvents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +42,8 @@ data class ManualEntryUiState(
 class ManualEntryViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val registerExpense: RegisterExpenseUseCase,
+    private val appEvents: AppEvents,
+    private val badgeEngine: BadgeEngine,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ManualEntryUiState())
@@ -93,7 +98,11 @@ class ManualEntryViewModel @Inject constructor(
                 source = ExpenseSource.MANUAL,
             )
             result.fold(
-                onSuccess = {
+                onSuccess = { saved ->
+                    appEvents.emit(
+                        AppEvent.ExpenseSaved(saved.amount, AppEvent.ExpenseSaved.Source.MANUAL),
+                    )
+                    runCatching { badgeEngine.checkAfterExpense() }
                     _state.update { it.copy(isSaving = false, savedOk = true) }
                 },
                 onFailure = { e ->

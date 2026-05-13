@@ -14,6 +14,10 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     const val MANUAL_ENTRY = "manual_entry"
+    const val SCAN_CONFIRM = "scan_confirm"
+    const val SCAN_CONFIRM_ROUTE = "$SCAN_CONFIRM/{uri}"
+    fun scanConfirm(encodedUri: String) = "$SCAN_CONFIRM/$encodedUri"
+    const val GOAL_CREATE = "goal_create"
 
     const val HOME = "home"
     const val STATS = "stats"

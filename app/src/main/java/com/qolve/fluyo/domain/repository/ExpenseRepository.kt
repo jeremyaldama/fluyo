@@ -11,6 +11,9 @@ interface ExpenseRepository {
     fun observeMonthlyBreakdown(): Flow<MonthlyBreakdown>
     suspend fun refresh(): Result<Unit>
 
+    /** Returns all expenses in `[from, to]` (inclusive). Used for Stats breakdowns. */
+    suspend fun loadByDateRange(from: LocalDate, to: LocalDate): Result<List<Expense>>
+
     suspend fun register(
         amount: Double,
         categoryId: String?,

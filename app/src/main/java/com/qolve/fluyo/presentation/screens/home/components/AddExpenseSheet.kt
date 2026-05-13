@@ -62,7 +62,7 @@ fun AddExpenseSheet(
                 icon = Icons.Outlined.CameraAlt,
                 title = stringResource(R.string.add_option_scan_title),
                 subtitle = stringResource(R.string.add_option_scan_subtitle),
-                enabled = false,
+                enabled = true,
                 onClick = onScan,
             )
             AddOption(

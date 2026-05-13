@@ -111,6 +111,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
 
+    // ML Kit on-device OCR + coroutine adapter for Google Tasks
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.activity.ktx)
+
     // Credential Manager + Google ID (modern Google Sign-In)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

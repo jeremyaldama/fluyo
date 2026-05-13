@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
 import com.qolve.fluyo.domain.model.MonthlyBreakdown
+import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,7 @@ import javax.inject.Inject
 
 data class HomeUiState(
     val isLoading: Boolean = true,
+    val displayName: String? = null,
     val breakdown: MonthlyBreakdown = MonthlyBreakdown(0.0, 0.0),
     val recentExpenses: List<Expense> = emptyList(),
     val categoriesById: Map<String, Category> = emptyMap(),
@@ -27,15 +29,20 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    private val displayName = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<HomeUiState> = combine(
         expenseRepository.observeMonthlyBreakdown(),
         expenseRepository.observeRecentExpenses(),
         categoryRepository.observeCategories(),
-    ) { breakdown, expenses, categories ->
+        displayName,
+    ) { breakdown, expenses, categories, name ->
         HomeUiState(
             isLoading = false,
+            displayName = name,
             breakdown = breakdown,
             recentExpenses = expenses,
             categoriesById = categories.associateBy { it.id },
@@ -48,6 +55,11 @@ class HomeViewModel @Inject constructor(
 
     init {
         refresh()
+        viewModelScope.launch {
+            authRepository.currentUser().getOrNull()?.displayName?.let { full ->
+                displayName.value = full.trim().split(" ").firstOrNull()
+            }
+        }
     }
 
     fun refresh() {

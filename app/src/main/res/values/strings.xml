@@ -42,18 +42,96 @@
     <string name="nav_goals">Metas</string>
     <string name="nav_profile">Perfil</string>
 
-    <!-- Placeholders -->
-    <string name="placeholder_stats">Stats — próximamente</string>
-    <string name="placeholder_goals">Metas — próximamente</string>
-    <string name="placeholder_profile">Perfil — próximamente</string>
+    <!-- Profile -->
+    <string name="profile_default_name">Tu cuenta</string>
+    <string name="profile_subtitle">Tu progreso financiero, de un vistazo.</string>
+    <string name="profile_budget_label">Presupuesto mensual</string>
+    <string name="profile_budget_dialog_title">Editar presupuesto</string>
+    <string name="profile_badges_header">Insignias</string>
+    <string name="profile_level_label">Nivel %1$d</string>
+    <string name="profile_points">%1$d pts</string>
+    <string name="profile_points_to_next">Te faltan %1$d puntos para el siguiente nivel</string>
+    <string name="profile_max_level">Has llegado al nivel más alto. 🚀</string>
+
+    <!-- Badges -->
+    <string name="badge_first_expense">Primer Registro</string>
+    <string name="badge_first_expense_desc">Registra tu primer gasto</string>
+    <string name="badge_streak_7">Racha Semanal</string>
+    <string name="badge_streak_7_desc">7 días seguidos registrando</string>
+    <string name="badge_streak_30">Racha Mensual</string>
+    <string name="badge_streak_30_desc">30 días seguidos registrando</string>
+    <string name="badge_first_goal">Primera Meta</string>
+    <string name="badge_first_goal_desc">Completa tu primera meta</string>
+    <string name="badge_saver_month">Ahorrista del Mes</string>
+    <string name="badge_saver_month_desc">Termina el mes bajo presupuesto</string>
+    <string name="badge_unlocked_prefix">¡Nueva insignia!</string>
+
+    <!-- Levels -->
+    <string name="level_novato">Novato</string>
+    <string name="level_aprendiz">Aprendiz</string>
+    <string name="level_organizado">Organizado</string>
+    <string name="level_experto">Experto</string>
+    <string name="level_maestro">Maestro Financiero</string>
+
+    <!-- Stats -->
+    <string name="stats_title">Stats</string>
+    <string name="stats_subtitle">Tu dinero, visualizado.</string>
+    <string name="stats_period_week">Esta semana</string>
+    <string name="stats_period_month">Este mes</string>
+    <string name="stats_total_week">Esta semana</string>
+    <string name="stats_total_month">Este mes</string>
+    <string name="stats_by_category">Por categoría</string>
+    <string name="stats_count_inline">%1$d gasto(s)</string>
+    <string name="stats_previous_total">Período anterior: %1$s</string>
+    <string name="stats_compare_under">Estás %1$s%% por debajo del período anterior 👏</string>
+    <string name="stats_compare_over">Estás %1$s%% por encima del período anterior</string>
+    <string name="stats_compare_flat">Similar al período anterior</string>
+    <string name="stats_compare_no_baseline">Primer período registrado</string>
+    <string name="stats_empty_title">Sin movimientos en este período</string>
+    <string name="stats_empty_subtitle">Registra un gasto para ver tus stats aquí.</string>
+
+    <!-- Goals -->
+    <string name="goals_title">Mis metas</string>
+    <string name="goals_subtitle">Ahorrar es más fácil cuando lo ves crecer.</string>
+    <string name="goals_create_cta">Nueva meta</string>
+    <string name="goals_completed_header">Completadas</string>
+    <string name="goals_empty_title">Aún no tienes metas</string>
+    <string name="goals_empty_subtitle">Crea tu primera meta para empezar a ahorrar con intención.</string>
+    <string name="goal_target_inline">de %1$s</string>
+    <string name="goal_deadline_label">Hasta el %1$s</string>
+    <string name="goal_completed_snackbar">¡Meta completada! 🎉</string>
+
+    <!-- Create goal -->
+    <string name="create_goal_title">Nueva meta</string>
+    <string name="create_goal_name_label">Nombre</string>
+    <string name="create_goal_name_hint">Audífonos nuevos, viaje a Cusco…</string>
+    <string name="create_goal_target_label">Quiero ahorrar</string>
+    <string name="create_goal_deadline_label">Fecha límite</string>
+    <string name="create_goal_deadline_optional">Elegir fecha (opcional)</string>
+    <string name="create_goal_save">Crear meta</string>
+
+    <!-- Deposit sheet -->
+    <string name="deposit_title">Aportar a tu meta</string>
+    <string name="deposit_remaining">Te falta %1$s</string>
+    <string name="deposit_confirm">Aportar</string>
 
     <!-- Home -->
+    <string name="home_greeting_named">¡Hola, %1$s!</string>
+    <string name="home_greeting_generic">¡Hola!</string>
+    <string name="home_greeting_subtitle">Esto es lo que llevas este mes.</string>
     <string name="home_remaining_label">Te queda</string>
     <string name="home_of_budget">de %1$s</string>
     <string name="home_spent_so_far">Gastado este mes: %1$s</string>
     <string name="home_recent_expenses">Movimientos recientes</string>
     <string name="home_empty_title">Aún no registras gastos</string>
     <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
+
+    <!-- Day headers (recent expenses grouping) -->
+    <string name="day_today">Hoy</string>
+    <string name="day_yesterday">Ayer</string>
+
+    <!-- Cross-screen events -->
+    <string name="expense_saved_snackbar">Gasto registrado</string>
 
     <!-- Add expense sheet -->
     <string name="add_sheet_title">Registrar gasto</string>
@@ -74,6 +152,20 @@
     <!-- Expense row -->
     <string name="expense_untitled">Gasto</string>
     <string name="expense_uncategorized">Sin categoría</string>
+
+    <!-- OCR / scan flow -->
+    <string name="ocr_title">Confirma el gasto</string>
+    <string name="ocr_processing">Leyendo recibo…</string>
+    <string name="ocr_processing_subtitle">Reconocimiento en el dispositivo, tus datos no salen del celular.</string>
+    <string name="ocr_amount_label">Monto</string>
+    <string name="ocr_category_label">Categoría</string>
+    <string name="ocr_recipient_label">Para</string>
+    <string name="ocr_recipient_hint">Nombre o comercio</string>
+    <string name="ocr_date_label">Fecha</string>
+    <string name="ocr_save">Confirmar y guardar</string>
+    <string name="ocr_detected_chip">Detectado</string>
+    <string name="ocr_detected_banner">Detectamos %1$d dato(s). Revísalos antes de guardar.</string>
+    <string name="ocr_parse_error">No detectamos el monto. Complétalo a mano abajo.</string>
 
     <!-- Default categories (must match Supabase trigger seed) -->
     <string name="cat_food">Comida</string>

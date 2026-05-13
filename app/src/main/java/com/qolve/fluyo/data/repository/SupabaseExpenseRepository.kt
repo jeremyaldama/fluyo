@@ -86,6 +86,24 @@ class SupabaseExpenseRepository @Inject constructor(
             .map { it.toDomain() }
     }
 
+    override suspend fun loadByDateRange(
+        from: LocalDate,
+        to: LocalDate,
+    ): Result<List<Expense>> = runCatching {
+        val userId = authRepository.currentUserId() ?: return@runCatching emptyList()
+        client.postgrest.from("expenses")
+            .select {
+                filter {
+                    eq("user_id", userId)
+                    gte("expense_date", from.toString())
+                    lte("expense_date", to.toString())
+                }
+                order("expense_date", Order.DESCENDING)
+            }
+            .decodeList<ExpenseDto>()
+            .map { it.toDomain() }
+    }
+
     private suspend fun loadBreakdown(userId: String) {
         val row = client.postgrest.from("current_month_budget")
             .select { filter { eq("user_id", userId) } }
