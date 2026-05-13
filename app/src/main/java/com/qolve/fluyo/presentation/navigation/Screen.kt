@@ -13,6 +13,7 @@ object Routes {
     const val LOGIN = "login"
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
+    const val MANUAL_ENTRY = "manual_entry"
 
     const val HOME = "home"
     const val STATS = "stats"

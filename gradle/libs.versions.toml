@@ -21,6 +21,7 @@ coil = "2.7.0"
 credentials = "1.3.0"
 googleid = "1.1.1"
 mockk = "1.13.13"
+desugar = "2.1.4"
 
 [libraries]
 # AndroidX core
@@ -78,6 +79,9 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# Core library desugaring (java.time on API 24)
+android-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -43,10 +43,37 @@
     <string name="nav_profile">Perfil</string>
 
     <!-- Placeholders -->
-    <string name="placeholder_home">Home — próximamente</string>
     <string name="placeholder_stats">Stats — próximamente</string>
     <string name="placeholder_goals">Metas — próximamente</string>
     <string name="placeholder_profile">Perfil — próximamente</string>
+
+    <!-- Home -->
+    <string name="home_remaining_label">Te queda</string>
+    <string name="home_of_budget">de %1$s</string>
+    <string name="home_spent_so_far">Gastado este mes: %1$s</string>
+    <string name="home_recent_expenses">Movimientos recientes</string>
+    <string name="home_empty_title">Aún no registras gastos</string>
+    <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
+
+    <!-- Add expense sheet -->
+    <string name="add_sheet_title">Registrar gasto</string>
+    <string name="add_option_scan_title">Escanear captura</string>
+    <string name="add_option_scan_subtitle">Toma una foto del recibo o Yape</string>
+    <string name="add_option_manual_title">Ingreso manual</string>
+    <string name="add_option_manual_subtitle">Escribe el monto y la categoría</string>
+    <string name="add_option_voice_title">Nota de voz</string>
+    <string name="add_option_voice_subtitle">Dictá tu gasto y listo</string>
+    <string name="add_option_coming_soon">Próximamente</string>
+
+    <!-- Manual entry -->
+    <string name="manual_entry_title">Nuevo gasto</string>
+    <string name="manual_entry_category_label">Categoría</string>
+    <string name="manual_entry_description_label">Descripción (opcional)</string>
+    <string name="manual_entry_save">Guardar</string>
+
+    <!-- Expense row -->
+    <string name="expense_untitled">Gasto</string>
+    <string name="expense_uncategorized">Sin categoría</string>
 
     <!-- Default categories (must match Supabase trigger seed) -->
     <string name="cat_food">Comida</string>

@@ -14,5 +14,8 @@ interface AuthRepository {
 
     suspend fun currentUser(): Result<User?>
 
+    /** Returns the `public.users.id` UUID for the signed-in user (cached). */
+    suspend fun currentUserId(): String?
+
     suspend fun updateProfile(monthlyBudget: Double?, phoneNumber: String?): Result<User>
 }

@@ -12,7 +12,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,17 +23,35 @@ class SupabaseAuthRepository @Inject constructor(
     private val client: SupabaseClient,
 ) : AuthRepository {
 
-    override val authState: Flow<AuthState> = client.auth.sessionStatus.map { status ->
-        when (status) {
-            is SessionStatus.Authenticated -> AuthState.SignedIn(status.session.user?.id ?: "")
-            is SessionStatus.NotAuthenticated -> AuthState.SignedOut
-            is SessionStatus.Initializing -> AuthState.Unknown
-            is SessionStatus.RefreshFailure -> AuthState.SignedOut
+    // Cached public.users.id for the signed-in user. Cleared on sign-out.
+    private val cachedUserId = MutableStateFlow<String?>(null)
+
+    override val authState: Flow<AuthState> = client.auth.sessionStatus
+        .onEach { status ->
+            if (status !is SessionStatus.Authenticated) cachedUserId.value = null
         }
-    }
+        .map { status ->
+            when (status) {
+                is SessionStatus.Authenticated -> AuthState.SignedIn(status.session.user?.id ?: "")
+                is SessionStatus.NotAuthenticated -> AuthState.SignedOut
+                is SessionStatus.Initializing -> AuthState.Unknown
+                is SessionStatus.RefreshFailure -> AuthState.SignedOut
+            }
+        }
 
     override suspend fun signOut(): Result<Unit> = runCatching {
+        cachedUserId.value = null
         client.auth.signOut()
+    }
+
+    override suspend fun currentUserId(): String? {
+        cachedUserId.value?.let { return it }
+        val authUser = client.auth.currentUserOrNull() ?: return null
+        val row = client.postgrest.from("users")
+            .select { filter { eq("auth_id", authUser.id) } }
+            .decodeSingleOrNull<UserDto>() ?: return null
+        cachedUserId.value = row.id
+        return row.id
     }
 
     override suspend fun ensureUserRow(): Result<User> = runCatching {
@@ -42,7 +62,10 @@ class SupabaseAuthRepository @Inject constructor(
             .select { filter { eq("auth_id", authUser.id) } }
             .decodeSingleOrNull<UserDto>()
 
-        if (existing != null) return@runCatching existing.toDomain()
+        if (existing != null) {
+            cachedUserId.value = existing.id
+            return@runCatching existing.toDomain()
+        }
 
         val displayName = authUser.userMetadata?.get("full_name")?.toString()?.trim('"')
             ?: authUser.userMetadata?.get("name")?.toString()?.trim('"')
@@ -53,10 +76,11 @@ class SupabaseAuthRepository @Inject constructor(
             displayName = displayName,
         )
 
-        client.postgrest.from("users")
+        val inserted = client.postgrest.from("users")
             .insert(insert) { select() }
             .decodeSingle<UserDto>()
-            .toDomain()
+        cachedUserId.value = inserted.id
+        inserted.toDomain()
     }
 
     override suspend fun currentUser(): Result<User?> = runCatching {
