@@ -59,20 +59,18 @@ fun FluyoNavHost(
     val state by rootViewModel.uiState.collectAsStateWithLifecycle()
     val rootNav = rememberNavController()
 
+    // Single effect: navigate to the auth-gated start destination FIRST, then
+    // (only on MAIN) watch for shared images. Splitting these into two
+    // LaunchedEffects races: the popUpTo(0) below would wipe any scanConfirm
+    // that a parallel share-target effect pushed onto the back stack.
     LaunchedEffect(state.startRoute) {
-        state.startRoute?.let { route ->
-            rootNav.navigate(route) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
-            }
+        val route = state.startRoute ?: return@LaunchedEffect
+        rootNav.navigate(route) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
         }
-    }
+        if (route != Routes.MAIN) return@LaunchedEffect
 
-    // System Share-sheet → image incoming from Yape / Plin / Gallery.
-    // We only act on it once the user is signed in and onboarding is done,
-    // otherwise we'd land them on the confirm screen with no Supabase session.
-    LaunchedEffect(state.startRoute) {
-        if (state.startRoute != Routes.MAIN) return@LaunchedEffect
         rootViewModel.sharedImageEvents.events.collect { uri ->
             val encoded = Uri.encode(uri.toString())
             rootNav.navigate(Routes.scanConfirm(encoded)) {
