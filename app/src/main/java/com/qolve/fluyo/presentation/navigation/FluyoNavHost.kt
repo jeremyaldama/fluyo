@@ -36,6 +36,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.navArgument
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
@@ -229,7 +230,20 @@ private fun MainShell(
             startDestination = Routes.HOME,
             modifier = Modifier.padding(inner),
         ) {
-            composable(Routes.HOME) { HomeScreen() }
+            composable(Routes.HOME) {
+                HomeScreen(
+                    // Tapping the avatar in the home header should land on the Perfil tab.
+                    // Use the same nav options the bottom-nav buttons use so the back stack
+                    // doesn't accumulate one entry per tap.
+                    onAvatarClick = {
+                        nav.navigate(Routes.PROFILE) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
             composable(Routes.STATS) { StatsScreen() }
             composable(Routes.GOALS) { GoalsScreen(onCreateGoal = onOpenGoalCreate) }
             composable(Routes.PROFILE) { ProfileScreen() }

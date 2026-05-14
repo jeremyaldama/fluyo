@@ -132,6 +132,7 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
             AjustesCard(
                 user = user,
                 onEditBudget = viewModel::openBudgetDialog,
+                onEditPhone = viewModel::openPhoneDialog,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
                 onHourChange = viewModel::setNotificationHour,
                 onToggleNotificationType = viewModel::toggleNotificationType,
@@ -168,6 +169,17 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
             onInputChange = viewModel::onBudgetInputChange,
             onDismiss = viewModel::closeBudgetDialog,
             onConfirm = viewModel::saveBudget,
+        )
+    }
+
+    if (state.showPhoneDialog) {
+        PhoneEditDialog(
+            input = state.phoneInput,
+            isSaving = state.isSavingPhone,
+            error = state.errorMessage,
+            onInputChange = viewModel::onPhoneInputChange,
+            onDismiss = viewModel::closePhoneDialog,
+            onConfirm = viewModel::savePhone,
         )
     }
 }
@@ -488,6 +500,7 @@ private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
 private fun AjustesCard(
     user: User?,
     onEditBudget: () -> Unit,
+    onEditPhone: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
     onHourChange: (Int) -> Unit,
     onToggleNotificationType: (NudgeType, Boolean) -> Unit,
@@ -511,14 +524,15 @@ private fun AjustesCard(
                 onClick = onEditBudget,
             )
             ThinDivider()
-            // Phone — display only for now; placeholder until phone-edit dialog ships
+            // Phone — opens the edit dialog. Clearing the field saves null so WhatsApp
+            // routing is detached without forcing the user to dig through code.
             SettingsRow(
                 icon = Icons.Outlined.Phone,
                 title = stringResource(R.string.profile_phone_label),
                 subtitle = stringResource(R.string.profile_phone_row_subtitle),
                 value = user?.phoneNumber?.takeIf { it.isNotBlank() }
                     ?: stringResource(R.string.profile_phone_unset),
-                onClick = null,
+                onClick = onEditPhone,
             )
             ThinDivider()
             // Notifications expander row
@@ -629,6 +643,68 @@ private fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
         modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+private fun PhoneEditDialog(
+    input: String,
+    isSaving: Boolean,
+    error: String?,
+    onInputChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.profile_phone_label)) },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.profile_phone_row_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeutralRamp500,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // "+51 " hint sits inline with the field — we don't persist a country code
+                    // separately yet, the user types the local number and we store it as-is.
+                    Text(
+                        text = "+51",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = NeutralRamp700,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = onInputChange,
+                        placeholder = { Text(stringResource(R.string.onboarding_phone_hint)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (error != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            // No min-length validation: clearing the field is a valid way to opt out of WhatsApp.
+            TextButton(onClick = onConfirm, enabled = !isSaving) {
+                Text(stringResource(R.string.action_continue))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_back))
+            }
+        },
     )
 }
 

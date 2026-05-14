@@ -9,6 +9,7 @@ import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -19,6 +20,8 @@ import javax.inject.Inject
 data class HomeUiState(
     val isLoading: Boolean = true,
     val displayName: String? = null,
+    /** Optional avatar URL — typically from Google sign-in metadata. Null falls back to initials. */
+    val avatarUrl: String? = null,
     val breakdown: MonthlyBreakdown = MonthlyBreakdown(0.0, 0.0),
     val recentExpenses: List<Expense> = emptyList(),
     val categoriesById: Map<String, Category> = emptyMap(),
@@ -32,17 +35,23 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
-    private val displayName = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    // Two fields tracked independently — display name flips when the user updates their
+    // profile, avatar URL only changes if they re-sign-in via a different provider. Splitting
+    // them keeps the combine() below stable and avoids unnecessary re-emissions.
+    private val displayName = MutableStateFlow<String?>(null)
+    private val avatarUrl = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<HomeUiState> = combine(
         expenseRepository.observeMonthlyBreakdown(),
         expenseRepository.observeRecentExpenses(),
         categoryRepository.observeCategories(),
         displayName,
-    ) { breakdown, expenses, categories, name ->
+        avatarUrl,
+    ) { breakdown, expenses, categories, name, avatar ->
         HomeUiState(
             isLoading = false,
             displayName = name,
+            avatarUrl = avatar,
             breakdown = breakdown,
             recentExpenses = expenses,
             categoriesById = categories.associateBy { it.id },
@@ -56,9 +65,9 @@ class HomeViewModel @Inject constructor(
     init {
         refresh()
         viewModelScope.launch {
-            authRepository.currentUser().getOrNull()?.displayName?.let { full ->
-                displayName.value = full.trim().split(" ").firstOrNull()
-            }
+            val user = authRepository.currentUser().getOrNull() ?: return@launch
+            displayName.value = user.displayName?.trim()?.split(Regex("\\s+"))?.firstOrNull()
+            avatarUrl.value = user.avatarUrl
         }
     }
 

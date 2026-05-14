@@ -32,6 +32,10 @@ data class ProfileUiState(
     val showBudgetDialog: Boolean = false,
     val budgetInput: String = "",
     val isSavingBudget: Boolean = false,
+    /** Phone-edit dialog state. Mirrors the budget-dialog pattern for consistency. */
+    val showPhoneDialog: Boolean = false,
+    val phoneInput: String = "",
+    val isSavingPhone: Boolean = false,
     val errorMessage: String? = null,
 ) {
     val totalPoints: Int get() = badges.sumOf { it.type.points }
@@ -66,6 +70,9 @@ class ProfileViewModel @Inject constructor(
             showBudgetDialog = s.showBudget,
             budgetInput = s.budgetInput,
             isSavingBudget = s.savingBudget,
+            showPhoneDialog = s.showPhone,
+            phoneInput = s.phoneInput,
+            isSavingPhone = s.savingPhone,
             errorMessage = s.error,
         )
     }.stateIn(
@@ -136,6 +143,49 @@ class ProfileViewModel @Inject constructor(
         sheet.update { it.copy(error = null) }
     }
 
+    // ─── Phone-edit dialog (mirrors the budget-dialog plumbing) ─────────────
+    //
+    // Phone numbers serve two roles for Fluyo: (1) they're the join key the WhatsApp bot
+    // uses to attribute incoming messages to a Supabase user, so changing it can detach the
+    // bot binding; (2) they're optional — we never demand one from email/password users.
+    // The dialog is intentionally low-friction: digits only, max 15 chars, no validation
+    // beyond that (we don't try to detect carriers or country codes here).
+
+    fun openPhoneDialog() {
+        sheet.update {
+            it.copy(showPhone = true, phoneInput = userState.value?.phoneNumber.orEmpty())
+        }
+    }
+
+    fun closePhoneDialog() {
+        sheet.update { it.copy(showPhone = false, phoneInput = "", savingPhone = false) }
+    }
+
+    fun onPhoneInputChange(value: String) {
+        sheet.update { it.copy(phoneInput = value.filter { c -> c.isDigit() }.take(15)) }
+    }
+
+    fun savePhone() {
+        val raw = sheet.value.phoneInput.trim()
+        // Empty input clears the phone (sends null) — both writes go through updateProfile.
+        sheet.update { it.copy(savingPhone = true, error = null) }
+        viewModelScope.launch {
+            val result = authRepository.updateProfile(
+                monthlyBudget = null,
+                phoneNumber = raw.ifBlank { null },
+            )
+            result.fold(
+                onSuccess = { updated ->
+                    userState.value = updated
+                    sheet.update { it.copy(showPhone = false, savingPhone = false, phoneInput = "") }
+                },
+                onFailure = { e ->
+                    sheet.update { it.copy(savingPhone = false, error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch { authRepository.signOut() }
     }
@@ -200,6 +250,9 @@ class ProfileViewModel @Inject constructor(
         val showBudget: Boolean = false,
         val budgetInput: String = "",
         val savingBudget: Boolean = false,
+        val showPhone: Boolean = false,
+        val phoneInput: String = "",
+        val savingPhone: Boolean = false,
         val error: String? = null,
     )
 }

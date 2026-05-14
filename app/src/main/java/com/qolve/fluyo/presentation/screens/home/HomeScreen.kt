@@ -74,6 +74,7 @@ import java.util.Locale
  */
 @Composable
 fun HomeScreen(
+    onAvatarClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,8 +93,8 @@ fun HomeScreen(
         item {
             HomeHeader(
                 displayName = state.displayName,
-                avatarUrl = null, // TODO: thread through state.user?.avatarUrl when HomeViewModel surfaces the User
-                onAvatarClick = { /* future: navigate to Profile */ },
+                avatarUrl = state.avatarUrl,
+                onAvatarClick = onAvatarClick,
             )
         }
 
@@ -128,22 +129,16 @@ fun HomeScreen(
                 )
             }
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.home_movements_title),
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = stringResource(R.string.home_view_all),
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = TealRamp500,
-                        modifier = Modifier.clickable { /* future: navigate to all-expenses */ },
-                    )
-                }
+                // "Ver todo →" intentionally omitted until an all-expenses screen exists.
+                // Showing a teal text link that does nothing would erode trust in every
+                // other teal link on the app. Re-introduce when Routes.ALL_EXPENSES lands.
+                Text(
+                    text = stringResource(R.string.home_movements_title),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                )
             }
             grouped.forEach { (date, expenses) ->
                 item(key = "header-$date") { DayHeader(date = date) }
