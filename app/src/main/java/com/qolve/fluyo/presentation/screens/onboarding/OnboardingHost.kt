@@ -19,11 +19,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,11 +39,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.theme.FluyoTeal
+
+private val OnboardingBackground = Color(0xFFF1F8F6)
 
 @Composable
 fun OnboardingHost(
@@ -51,17 +62,54 @@ fun OnboardingHost(
         if (state.finished) onFinished()
     }
 
-    Scaffold { inner ->
+    Scaffold(containerColor = OnboardingBackground) { inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
                 .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
-            StepIndicator(currentStep = state.step, totalSteps = OnboardingViewModel.LAST_STEP + 1)
+            // Top row — progress pills (left) + Saltar (right).
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepPills(
+                    currentStep = state.step,
+                    totalSteps = OnboardingViewModel.LAST_STEP + 1,
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(
+                    onClick = viewModel::skip,
+                    enabled = !state.isSaving,
+                ) {
+                    Text(
+                        text = stringResource(R.string.action_skip_short),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFF606060),
+                    )
+                }
+            }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
 
+            // Step counter label — small teal eyebrow.
+            Text(
+                text = stringResource(
+                    R.string.onboarding_step_of,
+                    state.step + 1,
+                    OnboardingViewModel.LAST_STEP + 1,
+                ),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                ),
+                color = FluyoTeal,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // Content area — slides horizontally between steps.
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
                     targetState = state.step,
@@ -82,7 +130,7 @@ fun OnboardingHost(
                             onValueChange = viewModel::onBudgetChange,
                         )
                         1 -> CategoriesStep()
-                        else -> TourStep(
+                        else -> WhatsAppStep(
                             phone = state.phoneInput,
                             onPhoneChange = viewModel::onPhoneChange,
                         )
@@ -90,80 +138,118 @@ fun OnboardingHost(
                 }
             }
 
+            // Inline error
             if (state.error != null) {
                 Text(
                     text = state.error!!,
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(
-                    onClick = viewModel::back,
-                    enabled = state.step > 0 && !state.isSaving,
-                ) {
-                    Text(stringResource(R.string.action_back))
-                }
+            // Bottom row — back circle (when applicable) + pill CTA.
+            BottomBar(
+                showBack = state.step > 0,
+                isLastStep = state.step == OnboardingViewModel.LAST_STEP,
+                canAdvance = canAdvance(state),
+                isSaving = state.isSaving,
+                onBack = viewModel::back,
+                onAdvance = {
+                    if (state.step == OnboardingViewModel.LAST_STEP) viewModel.finish() else viewModel.next()
+                },
+            )
+        }
+    }
+}
 
-                val isLastStep = state.step == OnboardingViewModel.LAST_STEP
-                val canAdvance = when (state.step) {
-                    0 -> state.canAdvanceFromBudget
-                    else -> true
-                }
+private fun canAdvance(state: OnboardingUiState): Boolean = when (state.step) {
+    0 -> state.canAdvanceFromBudget
+    else -> true
+}
 
-                Button(
-                    onClick = {
-                        if (isLastStep) viewModel.finish() else viewModel.next()
-                    },
-                    enabled = canAdvance && !state.isSaving,
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    if (state.isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(
-                                if (isLastStep) R.string.action_finish else R.string.action_continue,
-                            ),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                }
+@Composable
+private fun StepPills(currentStep: Int, totalSteps: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (i in 0 until totalSteps) {
+            val isActive = i == currentStep
+            val isPast = i < currentStep
+            val (color, width) = when {
+                isActive -> FluyoTeal to 26.dp
+                isPast -> FluyoTeal.copy(alpha = 0.5f) to 18.dp
+                else -> Color(0xFFD7E2DF) to 18.dp
             }
+            Box(
+                modifier = Modifier
+                    .size(width = width, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
         }
     }
 }
 
 @Composable
-private fun StepIndicator(currentStep: Int, totalSteps: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (i in 0 until totalSteps) {
-            val color = if (i <= currentStep) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-            Box(
+private fun BottomBar(
+    showBack: Boolean,
+    isLastStep: Boolean,
+    canAdvance: Boolean,
+    isSaving: Boolean,
+    onBack: () -> Unit,
+    onAdvance: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (showBack) {
+            IconButton(
+                onClick = onBack,
+                enabled = !isSaving,
                 modifier = Modifier
-                    .size(width = 32.dp, height = 4.dp)
+                    .size(54.dp)
                     .clip(CircleShape)
-                    .background(color),
-            )
+                    .background(Color.White),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = null,
+                    tint = Color(0xFF1A1A1A),
+                )
+            }
+        }
+
+        Button(
+            onClick = onAdvance,
+            enabled = canAdvance && !isSaving,
+            modifier = Modifier
+                .weight(1f)
+                .height(54.dp),
+            shape = RoundedCornerShape(27.dp),
+            contentPadding = PaddingValues(horizontal = 28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = FluyoTeal,
+                contentColor = Color.White,
+            ),
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text(
+                    text = stringResource(
+                        when {
+                            isLastStep -> R.string.onboarding_action_start
+                            else -> R.string.action_continue
+                        },
+                    ),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.qolve.fluyo.presentation.screens.auth
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,17 +23,26 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +50,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.theme.FluyoCoral
-import com.qolve.fluyo.presentation.theme.FluyoCyan
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import com.qolve.fluyo.presentation.theme.FluyoTealLight
 import com.qolve.fluyo.presentation.theme.FluyoTheme
@@ -51,6 +60,7 @@ import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
 @Composable
 fun LoginScreen(
     composeAuth: ComposeAuth,
+    onUseEmailPassword: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -72,21 +82,28 @@ fun LoginScreen(
             viewModel.onSignInStarted()
             googleAction.startFlow()
         },
+        onUseEmailPassword = onUseEmailPassword,
     )
 }
+
+// Page background — pale mint, matches the mockup.
+private val LoginBackground = Color(0xFFF1F8F6)
 
 @Composable
 private fun LoginContent(
     uiState: LoginUiState,
     onGoogleClick: () -> Unit,
+    onUseEmailPassword: () -> Unit,
 ) {
-    Scaffold { inner ->
+    Scaffold(containerColor = LoginBackground) { inner ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner),
+                .padding(inner)
+                .background(LoginBackground),
         ) {
-            BackgroundBlobs()
+            DecorativeWatermarks()
+            DecorativeDots()
 
             Column(
                 modifier = Modifier
@@ -97,29 +114,37 @@ private fun LoginContent(
             ) {
                 Spacer(Modifier.height(0.dp))
 
+                // Brand block — logo card + wordmark + tagline.
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    FluyoWordmark()
-                    Spacer(Modifier.height(32.dp))
+                    LogoCard()
+                    Spacer(Modifier.height(20.dp))
                     Text(
-                        text = stringResource(R.string.login_title),
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
+                        text = "Fluyo",
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 44.sp,
+                            letterSpacing = (-1).sp,
                         ),
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = Color(0xFF1A1A1A),
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        text = stringResource(R.string.login_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(R.string.login_tagline),
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontStyle = FontStyle.Italic,
+                            fontFamily = FontFamily.Serif,
+                        ),
+                        color = Color(0xFF1A1A1A),
                         textAlign = TextAlign.Center,
                     )
                 }
 
+                // CTA block at bottom.
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -140,103 +165,199 @@ private fun LoginContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(28.dp),
                         contentPadding = PaddingValues(horizontal = 24.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = FluyoTeal,
+                            contentColor = Color.White,
                         ),
                     ) {
                         if (uiState is LoginUiState.Loading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = Color.White,
                                 strokeWidth = 2.dp,
                             )
                         } else {
+                            // Google mark — minimal disc with white "G" so we don't have to ship a vector.
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "G",
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = FluyoTeal,
+                                    ),
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
                             Text(
                                 text = stringResource(R.string.login_continue_google),
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
                     Text(
-                        text = stringResource(R.string.login_legal),
+                        text = legalAnnotated(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color(0xFF606060),
                         textAlign = TextAlign.Center,
                     )
+
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = onUseEmailPassword,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_continue_email),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = FluyoTeal,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Builds the legal text with the "términos" and "política de privacidad" words underlined.
+ * The strings.xml entry uses literal `<u>…</u>` markers; we transform them into SpanStyles
+ * here so the underlines render in the right color.
+ */
 @Composable
-private fun BackgroundBlobs() {
-    // Two soft brand-tinted blobs in opposite corners. Decorative only.
+private fun legalAnnotated(): AnnotatedString {
+    val raw = stringResource(R.string.login_legal)
+    return buildAnnotatedString {
+        // Simple <u>...</u> replacement — sufficient for two static markers in this string.
+        var i = 0
+        while (i < raw.length) {
+            val openIdx = raw.indexOf("<u>", i)
+            if (openIdx == -1) {
+                append(raw.substring(i))
+                break
+            }
+            append(raw.substring(i, openIdx))
+            val closeIdx = raw.indexOf("</u>", openIdx)
+            if (closeIdx == -1) {
+                append(raw.substring(openIdx))
+                break
+            }
+            withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) {
+                append(raw.substring(openIdx + 3, closeIdx))
+            }
+            i = closeIdx + 4
+        }
+    }
+}
+
+/**
+ * The square "F." logo card from the mockup — teal rounded square, white "F" letter, coral dot
+ * after the F. Matches the launcher icon visual language.
+ */
+@Composable
+private fun LogoCard() {
+    Box(
+        modifier = Modifier
+            .size(82.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(FluyoTeal),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = "F",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 46.sp,
+                    color = Color.White,
+                ),
+            )
+            Spacer(Modifier.width(2.dp))
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .offset(y = (-6).dp)
+                    .clip(CircleShape)
+                    .background(FluyoCoral),
+            )
+        }
+    }
+}
+
+/**
+ * Big faded "F." letters as background watermarks, one in each diagonal corner.
+ * Soft and brand-tinted so they read as texture, not content.
+ */
+@Composable
+private fun DecorativeWatermarks() {
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(
+        Text(
+            text = "F.",
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 120.sp,
+            ),
+            color = FluyoTealLight.copy(alpha = 0.12f),
             modifier = Modifier
-                .size(320.dp)
-                .offset(x = (-120).dp, y = (-120).dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            FluyoCyan.copy(alpha = 0.22f),
-                            Color.Transparent,
-                        ),
-                        center = Offset(160f, 160f),
-                    ),
-                ),
+                .align(Alignment.TopStart)
+                .offset(x = (-8).dp, y = 24.dp),
         )
-        Box(
+        Text(
+            text = "F.",
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 120.sp,
+            ),
+            color = FluyoTealLight.copy(alpha = 0.10f),
             modifier = Modifier
-                .size(360.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 140.dp, y = 140.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            FluyoCoral.copy(alpha = 0.18f),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
+                .align(Alignment.Center)
+                .offset(x = 80.dp, y = 20.dp)
+                .rotate(0f),
         )
     }
 }
 
+/**
+ * Three tiny accent dots scattered around the brand block. Brand-tinted, alternating teal/coral.
+ */
 @Composable
-private fun FluyoWordmark() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        // Tiny flow-line glyph to the left of the wordmark.
-        Box(
-            modifier = Modifier
-                .size(width = 28.dp, height = 28.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(FluyoTeal, FluyoTealLight),
-                    ),
-                ),
+private fun DecorativeDots() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        // Teal dot left of the logo, mid-height.
+        drawCircle(
+            color = FluyoTeal.copy(alpha = 0.45f),
+            radius = 5f,
+            center = Offset(w * 0.10f, h * 0.32f),
         )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = "Fluyo",
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 40.sp,
-                letterSpacing = (-1).sp,
-            ),
-            color = FluyoTeal,
+        // Coral dot right of the wordmark.
+        drawCircle(
+            color = FluyoCoral.copy(alpha = 0.55f),
+            radius = 5f,
+            center = Offset(w * 0.78f, h * 0.18f),
+        )
+        // Tiny teal dot lower-left.
+        drawCircle(
+            color = FluyoTeal.copy(alpha = 0.40f),
+            radius = 4f,
+            center = Offset(w * 0.06f, h * 0.46f),
+        )
+        // Tiny coral dot below the wordmark.
+        drawCircle(
+            color = FluyoCoral.copy(alpha = 0.45f),
+            radius = 4f,
+            center = Offset(w * 0.46f, h * 0.50f),
         )
     }
 }
@@ -245,6 +366,13 @@ private fun FluyoWordmark() {
 @Composable
 private fun LoginPreview() {
     FluyoTheme {
-        LoginContent(uiState = LoginUiState.Idle, onGoogleClick = {})
+        LoginContent(
+            uiState = LoginUiState.Idle,
+            onGoogleClick = {},
+            onUseEmailPassword = {},
+        )
     }
 }
+
+@Suppress("unused")
+private val previewMarker: SolidColor = SolidColor(Color.Transparent)

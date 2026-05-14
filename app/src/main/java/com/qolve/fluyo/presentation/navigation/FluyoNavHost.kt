@@ -86,7 +86,18 @@ fun FluyoNavHost(
     ) {
         composable(Routes.SPLASH) { SplashRoute() }
         composable(Routes.LOGIN) {
-            LoginScreen(composeAuth = rootViewModel.composeAuth)
+            LoginScreen(
+                composeAuth = rootViewModel.composeAuth,
+                onUseEmailPassword = { rootNav.navigate(Routes.EMAIL_AUTH) },
+            )
+        }
+        composable(Routes.EMAIL_AUTH) {
+            com.qolve.fluyo.presentation.screens.auth.EmailAuthScreen(
+                onBack = { rootNav.popBackStack() },
+                // Auth state flow will pick the new session up and redirect via startRoute;
+                // pop here so the back-stack doesn't keep the auth screen behind MAIN.
+                onSignedIn = { rootNav.popBackStack(Routes.LOGIN, inclusive = true) },
+            )
         }
         composable(Routes.ONBOARDING) {
             OnboardingHost(onFinished = { rootViewModel.markOnboardingDone() })

@@ -1,5 +1,6 @@
 package com.qolve.fluyo.data.repository
 
+import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.CategoryDto
 import com.qolve.fluyo.data.mapper.toDomain
 import com.qolve.fluyo.domain.model.Category
@@ -18,11 +19,15 @@ import javax.inject.Singleton
 class SupabaseCategoryRepository @Inject constructor(
     private val client: SupabaseClient,
     private val authRepository: AuthRepository,
-) : CategoryRepository {
+) : CategoryRepository, SessionScopedCache {
 
     private val state = MutableStateFlow<List<Category>>(emptyList())
 
     override fun observeCategories(): Flow<List<Category>> = state.asStateFlow()
+
+    override suspend fun clearForSignOut() {
+        state.value = emptyList()
+    }
 
     override suspend fun refresh(): Result<Unit> = runCatching {
         val userId = authRepository.currentUserId() ?: return@runCatching

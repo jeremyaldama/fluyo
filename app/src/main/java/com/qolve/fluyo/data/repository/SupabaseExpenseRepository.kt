@@ -1,5 +1,6 @@
 package com.qolve.fluyo.data.repository
 
+import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.CurrentMonthBudgetDto
 import com.qolve.fluyo.data.dto.ExpenseDto
 import com.qolve.fluyo.data.dto.ExpenseInsertDto
@@ -23,10 +24,15 @@ import javax.inject.Singleton
 class SupabaseExpenseRepository @Inject constructor(
     private val client: SupabaseClient,
     private val authRepository: AuthRepository,
-) : ExpenseRepository {
+) : ExpenseRepository, SessionScopedCache {
 
     private val expensesState = MutableStateFlow<List<Expense>>(emptyList())
     private val breakdownState = MutableStateFlow(MonthlyBreakdown(0.0, 0.0))
+
+    override suspend fun clearForSignOut() {
+        expensesState.value = emptyList()
+        breakdownState.value = MonthlyBreakdown(0.0, 0.0)
+    }
 
     override fun observeRecentExpenses(limit: Int): Flow<List<Expense>> =
         expensesState.asStateFlow()

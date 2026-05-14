@@ -7,6 +7,16 @@ import kotlinx.coroutines.flow.Flow
 interface AuthRepository {
     val authState: Flow<AuthState>
 
+    /** Sign in with email + password. Caller should follow up with [ensureUserRow] on success. */
+    suspend fun signInWithEmail(email: String, password: String): Result<Unit>
+
+    /**
+     * Create a new email/password account. The `displayName` is stored on Supabase Auth's
+     * user metadata so it surfaces consistently across reads. Caller should follow up with
+     * [ensureUserRow] on success.
+     */
+    suspend fun signUpWithEmail(email: String, password: String, displayName: String?): Result<Unit>
+
     suspend fun signOut(): Result<Unit>
 
     /** Upsert a row in `public.users` keyed by the current auth user. Triggers default-category seed. */

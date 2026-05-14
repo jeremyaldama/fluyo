@@ -1,5 +1,6 @@
 package com.qolve.fluyo.data.repository
 
+import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.GoalDepositInsertDto
 import com.qolve.fluyo.data.dto.GoalDto
 import com.qolve.fluyo.data.dto.GoalInsertDto
@@ -25,13 +26,18 @@ import javax.inject.Singleton
 class SupabaseGoalRepository @Inject constructor(
     private val client: SupabaseClient,
     private val authRepository: AuthRepository,
-) : GoalRepository {
+) : GoalRepository, SessionScopedCache {
 
     private val activeState = MutableStateFlow<List<Goal>>(emptyList())
     private val completedState = MutableStateFlow<List<Goal>>(emptyList())
 
     override fun observeActiveGoals(): Flow<List<Goal>> = activeState.asStateFlow()
     override fun observeCompletedGoals(): Flow<List<Goal>> = completedState.asStateFlow()
+
+    override suspend fun clearForSignOut() {
+        activeState.value = emptyList()
+        completedState.value = emptyList()
+    }
 
     override suspend fun refresh(): Result<Unit> = runCatching {
         val userId = authRepository.currentUserId() ?: return@runCatching

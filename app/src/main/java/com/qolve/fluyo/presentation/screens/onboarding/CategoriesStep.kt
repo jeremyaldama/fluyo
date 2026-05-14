@@ -4,21 +4,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.Coffee
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.DirectionsBus
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Restaurant
-import androidx.compose.material.icons.outlined.SportsEsports
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.TagFaces
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -31,81 +32,171 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.theme.FluyoTeal
 
-private data class CategoryPreview(
-    val nameRes: Int,
-    val icon: ImageVector,
-    val color: Color,
-)
-
-private val DefaultCategories = listOf(
-    CategoryPreview(R.string.cat_food, Icons.Outlined.Restaurant, Color(0xFFFF7043)),
-    CategoryPreview(R.string.cat_transport, Icons.Outlined.DirectionsBus, Color(0xFF42A5F5)),
-    CategoryPreview(R.string.cat_entertainment, Icons.Outlined.SportsEsports, Color(0xFFAB47BC)),
-    CategoryPreview(R.string.cat_snacks, Icons.Outlined.Coffee, Color(0xFFFFA726)),
-    CategoryPreview(R.string.cat_health, Icons.Outlined.Favorite, Color(0xFFEF5350)),
-    CategoryPreview(R.string.cat_education, Icons.Outlined.Book, Color(0xFF26A69A)),
-    CategoryPreview(R.string.cat_other, Icons.Outlined.MoreHoriz, Color(0xFF78909C)),
-)
-
+/**
+ * Onboarding step 2 — preview of the seven default categories the DB trigger creates
+ * (per `seed_default_categories` in CLAUDE.md). The mockup shows six visual cards instead of
+ * a vertical list, so we surface six of those defaults in a 2-column grid. The user doesn't
+ * pick anything here — it's pure expectation-setting before they hit Continuar.
+ */
 @Composable
 fun CategoriesStep() {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.onboarding_step_categories_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
+            text = stringResource(R.string.onboarding_categories_title),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            color = Color(0xFF111111),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.onboarding_step_categories_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
+            text = stringResource(R.string.onboarding_categories_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFF606060),
         )
+
         Spacer(Modifier.height(24.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            DefaultCategories.forEach { cat ->
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    androidx.compose.foundation.layout.Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(cat.color.copy(alpha = 0.18f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = cat.icon,
-                                contentDescription = null,
-                                tint = cat.color,
-                            )
+        val previews = remember()
+        // Render manually as rows of 2 — the parent host already uses an AnimatedContent
+        // that constrains height, and nesting a LazyVerticalGrid here would force a fixed
+        // height. With only 6 items, manual chunks are simpler and lay out exactly like the mockup.
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            previews.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    pair.forEach { preview ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            CategoryPreviewCard(preview)
                         }
-                        Spacer(Modifier.size(16.dp))
-                        Text(
-                            text = stringResource(cat.nameRes),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                    }
+                    if (pair.size == 1) {
+                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
         }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                tint = FluyoTeal,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.onboarding_categories_edit_later),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = FluyoTeal,
+            )
+        }
     }
+}
+
+@Composable
+private fun CategoryPreviewCard(preview: CategoryPreview) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(preview.color.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = preview.icon,
+                    contentDescription = null,
+                    tint = preview.color,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = stringResource(preview.nameRes),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF111111),
+                )
+                Text(
+                    text = stringResource(preview.hintRes),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF888888),
+                )
+            }
+        }
+    }
+}
+
+private data class CategoryPreview(
+    val nameRes: Int,
+    val hintRes: Int,
+    val icon: ImageVector,
+    val color: Color,
+)
+
+/**
+ * Static preview list. Wraps `remember { ... }` so the list is allocated once per composition.
+ * The colors are tuned to match the mockup's tinted icon squares (coral / blue / pink / green /
+ * purple / mint).
+ */
+@Composable
+private fun remember(): List<CategoryPreview> = androidx.compose.runtime.remember {
+    listOf(
+        CategoryPreview(
+            nameRes = R.string.cat_food,
+            hintRes = R.string.onboarding_cat_food_hint,
+            icon = Icons.Outlined.Restaurant,
+            color = Color(0xFFFF7043),
+        ),
+        CategoryPreview(
+            nameRes = R.string.cat_transport,
+            hintRes = R.string.onboarding_cat_transport_hint,
+            icon = Icons.Outlined.DirectionsBus,
+            color = Color(0xFF42A5F5),
+        ),
+        CategoryPreview(
+            nameRes = R.string.onboarding_cat_fun,
+            hintRes = R.string.onboarding_cat_fun_hint,
+            icon = Icons.Outlined.TagFaces,
+            color = Color(0xFFAB47BC),
+        ),
+        CategoryPreview(
+            nameRes = R.string.onboarding_cat_shopping,
+            hintRes = R.string.onboarding_cat_shopping_hint,
+            icon = Icons.Outlined.ShoppingBag,
+            color = Color(0xFF66BB6A),
+        ),
+        CategoryPreview(
+            nameRes = R.string.onboarding_cat_studies,
+            hintRes = R.string.onboarding_cat_studies_hint,
+            icon = Icons.Outlined.School,
+            color = Color(0xFF7E57C2),
+        ),
+        CategoryPreview(
+            nameRes = R.string.onboarding_cat_home,
+            hintRes = R.string.onboarding_cat_home_hint,
+            icon = Icons.Outlined.Home,
+            color = Color(0xFF26A69A),
+        ),
+    )
 }

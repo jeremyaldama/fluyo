@@ -14,8 +14,67 @@
     <string name="login_title">Tus gastos, sin esfuerzo</string>
     <string name="login_subtitle">Registra, organiza y entiende tu dinero — en segundos.</string>
     <string name="login_continue_google">Continuar con Google</string>
-    <string name="login_legal">Al continuar aceptas nuestros Términos y Política de Privacidad.</string>
+    <string name="login_continue_email">O usa correo y contraseña</string>
+    <string name="login_tagline">Tus gastos,\nsin esfuerzo.</string>
+    <string name="login_legal">Al continuar aceptas los <u>términos</u>\ny la <u>política de privacidad</u>.</string>
     <string name="login_error_generic">No pudimos iniciar sesión. Intenta de nuevo.</string>
+
+    <!-- Email auth -->
+    <string name="auth_email_signin_tab">Iniciar sesión</string>
+    <string name="auth_email_signup_tab">Crear cuenta</string>
+    <string name="auth_email_title_signin">Bienvenido de vuelta</string>
+    <string name="auth_email_subtitle_signin">Inicia sesión con tu correo.</string>
+    <string name="auth_email_title_signup">Crea tu cuenta</string>
+    <string name="auth_email_subtitle_signup">Solo necesitamos un correo y una contraseña.</string>
+    <string name="auth_email_name_label">Nombre</string>
+    <string name="auth_email_name_hint">Cómo quieres que te llamemos</string>
+    <string name="auth_email_email_label">Correo</string>
+    <string name="auth_email_email_hint">tucorreo@ejemplo.com</string>
+    <string name="auth_email_password_label">Contraseña</string>
+    <string name="auth_email_password_hint">Mínimo 8 caracteres</string>
+    <string name="auth_email_submit_signin">Iniciar sesión</string>
+    <string name="auth_email_submit_signup">Crear cuenta</string>
+    <string name="auth_email_switch_to_signup">¿Aún no tienes cuenta? Regístrate</string>
+    <string name="auth_email_switch_to_signin">¿Ya tienes cuenta? Inicia sesión</string>
+    <string name="auth_email_error_invalid_email">Correo no válido</string>
+    <string name="auth_email_error_short_password">La contraseña debe tener al menos 8 caracteres</string>
+    <string name="auth_email_error_missing_name">Ingresa tu nombre</string>
+
+    <!-- Onboarding (new) -->
+    <string name="onboarding_step_of">PASO %1$d DE %2$d</string>
+    <string name="onboarding_budget_title">Tu presupuesto del mes</string>
+    <string name="onboarding_budget_subtitle">Empieza con un monto. Lo puedes cambiar cuando quieras.</string>
+    <string name="onboarding_budget_card_label">PRESUPUESTO MENSUAL</string>
+    <string name="onboarding_budget_per_day">≈ %1$s al día</string>
+    <string name="onboarding_budget_lima_avg">El promedio de un universitario en Lima es S/ 950</string>
+    <string name="onboarding_budget_chip_600">S/ 600</string>
+    <string name="onboarding_budget_chip_900">S/ 900</string>
+    <string name="onboarding_budget_chip_1200">S/ 1.2K</string>
+    <string name="onboarding_budget_chip_1800">S/ 1.8K</string>
+
+    <string name="onboarding_categories_title">Categorías sugeridas</string>
+    <string name="onboarding_categories_subtitle">Editamos sobre la marcha. Nada está grabado en piedra.</string>
+    <string name="onboarding_categories_edit_later">Edita o agrega más después</string>
+    <string name="onboarding_cat_food_hint">menú, market</string>
+    <string name="onboarding_cat_transport_hint">combi, taxi</string>
+    <string name="onboarding_cat_fun">Diversión</string>
+    <string name="onboarding_cat_fun_hint">salida, café</string>
+    <string name="onboarding_cat_shopping">Compras</string>
+    <string name="onboarding_cat_shopping_hint">ropa, tech</string>
+    <string name="onboarding_cat_studies">Estudios</string>
+    <string name="onboarding_cat_studies_hint">pensión, libros</string>
+    <string name="onboarding_cat_home">Casa</string>
+    <string name="onboarding_cat_home_hint">luz, agua</string>
+
+    <string name="onboarding_whatsapp_title">Casi listos</string>
+    <string name="onboarding_whatsapp_subtitle">Conecta WhatsApp para recordatorios opcionales.</string>
+    <string name="onboarding_whatsapp_card_title">Recordatorios por WhatsApp</string>
+    <string name="onboarding_whatsapp_card_subtitle">Opcional · siempre lo puedes desactivar</string>
+    <string name="onboarding_whatsapp_phone_hint">987 654 321</string>
+    <string name="onboarding_yape_title">Reenvía tus capturas de Yape</string>
+    <string name="onboarding_yape_body">Nosotros leemos el monto y lo agregamos. Tú solo respondes a la categoría.</string>
+    <string name="onboarding_action_start">Empezar</string>
+    <string name="action_skip_short">Saltar</string>
 
     <!-- Onboarding -->
     <string name="onboarding_step_budget_title">Tu presupuesto mensual</string>
@@ -53,6 +112,23 @@
     <string name="profile_points">%1$d pts</string>
     <string name="profile_points_to_next">Te faltan %1$d puntos para el siguiente nivel</string>
     <string name="profile_max_level">Has llegado al nivel más alto. 🚀</string>
+    <string name="profile_email_fallback">Sin correo</string>
+    <string name="profile_level_chip">Nivel %1$d · %2$s</string>
+    <string name="profile_stat_points">Puntos</string>
+    <string name="profile_stat_badges">Insignias</string>
+    <string name="profile_stat_badges_value">%1$d/%2$d</string>
+    <string name="profile_stat_streak">Racha</string>
+    <string name="profile_stat_streak_empty">—</string>
+    <string name="profile_progress_caption">%1$d / %2$d pts hacia el siguiente nivel</string>
+    <string name="profile_progress_caption_max">Nivel máximo alcanzado</string>
+    <string name="profile_next_badge_title">Tu próxima meta</string>
+    <string name="profile_next_badge_locked_all">¡Desbloqueaste todas las insignias!</string>
+    <string name="profile_section_settings">Configuración</string>
+    <string name="profile_phone_label">Número de WhatsApp</string>
+    <string name="profile_phone_unset">No configurado</string>
+    <string name="profile_notifications_row_label">Notificaciones</string>
+    <string name="profile_notifications_row_off">Apagadas</string>
+    <string name="profile_notifications_row_on">Encendidas · %1$d:00</string>
 
     <!-- Badges -->
     <string name="badge_first_expense">Primer Registro</string>
@@ -106,6 +182,17 @@
     <string name="goal_target_inline">de %1$s</string>
     <string name="goal_deadline_label">Hasta el %1$s</string>
     <string name="goal_completed_snackbar">¡Meta completada! 🎉</string>
+    <string name="goals_summary_title">Tu progreso</string>
+    <string name="goals_summary_active_one">Tienes 1 meta activa</string>
+    <string name="goals_summary_active_other">Tienes %1$d metas activas</string>
+    <string name="goals_summary_saved">%1$s de %2$s ahorrado</string>
+    <string name="goal_days_left_one">Queda 1 día</string>
+    <string name="goal_days_left_other">Quedan %1$d días</string>
+    <string name="goal_pace_hint">~%1$s/día para llegar</string>
+    <string name="goal_overdue">Plazo vencido</string>
+    <string name="goal_complete_chip">¡Lista para celebrar!</string>
+    <string name="goal_deposit_cta">Aportar</string>
+    <string name="goal_progress_percent">%1$d%%</string>
 
     <!-- Create goal -->
     <string name="create_goal_title">Nueva meta</string>

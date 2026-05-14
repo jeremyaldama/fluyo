@@ -42,6 +42,20 @@ class OnboardingViewModel @Inject constructor(
         _uiState.update { it.copy(budgetInput = filtered, error = null) }
     }
 
+    /**
+     * Convenience for the "Saltar" link in the new onboarding chrome. Marks onboarding as
+     * complete without persisting any user input — equivalent to the user finishing the flow
+     * with the default budget (0) and no phone number. They can fill these in later from Profile.
+     */
+    fun skip() {
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            onboardingPrefs.setCompleted(true)
+            _uiState.update { it.copy(isSaving = false, finished = true) }
+        }
+    }
+
     fun onPhoneChange(value: String) {
         val filtered = value.filter { it.isDigit() }.take(15)
         _uiState.update { it.copy(phoneInput = filtered, error = null) }

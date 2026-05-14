@@ -11,6 +11,7 @@ import com.qolve.fluyo.R
 object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
+    const val EMAIL_AUTH = "email_auth"
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     const val MANUAL_ENTRY = "manual_entry"

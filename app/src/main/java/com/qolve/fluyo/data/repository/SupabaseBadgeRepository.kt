@@ -1,5 +1,6 @@
 package com.qolve.fluyo.data.repository
 
+import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.BadgeDto
 import com.qolve.fluyo.data.dto.BadgeInsertDto
 import com.qolve.fluyo.data.mapper.toDomainOrNull
@@ -28,11 +29,15 @@ private fun BadgeType.defaultName(): String = when (this) {
 class SupabaseBadgeRepository @Inject constructor(
     private val client: SupabaseClient,
     private val authRepository: AuthRepository,
-) : BadgeRepository {
+) : BadgeRepository, SessionScopedCache {
 
     private val state = MutableStateFlow<List<Badge>>(emptyList())
 
     override fun observeBadges(): Flow<List<Badge>> = state.asStateFlow()
+
+    override suspend fun clearForSignOut() {
+        state.value = emptyList()
+    }
 
     override suspend fun refresh(): Result<Unit> = runCatching {
         val userId = authRepository.currentUserId() ?: return@runCatching

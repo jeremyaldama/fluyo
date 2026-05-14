@@ -56,23 +56,40 @@ fun ExpenseRow(
             )
         }
         Spacer(Modifier.width(12.dp))
+        // Hierarchy: title = description or category; subtitle = recipient (Yape destinatario) when present.
+        // Critically: do NOT show category name as subtitle when it already IS the title — that produces
+        // "Comida / Comida" duplicates on quick manual entries with no description.
+        val categoryName = category?.name
+        val descriptionTitle = expense.description?.takeIf { it.isNotBlank() }
+        val titleText = descriptionTitle
+            ?: categoryName
+            ?: stringResource(R.string.expense_untitled)
+        val subtitleText: String? = when {
+            !expense.recipient.isNullOrBlank() -> expense.recipient
+            // Show category as subtitle only when the title was the description (so it's NOT already shown).
+            descriptionTitle != null && categoryName != null -> categoryName
+            else -> null
+        }
+
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = expense.description?.takeIf { it.isNotBlank() }
-                    ?: category?.name
-                    ?: stringResource(R.string.expense_untitled),
+                text = titleText,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = category?.name ?: stringResource(R.string.expense_uncategorized),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (subtitleText != null) {
+                Text(
+                    text = subtitleText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         Text(
