@@ -2,6 +2,7 @@ package com.qolve.fluyo.data.repository
 
 import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.GoalDepositInsertDto
+import com.qolve.fluyo.data.dto.GoalDepositRefDto
 import com.qolve.fluyo.data.dto.GoalDto
 import com.qolve.fluyo.data.dto.GoalInsertDto
 import com.qolve.fluyo.data.dto.GoalUpdateDto
@@ -41,13 +42,27 @@ class SupabaseGoalRepository @Inject constructor(
 
     override suspend fun refresh(): Result<Unit> = runCatching {
         val userId = authRepository.currentUserId() ?: return@runCatching
-        val all = client.postgrest.from("goals")
+        val rawGoals = client.postgrest.from("goals")
             .select {
                 filter { eq("user_id", userId) }
                 order("created_at", Order.DESCENDING)
             }
             .decodeList<GoalDto>()
             .map { it.toDomain() }
+
+        // One extra round-trip to count deposits per goal. Way cheaper than N+1 individual
+        // count queries, and avoids a Postgres view that'd have to live alongside the table.
+        // For users with hundreds of deposits this still returns kilobytes — acceptable until
+        // it isn't, at which point we add a `goals_with_deposit_count` view.
+        val counts = client.postgrest.from("goal_deposits")
+            .select(io.github.jan.supabase.postgrest.query.Columns.list("goal_id")) {
+                filter { eq("user_id", userId) }
+            }
+            .decodeList<GoalDepositRefDto>()
+            .groupingBy { it.goalId }
+            .eachCount()
+
+        val all = rawGoals.map { it.copy(depositCount = counts[it.id] ?: 0) }
         activeState.value = all.filter { !it.isCompleted }
         completedState.value = all.filter { it.isCompleted }
     }

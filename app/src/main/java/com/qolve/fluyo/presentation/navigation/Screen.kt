@@ -1,12 +1,8 @@
 package com.qolve.fluyo.presentation.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.icons.FluyoIcons
 
 object Routes {
     const val SPLASH = "splash"
@@ -31,8 +27,8 @@ enum class BottomTab(
     val labelRes: Int,
     val icon: ImageVector,
 ) {
-    Home(Routes.HOME, R.string.nav_home, Icons.Outlined.Home),
-    Stats(Routes.STATS, R.string.nav_stats, Icons.Outlined.BarChart),
-    Goals(Routes.GOALS, R.string.nav_goals, Icons.Outlined.Flag),
-    Profile(Routes.PROFILE, R.string.nav_profile, Icons.Outlined.AccountCircle),
+    Home(Routes.HOME, R.string.nav_home, FluyoIcons.Home),
+    Stats(Routes.STATS, R.string.nav_stats, FluyoIcons.Stats),
+    Goals(Routes.GOALS, R.string.nav_goals, FluyoIcons.Goals),
+    Profile(Routes.PROFILE, R.string.nav_profile, FluyoIcons.Profile),
 }

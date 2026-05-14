@@ -12,6 +12,12 @@ data class Goal(
     val status: GoalStatus,
     val createdAt: Instant,
     val completedAt: Instant?,
+    /**
+     * Number of deposits the user has made into this goal. Not persisted on the row —
+     * computed at refresh time in `SupabaseGoalRepository` from `goal_deposits`. Default 0
+     * keeps test/preview construction lightweight.
+     */
+    val depositCount: Int = 0,
 ) {
     val progress: Float
         get() = if (targetAmount <= 0.0) 0f

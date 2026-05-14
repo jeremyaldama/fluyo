@@ -16,13 +16,14 @@ import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
-enum class StatsPeriod { WEEK, MONTH }
+enum class StatsPeriod { WEEK, MONTH, YEAR }
 
 private data class DateRange(val from: LocalDate, val to: LocalDate)
 
 private fun StatsPeriod.currentRange(today: LocalDate = LocalDate.now()): DateRange = when (this) {
     StatsPeriod.WEEK -> DateRange(today.minusDays(6), today)
     StatsPeriod.MONTH -> DateRange(today.with(TemporalAdjusters.firstDayOfMonth()), today)
+    StatsPeriod.YEAR -> DateRange(today.with(TemporalAdjusters.firstDayOfYear()), today)
 }
 
 private fun StatsPeriod.previousRange(today: LocalDate = LocalDate.now()): DateRange = when (this) {
@@ -33,10 +34,20 @@ private fun StatsPeriod.previousRange(today: LocalDate = LocalDate.now()): DateR
         val firstOfPrev = lastOfPrev.with(TemporalAdjusters.firstDayOfMonth())
         DateRange(firstOfPrev, lastOfPrev)
     }
+    StatsPeriod.YEAR -> {
+        val firstOfThis = today.with(TemporalAdjusters.firstDayOfYear())
+        val lastOfPrev = firstOfThis.minusDays(1)
+        val firstOfPrev = lastOfPrev.with(TemporalAdjusters.firstDayOfYear())
+        DateRange(firstOfPrev, lastOfPrev)
+    }
 }
 
 /** One point on the daily-spend sparkline. Date is the calendar day, total is sum of expenses that day. */
 data class DailyPoint(val date: LocalDate, val total: Double)
+
+/** One point on the weekday-average chart. `dayOfWeek` is 1..7 (Monday..Sunday) — matches
+ *  `java.time.DayOfWeek.value`. `average` is mean spend on that weekday across the period. */
+data class WeekdayPoint(val dayOfWeek: Int, val average: Double)
 
 data class StatsUiState(
     val period: StatsPeriod = StatsPeriod.MONTH,
@@ -45,6 +56,7 @@ data class StatsUiState(
     val previousTotal: Double = 0.0,
     val summaries: List<CategorySummary> = emptyList(),
     val daily: List<DailyPoint> = emptyList(),
+    val weekdayPattern: List<WeekdayPoint> = emptyList(),
     val errorMessage: String? = null,
 ) {
     /** Signed percent delta vs previous period; null when previous period has no data. */
@@ -59,6 +71,9 @@ data class StatsUiState(
 
     /** Peak day in the current period, or null when no expenses. */
     val peakDay: DailyPoint? get() = daily.maxByOrNull { it.total }?.takeIf { it.total > 0 }
+
+    /** Highest-spend weekday in the current period (or null when nothing logged). */
+    val peakWeekday: WeekdayPoint? get() = weekdayPattern.maxByOrNull { it.average }?.takeIf { it.average > 0 }
 }
 
 @HiltViewModel
@@ -124,6 +139,7 @@ class StatsViewModel @Inject constructor(
 
             // Build a continuous daily series so the sparkline shows zero-spend days too.
             val daily = buildDailyPoints(current.from, current.to, currentExpenses)
+            val weekdayPattern = buildWeekdayPattern(currentExpenses)
 
             _state.update {
                 it.copy(
@@ -132,8 +148,35 @@ class StatsViewModel @Inject constructor(
                     previousTotal = previousExpenses.sumOf { e -> e.amount },
                     summaries = summaries,
                     daily = daily,
+                    weekdayPattern = weekdayPattern,
                 )
             }
+        }
+    }
+
+    /**
+     * Day-of-week averages. We group every expense in the period by its weekday and divide
+     * the sum by the number of *occurrences* of that weekday in the date range — so a
+     * single big Friday doesn't dominate just because Fridays show up fewer times than
+     * Mondays in a partial month.
+     *
+     * Always emits 7 entries (Mon..Sun) so the chart layout is stable even with sparse data.
+     */
+    private fun buildWeekdayPattern(
+        expenses: List<com.qolve.fluyo.domain.model.Expense>,
+    ): List<WeekdayPoint> {
+        val totals = LongArray(7)  // sum in cents (avoid float drift on .sumOf)
+        val counts = IntArray(7)   // number of distinct dates seen on that weekday
+        val seenDatesPerWeekday = Array(7) { mutableSetOf<LocalDate>() }
+        for (e in expenses) {
+            val idx = e.expenseDate.dayOfWeek.value - 1 // 0..6 for Mon..Sun
+            totals[idx] += (e.amount * 100).toLong()
+            seenDatesPerWeekday[idx].add(e.expenseDate)
+        }
+        for (i in 0..6) counts[i] = seenDatesPerWeekday[i].size
+        return (0..6).map { i ->
+            val avg = if (counts[i] == 0) 0.0 else (totals[i] / 100.0) / counts[i]
+            WeekdayPoint(dayOfWeek = i + 1, average = avg)
         }
     }
 

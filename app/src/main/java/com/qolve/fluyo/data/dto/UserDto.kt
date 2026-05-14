@@ -18,6 +18,8 @@ data class UserDto(
     @SerialName("notification_hour") val notificationHour: Int = 20,
     @SerialName("notification_types")
     val notificationTypes: List<String> = listOf("progress", "reminder", "budget", "goal"),
+    /** ISO-8601 timestamp from `users.created_at` — surfaces as "Desde [mes año]" on Profile. */
+    @SerialName("created_at") val createdAt: String? = null,
 )
 
 @Serializable

@@ -19,4 +19,6 @@ data class User(
      * an avatar set.
      */
     val avatarUrl: String? = null,
+    /** Instant the row was created in `public.users`. Powers the "Desde [mes año]" subtitle. */
+    val memberSince: java.time.Instant? = null,
 )

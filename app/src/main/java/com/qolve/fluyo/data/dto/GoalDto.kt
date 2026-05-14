@@ -46,3 +46,9 @@ data class GoalDepositInsertDto(
     @SerialName("user_id") val userId: String,
     val amount: Double,
 )
+
+/** Minimal projection for counting deposits per goal in [com.qolve.fluyo.data.repository.SupabaseGoalRepository]. */
+@Serializable
+data class GoalDepositRefDto(
+    @SerialName("goal_id") val goalId: String,
+)

@@ -17,12 +17,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Fallback Spanish names used only when inserting a brand-new badge row to Supabase.
+// The actual user-facing label flows from strings.xml via BadgeUi.nameRes() — this map
+// only matters until the row is read back and translated through the resource system.
 private fun BadgeType.defaultName(): String = when (this) {
-    BadgeType.FIRST_EXPENSE -> "Primer Registro"
-    BadgeType.STREAK_7 -> "Racha Semanal"
-    BadgeType.STREAK_30 -> "Racha Mensual"
-    BadgeType.FIRST_GOAL -> "Primera Meta"
-    BadgeType.SAVER_MONTH -> "Ahorrista del Mes"
+    BadgeType.FIRST_EXPENSE -> "Primer gasto"
+    BadgeType.STREAK_7 -> "7 días seguidos"
+    BadgeType.STREAK_30 -> "30 días"
+    BadgeType.FIRST_GOAL -> "Primera meta"
+    BadgeType.SAVER_MONTH -> "Bajo el budget"
+    BadgeType.MIL_SOLES -> "Mil soles ahorrados"
+    BadgeType.NO_YAPE -> "Sin Yape"
+    BadgeType.PERFECT_MONTH -> "Mes perfecto"
 }
 
 @Singleton

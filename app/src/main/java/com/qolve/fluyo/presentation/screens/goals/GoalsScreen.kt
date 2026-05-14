@@ -38,7 +38,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
@@ -141,10 +143,14 @@ private fun GoalsContent(
             }
         }
 
-        if (state.active.isNotEmpty()) {
+        // Hero card shows whenever there's any goal at all (active OR completed)
+        if (state.active.isNotEmpty() || state.completed.isNotEmpty()) {
             item {
-                ActiveSummaryCard(active = state.active)
+                GoalsHeroCard(active = state.active, completed = state.completed)
             }
+        }
+
+        if (state.active.isNotEmpty()) {
             items(state.active, key = { it.id }) { goal ->
                 GoalCard(
                     goal = goal,
@@ -157,95 +163,112 @@ private fun GoalsContent(
             item { GoalsEmptyState(onCreateGoal = onCreateGoal) }
         }
 
+        // Completed goals show inline with active ones using the same GoalCard
+        // (the card renders its completed state internally — coral border + "¡Logrado!").
         if (state.completed.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.goals_completed_header),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            items(state.completed, key = { "done-${it.id}" }) { goal ->
+                GoalCard(
+                    goal = goal,
+                    onClick = { onGoalDeposit(goal) },
+                    onDeposit = { onGoalDeposit(goal) },
                 )
-            }
-            items(state.completed, key = { it.id }) { goal ->
-                CompletedGoalRow(goal = goal)
             }
         }
     }
 }
 
 /**
- * Aggregate card across all active goals — gives the user a single-glance view of how
- * close they are to all of their targets combined. Particularly useful on a screen with
- * 3+ goals; with one goal it duplicates the goal card slightly, but the framing
- * ("Tienes 1 meta activa") still reinforces commitment.
+ * Hero card on the Metas screen. Teal gradient surface, "AHORRADO EN TOTAL" eyebrow,
+ * huge total (saved across all active + completed goals), and a one-liner with the active
+ * count + completion count. A big faded F-mark sits in the bottom-right as a brand watermark.
  */
 @Composable
-private fun ActiveSummaryCard(active: List<Goal>) {
-    val totalSaved = active.sumOf { it.currentAmount }
-    val totalTarget = active.sumOf { it.targetAmount }
-    val overallProgress = if (totalTarget > 0.0) (totalSaved / totalTarget).toFloat().coerceIn(0f, 1f) else 0f
+private fun GoalsHeroCard(active: List<Goal>, completed: List<Goal>) {
+    val totalSaved = (active + completed).sumOf { it.currentAmount }
+    val integer = totalSaved.toLong()
+    val integerFormatted = java.text.NumberFormat.getNumberInstance(
+        java.util.Locale.forLanguageTag("es-PE"),
+    ).format(integer)
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(FluyoTealLight, FluyoTeal),
-                    ),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(FluyoTealLight, FluyoTeal),
                 ),
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
+            ),
+    ) {
+        // Faded F. watermark in the bottom-right corner — large, low-opacity brand mark.
+        Text(
+            text = "F.",
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 120.sp,
+                color = Color.White.copy(alpha = 0.18f),
+            ),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 16.dp),
+        )
+
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.goals_hero_label),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.2.sp,
+                ),
+                color = Color.White.copy(alpha = 0.80f),
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    text = stringResource(R.string.goals_summary_title),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.78f),
+                    text = "S/",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.85f),
+                    ),
+                    modifier = Modifier.padding(top = 10.dp),
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = if (active.size == 1) {
-                        stringResource(R.string.goals_summary_active_one)
-                    } else {
-                        stringResource(R.string.goals_summary_active_other, active.size)
-                    },
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    text = integerFormatted,
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-1.5).sp,
+                    ),
                     color = Color.White,
                 )
-                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = stringResource(
-                        R.string.goals_summary_saved,
-                        formatPen(totalSaved),
-                        formatPen(totalTarget),
+                    text = ".00",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.85f),
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.padding(top = 14.dp),
                 )
-                Spacer(Modifier.height(12.dp))
-                // Aggregate progress bar — thinner than the per-goal bar (6dp).
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color.White.copy(alpha = 0.18f)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(overallProgress)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White),
-                    )
-                }
             }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = heroSubtitle(active.size, completed.size),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = Color.White,
+            )
         }
     }
+}
+
+@Composable
+private fun heroSubtitle(activeCount: Int, completedCount: Int): String = when {
+    activeCount == 0 && completedCount == 0 -> stringResource(R.string.goals_summary_active_one).let { "" }
+    activeCount == 0 && completedCount == 1 -> stringResource(R.string.goals_hero_no_active_completed_one)
+    activeCount == 0 -> stringResource(R.string.goals_hero_no_active_completed_other, completedCount)
+    completedCount == 0 && activeCount == 1 -> stringResource(R.string.goals_hero_active_only_one)
+    completedCount == 0 -> stringResource(R.string.goals_hero_active_only_other, activeCount)
+    activeCount == 1 && completedCount == 1 -> stringResource(R.string.goals_hero_active_completed_one_one)
+    else -> stringResource(R.string.goals_hero_active_completed_other, activeCount, completedCount)
 }
 
 @Composable
