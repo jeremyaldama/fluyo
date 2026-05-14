@@ -76,6 +76,8 @@ import com.qolve.fluyo.presentation.util.emoji
 import com.qolve.fluyo.presentation.util.formatPen
 import com.qolve.fluyo.presentation.util.levelNameRes
 import com.qolve.fluyo.presentation.util.nameRes
+import com.qolve.fluyo.presentation.util.openFluyoOnWhatsApp
+import androidx.compose.ui.platform.LocalContext
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -655,6 +657,8 @@ private fun PhoneEditDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val ctx = LocalContext.current
+    val prefillText = stringResource(R.string.whatsapp_prefill_text)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.profile_phone_label)) },
@@ -683,6 +687,20 @@ private fun PhoneEditDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                // Once the user has a complete-looking number typed, show the WhatsApp
+                // launch shortcut as a hint that they can test the linkage right now.
+                if (input.length >= 9) {
+                    Spacer(Modifier.height(10.dp))
+                    androidx.compose.material3.TextButton(
+                        onClick = { ctx.openFluyoOnWhatsApp(prefillText) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.whatsapp_connect_cta),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                    }
                 }
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))

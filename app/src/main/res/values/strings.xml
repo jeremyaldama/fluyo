@@ -76,6 +76,11 @@
     <string name="onboarding_action_start">Empezar</string>
     <string name="action_skip_short">Saltar</string>
 
+    <!-- WhatsApp deep-link CTA (sends user to wa.me/<fluyo bot number>) -->
+    <string name="whatsapp_connect_cta">Abrir Fluyo en WhatsApp</string>
+    <string name="whatsapp_connect_hint">Te abrimos un chat con Fluyo para confirmar la conexión.</string>
+    <string name="whatsapp_prefill_text">Hola Fluyo</string>
+
     <!-- Onboarding -->
     <string name="onboarding_step_budget_title">Tu presupuesto mensual</string>
     <string name="onboarding_step_budget_subtitle">¿Cuánto planeas gastar este mes? Puedes cambiarlo después.</string>

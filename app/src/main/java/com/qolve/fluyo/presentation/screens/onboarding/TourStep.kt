@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.theme.FluyoCoral
 import com.qolve.fluyo.presentation.theme.FluyoTeal
+import com.qolve.fluyo.presentation.util.openFluyoOnWhatsApp
 
 /**
  * Onboarding step 3 — optional WhatsApp linkage + Yape forwarding hint.
@@ -53,6 +54,7 @@ fun WhatsAppStep(
     phone: String,
     onPhoneChange: (String) -> Unit,
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.onboarding_whatsapp_title),
@@ -69,6 +71,33 @@ fun WhatsAppStep(
         Spacer(Modifier.height(24.dp))
 
         WhatsAppCard(phone = phone, onPhoneChange = onPhoneChange)
+
+        // Only offer the "Abrir Fluyo en WhatsApp" CTA after the user has typed something
+        // resembling a complete phone number. Opening the chat earlier would just produce
+        // an unmatched conversation on the bot side ("no encuentro tu número en Fluyo").
+        // 9 digits = Peruvian mobile length.
+        if (phone.length >= 9) {
+            Spacer(Modifier.height(12.dp))
+            val prefill = stringResource(R.string.whatsapp_prefill_text)
+            androidx.compose.material3.OutlinedButton(
+                onClick = { ctx.openFluyoOnWhatsApp(prefill) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.whatsapp_connect_cta),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                )
+            }
+            Text(
+                text = stringResource(R.string.whatsapp_connect_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF8A8A8A),
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .align(Alignment.CenterHorizontally),
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 
