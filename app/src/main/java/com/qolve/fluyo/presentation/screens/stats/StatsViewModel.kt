@@ -35,12 +35,16 @@ private fun StatsPeriod.previousRange(today: LocalDate = LocalDate.now()): DateR
     }
 }
 
+/** One point on the daily-spend sparkline. Date is the calendar day, total is sum of expenses that day. */
+data class DailyPoint(val date: LocalDate, val total: Double)
+
 data class StatsUiState(
     val period: StatsPeriod = StatsPeriod.MONTH,
     val isLoading: Boolean = true,
     val total: Double = 0.0,
     val previousTotal: Double = 0.0,
     val summaries: List<CategorySummary> = emptyList(),
+    val daily: List<DailyPoint> = emptyList(),
     val errorMessage: String? = null,
 ) {
     /** Signed percent delta vs previous period; null when previous period has no data. */
@@ -49,6 +53,12 @@ data class StatsUiState(
         else (((total - previousTotal) / previousTotal) * 100.0).toFloat()
 
     val isUnderPrevious: Boolean get() = (deltaPct ?: 0f) < 0f
+
+    /** Highest-spend category (already sorted descending by total in load()). */
+    val topCategory: CategorySummary? get() = summaries.firstOrNull()
+
+    /** Peak day in the current period, or null when no expenses. */
+    val peakDay: DailyPoint? get() = daily.maxByOrNull { it.total }?.takeIf { it.total > 0 }
 }
 
 @HiltViewModel
@@ -112,14 +122,33 @@ class StatsViewModel @Inject constructor(
                 }
                 .sortedByDescending { it.total }
 
+            // Build a continuous daily series so the sparkline shows zero-spend days too.
+            val daily = buildDailyPoints(current.from, current.to, currentExpenses)
+
             _state.update {
                 it.copy(
                     isLoading = false,
                     total = currentExpenses.sumOf { e -> e.amount },
                     previousTotal = previousExpenses.sumOf { e -> e.amount },
                     summaries = summaries,
+                    daily = daily,
                 )
             }
         }
+    }
+
+    private fun buildDailyPoints(
+        from: LocalDate,
+        to: LocalDate,
+        expenses: List<com.qolve.fluyo.domain.model.Expense>,
+    ): List<DailyPoint> {
+        val byDay = expenses.groupBy { it.expenseDate }.mapValues { (_, v) -> v.sumOf { it.amount } }
+        val points = mutableListOf<DailyPoint>()
+        var cursor = from
+        while (!cursor.isAfter(to)) {
+            points += DailyPoint(cursor, byDay[cursor] ?: 0.0)
+            cursor = cursor.plusDays(1)
+        }
+        return points
     }
 }

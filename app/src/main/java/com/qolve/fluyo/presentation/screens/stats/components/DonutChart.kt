@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -37,9 +38,12 @@ fun DonutChart(
         label = "donutSweep",
     )
 
-    Box(modifier = modifier.size(220.dp), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(220.dp)) {
-            val strokeWidth = 26.dp.toPx()
+    // Use a default size if the caller didn't constrain us; otherwise respect their modifier.
+    val sized = if (modifier == Modifier) modifier.size(180.dp) else modifier
+
+    Box(modifier = sized, contentAlignment = Alignment.Center) {
+        Canvas(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+            val strokeWidth = 22.dp.toPx()
             val gapDeg = if (slices.size > 1) 2.5f else 0f
             val trackColor = Color(0x1A000000)
 
