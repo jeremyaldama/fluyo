@@ -35,6 +35,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.unit.dp
 import androidx.navigation.navArgument
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
@@ -201,8 +202,24 @@ private fun MainShell(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (currentRoute == Routes.HOME) {
-                FloatingActionButton(onClick = { sheetOpen = true }) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
+                // Wrap the FAB in a Box so we can paint the coral brand-dot motif at the
+                // bottom-right corner, matching the home mockup. The dot is purely
+                // decorative — it doesn't intercept clicks (the FAB owns the full hit area).
+                androidx.compose.foundation.layout.Box {
+                    FloatingActionButton(
+                        onClick = { sheetOpen = true },
+                        containerColor = com.qolve.fluyo.presentation.theme.TealRamp500,
+                        contentColor = androidx.compose.ui.graphics.Color.White,
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = null)
+                    }
+                    com.qolve.fluyo.presentation.theme.BrandDot(
+                        modifier = androidx.compose.ui.Modifier
+                            .align(androidx.compose.ui.Alignment.BottomEnd)
+                            .padding(2.dp),
+                        size = 8.dp,
+                        color = com.qolve.fluyo.presentation.theme.CoralRamp500,
+                    )
                 }
             }
         },

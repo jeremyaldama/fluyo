@@ -225,6 +225,50 @@
     <string name="home_over_budget_chip">Pasaste tu plan por %1$s</string>
     <string name="home_pace_chip">~%1$s/día restante</string>
     <string name="home_no_budget_chip">Aún no defines un presupuesto</string>
+
+    <!-- Home (redesigned) -->
+    <string name="home_greeting_eyebrow">Hola,</string>
+    <string name="home_balance_label">TE QUEDA</string>
+    <string name="home_balance_full_label">TIENES TODO</string>
+    <string name="home_balance_full_subtitle">para el mes — disfrútalo.</string>
+    <string name="home_pace_ok_chip">Vas bien · %1$s al día</string>
+    <string name="home_pace_over_chip">Pasaste tu plan · ajusta el ritmo</string>
+    <string name="home_pace_no_budget_chip">Define un presupuesto para ver tu ritmo</string>
+    <string name="home_stat_week">ESTA SEMANA</string>
+    <string name="home_stat_avg">PROMEDIO</string>
+    <string name="home_stat_next_pay">PRÓX. COBRO</string>
+    <string name="home_stat_per_day">/día</string>
+    <string name="home_stat_days_short">%1$d d</string>
+    <string name="home_stat_days_placeholder">—</string>
+    <string name="home_stat_change_neg">-%1$d%%</string>
+    <string name="home_stat_change_pos">+%1$d%%</string>
+    <string name="home_movements_title">Movimientos</string>
+    <string name="home_view_all">Ver todo →</string>
+    <string name="home_day_today_caps">HOY</string>
+    <string name="home_day_yesterday_caps">AYER</string>
+    <string name="home_empty_preview_header">ASÍ SE VERÁ TU DÍA</string>
+    <string name="home_empty_preview_title">Almuerzo</string>
+    <string name="home_empty_preview_amount">S/ —</string>
+
+    <!-- Source labels (lowercase, used in expense row subtitles) -->
+    <string name="expense_source_manual">efectivo</string>
+    <string name="expense_source_ocr">Yape</string>
+    <string name="expense_source_voice">voz</string>
+    <string name="expense_source_whatsapp">WhatsApp</string>
+
+    <!-- Relative time -->
+    <string name="rel_time_now">ahora</string>
+    <string name="rel_time_minutes">hace %1$d min</string>
+    <string name="rel_time_hours">hace %1$d h</string>
+    <string name="rel_time_days">hace %1$d d</string>
+
+    <!-- Add expense sheet (redesigned) -->
+    <string name="add_sheet_subtitle">¿cómo lo metes?</string>
+    <string name="add_sheet_yape_tip"><![CDATA[<b>Tip:</b> reenvía tus capturas de Yape a Fluyo por WhatsApp.]]></string>
+    <string name="add_option_manual_short">Manual</string>
+    <string name="add_option_manual_hint">tecla a tecla</string>
+    <string name="add_option_voice_short">Voz</string>
+    <string name="add_option_voice_hint">\"15 soles en el menú\"</string>
     <string name="home_recent_expenses">Movimientos recientes</string>´
     <string name="home_empty_title">Aún no registras gastos</string>
     <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>

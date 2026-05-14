@@ -24,9 +24,11 @@ import androidx.compose.ui.unit.dp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
+import com.qolve.fluyo.domain.model.ExpenseSource
 import com.qolve.fluyo.presentation.util.formatPen
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
+import com.qolve.fluyo.presentation.util.relativeTimeFrom
 import androidx.compose.ui.res.stringResource
 
 @Composable
@@ -56,20 +58,21 @@ fun ExpenseRow(
             )
         }
         Spacer(Modifier.width(12.dp))
-        // Hierarchy: title = description or category; subtitle = recipient (Yape destinatario) when present.
-        // Critically: do NOT show category name as subtitle when it already IS the title — that produces
-        // "Comida / Comida" duplicates on quick manual entries with no description.
-        val categoryName = category?.name
-        val descriptionTitle = expense.description?.takeIf { it.isNotBlank() }
-        val titleText = descriptionTitle
-            ?: categoryName
+        // Title prefers the user's own description, falling back to the recipient (Yape
+        // destinatario) and then the category name. Subtitle is always "source · hace Xh"
+        // per the redesigned mockup — a much clearer signal than echoing the category.
+        val titleText = expense.description?.takeIf { it.isNotBlank() }
+            ?: expense.recipient?.takeIf { it.isNotBlank() }
+            ?: category?.name
             ?: stringResource(R.string.expense_untitled)
-        val subtitleText: String? = when {
-            !expense.recipient.isNullOrBlank() -> expense.recipient
-            // Show category as subtitle only when the title was the description (so it's NOT already shown).
-            descriptionTitle != null && categoryName != null -> categoryName
-            else -> null
+        val sourceLabel = when (expense.source) {
+            ExpenseSource.MANUAL -> stringResource(R.string.expense_source_manual)
+            ExpenseSource.OCR -> stringResource(R.string.expense_source_ocr)
+            ExpenseSource.VOICE -> stringResource(R.string.expense_source_voice)
+            ExpenseSource.WHATSAPP -> stringResource(R.string.expense_source_whatsapp)
         }
+        val relative = relativeTimeFrom(expense.createdAt)
+        val subtitleText = "$sourceLabel · $relative"
 
         Column(
             modifier = Modifier.weight(1f),
@@ -81,15 +84,13 @@ fun ExpenseRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (subtitleText != null) {
-                Text(
-                    text = subtitleText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Text(
+                text = subtitleText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Spacer(Modifier.width(8.dp))
         Text(
