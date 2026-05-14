@@ -10,6 +10,7 @@ import com.qolve.fluyo.domain.model.UserLevel
 import com.qolve.fluyo.domain.model.UserLevelCatalog
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.notifications.NudgeOneShot
 import com.qolve.fluyo.notifications.NudgeScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +27,8 @@ data class ProfileUiState(
     val isLoading: Boolean = true,
     val user: User? = null,
     val badges: List<Badge> = emptyList(),
+    /** Current day-streak of registering an expense (ending today). 0 when broken. */
+    val streak: Int = 0,
     val showBudgetDialog: Boolean = false,
     val budgetInput: String = "",
     val isSavingBudget: Boolean = false,
@@ -40,22 +43,26 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val badgeRepository: BadgeRepository,
+    private val expenseRepository: ExpenseRepository,
     private val nudgeScheduler: NudgeScheduler,
     private val nudgeOneShot: NudgeOneShot,
 ) : ViewModel() {
 
     private val userState = MutableStateFlow<User?>(null)
+    private val streakState = MutableStateFlow(0)
     private val sheet = MutableStateFlow(SheetState())
 
     val uiState: StateFlow<ProfileUiState> = combine(
         userState,
         badgeRepository.observeBadges(),
+        streakState,
         sheet,
-    ) { user, badges, s ->
+    ) { user, badges, streak, s ->
         ProfileUiState(
             isLoading = user == null,
             user = user,
             badges = badges,
+            streak = streak,
             showBudgetDialog = s.showBudget,
             budgetInput = s.budgetInput,
             isSavingBudget = s.savingBudget,
@@ -75,6 +82,9 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             badgeRepository.refresh()
             userState.value = authRepository.currentUser().getOrNull()
+            // Streak fetch is independent from the user load; failure leaves streak at 0
+            // and the UI shows the "Empieza tu racha hoy" empty-state caption.
+            streakState.value = runCatching { expenseRepository.currentStreak() }.getOrDefault(0)
         }
     }
 

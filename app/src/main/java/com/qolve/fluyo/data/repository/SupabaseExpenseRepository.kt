@@ -116,4 +116,41 @@ class SupabaseExpenseRepository @Inject constructor(
             .decodeSingleOrNull<CurrentMonthBudgetDto>()
         breakdownState.value = row?.toDomain() ?: MonthlyBreakdown(0.0, 0.0)
     }
+
+    /**
+     * Streak = number of consecutive days, ending today, that have at least one expense.
+     *
+     * We query only the last 60 distinct dates — long enough to satisfy any badge ceiling
+     * we currently award (STREAK_30 is the max) and small enough that we don't pull the
+     * whole table over the wire. The window is computed in Kotlin from the returned
+     * distinct dates; no DB-side `GROUP BY` is needed since the response volume is small.
+     */
+    override suspend fun currentStreak(today: LocalDate): Int {
+        val userId = authRepository.currentUserId() ?: return 0
+        return runCatching {
+            val rows = client.postgrest.from("expenses")
+                .select(io.github.jan.supabase.postgrest.query.Columns.list("expense_date")) {
+                    filter {
+                        eq("user_id", userId)
+                        gte("expense_date", today.minusDays(60).toString())
+                    }
+                    order("expense_date", Order.DESCENDING)
+                }
+                .decodeList<ExpenseDateRefDto>()
+            val distinct = rows.map { LocalDate.parse(it.expenseDate) }.toSet()
+            var streak = 0
+            var cursor = today
+            while (cursor in distinct) {
+                streak++
+                cursor = cursor.minusDays(1)
+            }
+            streak
+        }.getOrElse { 0 }
+    }
 }
+
+/** Minimal projection for [SupabaseExpenseRepository.currentStreak]. */
+@kotlinx.serialization.Serializable
+private data class ExpenseDateRefDto(
+    @kotlinx.serialization.SerialName("expense_date") val expenseDate: String,
+)

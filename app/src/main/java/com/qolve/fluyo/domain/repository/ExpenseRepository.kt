@@ -23,4 +23,11 @@ interface ExpenseRepository {
         recipient: String? = null,
         imageUrl: String? = null,
     ): Result<Expense>
+
+    /**
+     * Returns the current "streak" — the count of consecutive days, ending today, on which
+     * the user has registered at least one expense. Today missing → streak is 0. Used by
+     * the Perfil screen's 🔥 streak chip and the STREAK_7 / STREAK_30 badge engine.
+     */
+    suspend fun currentStreak(today: LocalDate = LocalDate.now()): Int
 }

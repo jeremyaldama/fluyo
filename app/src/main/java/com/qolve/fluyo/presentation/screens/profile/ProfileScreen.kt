@@ -25,16 +25,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,36 +44,51 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.KeyboardType
 import coil.compose.AsyncImage
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
-import com.qolve.fluyo.presentation.screens.profile.components.BadgeTile
 import com.qolve.fluyo.presentation.screens.profile.components.NotificationSettingsCard
-import com.qolve.fluyo.presentation.theme.FluyoTeal
-import com.qolve.fluyo.presentation.theme.FluyoTealDark
-import com.qolve.fluyo.presentation.theme.FluyoTealLight
-import com.qolve.fluyo.presentation.util.descriptionRes
-import com.qolve.fluyo.presentation.util.icon
+import com.qolve.fluyo.presentation.theme.CoralRamp500
+import com.qolve.fluyo.presentation.theme.NeutralRamp200
+import com.qolve.fluyo.presentation.theme.NeutralRamp300
+import com.qolve.fluyo.presentation.theme.NeutralRamp500
+import com.qolve.fluyo.presentation.theme.NeutralRamp700
+import com.qolve.fluyo.presentation.theme.NeutralRamp900
+import com.qolve.fluyo.presentation.theme.TealRamp100
+import com.qolve.fluyo.presentation.theme.TealRamp500
+import com.qolve.fluyo.presentation.util.emoji
 import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.levelNameRes
 import com.qolve.fluyo.presentation.util.nameRes
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/**
+ * Perfil screen — redesigned per mockup 08.
+ *
+ * Sections, top-down:
+ *   1. Hero — circular avatar with optional coral notif badge, name, "Lima · desde …" subtitle.
+ *   2. Level card — NIVEL eyebrow + level name + XP + chunky progress bar + 🔥 streak chip.
+ *   3. Medallas grid — 4×2 emoji tiles, coral dot on unlocked tiles, count "4 / 8" header.
+ *   4. Ajustes — settings rows (budget, phone, notifications expander) + destructive sign-out.
+ */
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,60 +101,35 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
     }
 
     val user = state.user
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item { ProfileHero(user = user) }
+
         item {
-            ProfileHero(
-                user = user,
-                totalPoints = state.totalPoints,
+            LevelCard(
                 levelNumber = state.currentLevel.number,
                 levelKey = state.currentLevel.key,
-                progressToNext = state.currentLevel.progressTo(state.totalPoints),
+                totalPoints = state.totalPoints,
                 nextThreshold = state.currentLevel.nextThreshold,
+                progressToNext = state.currentLevel.progressTo(state.totalPoints),
+                streak = state.streak,
             )
         }
 
         item {
-            StatsStrip(
-                points = state.totalPoints,
-                unlocked = state.unlockedTypes.size,
-                totalBadges = BadgeType.entries.size,
-            )
+            MedallasSection(unlocked = state.unlockedTypes)
         }
 
-        // Insignias section: "next badge" callout + 2-col grid below.
         item {
-            SectionTitle(stringResource(R.string.profile_badges_header))
-        }
-        item {
-            NextBadgeCallout(unlocked = state.unlockedTypes)
-        }
-        // Render the badge grid manually as 2-up rows (we're inside a LazyColumn — nesting
-        // a LazyVerticalGrid is allowed but uses fixed heights and complicates measurement).
-        val rows = BadgeType.entries.chunked(2)
-        items(rows.size, key = { idx -> "badge-row-$idx" }) { idx ->
-            val row = rows[idx]
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                row.forEach { type ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        BadgeTile(type = type, unlocked = type in state.unlockedTypes)
-                    }
-                }
-                if (row.size == 1) {
-                    Spacer(Modifier.weight(1f))
-                }
-            }
+            SectionTitle(stringResource(R.string.profile_section_settings_simple))
         }
 
-        item { SectionTitle(stringResource(R.string.profile_section_settings)) }
         item {
-            SettingsGroup(
+            AjustesCard(
                 user = user,
                 onEditBudget = viewModel::openBudgetDialog,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
@@ -159,9 +144,7 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
             TextButton(
                 onClick = viewModel::signOut,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.Logout,
@@ -189,150 +172,102 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Hero: avatar + name + email + level chip + progress to next level
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Hero ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProfileHero(
-    user: User?,
-    totalPoints: Int,
-    levelNumber: Int,
-    levelKey: String,
-    progressToNext: Float,
-    nextThreshold: Int?,
-) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progressToNext,
-        animationSpec = tween(700, easing = LinearOutSlowInEasing),
-        label = "levelProgress",
-    )
+private fun ProfileHero(user: User?) {
     val displayName = user?.displayName ?: stringResource(R.string.profile_default_name)
-    val email = user?.email ?: stringResource(R.string.profile_email_fallback)
-    val levelLabel = stringResource(R.string.profile_level_chip, levelNumber, localizedLevelName(levelKey))
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(FluyoTealLight, FluyoTeal, FluyoTealDark),
-                    ),
-                ),
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(name = displayName, photoUrl = user?.avatarUrl, size = 72.dp)
-                    Spacer(Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = email,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.80f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        // Level chip
-                        Row(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.22f))
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.EmojiEvents,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = levelLabel,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = Color.White,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // Progress to next level — chunky 8 dp white-on-translucent bar.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White.copy(alpha = 0.20f)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(animatedProgress.coerceIn(0f, 1f))
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.White),
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = if (nextThreshold == null) {
-                        stringResource(R.string.profile_progress_caption_max)
-                    } else {
-                        stringResource(R.string.profile_progress_caption, totalPoints, nextThreshold)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f),
-                )
-            }
-        }
+        AvatarWithBadge(displayName = displayName, photoUrl = user?.avatarUrl, notifCount = 0)
+        Spacer(Modifier.height(14.dp))
+        Text(
+            text = displayName,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = NeutralRamp900,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = profileSubtitle(user),
+            style = MaterialTheme.typography.bodyMedium,
+            color = NeutralRamp500,
+        )
     }
 }
 
 @Composable
-private fun Avatar(name: String, photoUrl: String?, size: androidx.compose.ui.unit.Dp) {
-    val initials = remember(name) { initialsOf(name) }
-    val initialsColor = remember(name) { initialsAvatarColor(name) }
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(initialsColor.copy(alpha = 0.85f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!photoUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = photoUrl,
-                contentDescription = null,
+private fun profileSubtitle(user: User?): String {
+    val since = user?.memberSince
+    if (since == null) return user?.email ?: ""
+    val local = since.atZone(ZoneId.systemDefault())
+    val fmt = remember { DateTimeFormatter.ofPattern("MMM yyyy", Locale.forLanguageTag("es-PE")) }
+    val asString = local.format(fmt).replaceFirstChar { it.lowercase() }
+    // Two variants: with phone (we know the user opted into WhatsApp, treat as Peru-based),
+    // or just the member-since date. Avoid hardcoding a city we don't have data for.
+    return if (!user.phoneNumber.isNullOrBlank()) {
+        stringResource(R.string.profile_member_since_location, "Lima", asString)
+    } else {
+        stringResource(R.string.profile_member_since, asString)
+    }
+}
+
+@Composable
+private fun AvatarWithBadge(displayName: String, photoUrl: String?, notifCount: Int) {
+    val initials = remember(displayName) { initialsOf(displayName) }
+    Box {
+        // White circle with mint outer ring — the avatar holder.
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .clip(CircleShape)
+                .background(TealRamp100.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                text = initials,
-                style = TextStyle(
-                    fontSize = (size.value * 0.36f).sp,
-                    fontWeight = FontWeight.Bold,
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (!photoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = photoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Text(
+                        text = initials,
+                        style = TextStyle(
+                            fontSize = 44.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TealRamp500,
+                        ),
+                    )
+                }
+            }
+        }
+        // Notif badge — coral disc with the count. Hidden when count == 0 so we don't
+        // promise unread items we can't actually surface yet.
+        if (notifCount > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(CoralRamp500),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = notifCount.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color.White,
-                ),
-            )
+                )
+            }
         }
     }
 }
@@ -341,167 +276,216 @@ private fun initialsOf(name: String): String {
     val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
     return when {
         parts.isEmpty() -> "?"
-        parts.size == 1 -> parts[0].take(2).uppercase(Locale.ROOT)
-        else -> (parts.first().firstOrNull()?.toString().orEmpty() +
-            parts.last().firstOrNull()?.toString().orEmpty()).uppercase(Locale.ROOT)
+        else -> parts.first().firstOrNull()?.toString()?.uppercase(Locale.ROOT) ?: "?"
     }
 }
 
-/** Deterministic palette pick from name. Same person always gets the same color. */
-private fun initialsAvatarColor(name: String): Color {
-    var h = 5381
-    for (c in name) h = (h shl 5) + h + c.code
-    val idx = ((h % avatarPalette.size) + avatarPalette.size) % avatarPalette.size
-    return avatarPalette[idx]
-}
-
-private val avatarPalette = listOf(
-    Color(0xFF00897B), Color(0xFFFF7043), Color(0xFF7E57C2),
-    Color(0xFF42A5F5), Color(0xFFEC407A), Color(0xFFFFB300),
-)
+// ─── Level card ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun localizedLevelName(key: String): String = when (key) {
-    "novato" -> stringResource(R.string.level_novato)
-    "aprendiz" -> stringResource(R.string.level_aprendiz)
-    "organizado" -> stringResource(R.string.level_organizado)
-    "experto" -> stringResource(R.string.level_experto)
-    else -> stringResource(R.string.level_maestro)
-}
+private fun LevelCard(
+    levelNumber: Int,
+    levelKey: String,
+    totalPoints: Int,
+    nextThreshold: Int?,
+    progressToNext: Float,
+    streak: Int,
+) {
+    val animated by animateFloatAsState(
+        targetValue = progressToNext,
+        animationSpec = tween(700, easing = LinearOutSlowInEasing),
+        label = "levelProgress",
+    )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stats strip — 3 mini-cards under the hero
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun StatsStrip(points: Int, unlocked: Int, totalBadges: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(18.dp),
     ) {
-        StatCell(
-            label = stringResource(R.string.profile_stat_points),
-            value = points.toString(),
-            modifier = Modifier.weight(1f),
-        )
-        StatCell(
-            label = stringResource(R.string.profile_stat_badges),
-            value = stringResource(R.string.profile_stat_badges_value, unlocked, totalBadges),
-            modifier = Modifier.weight(1f),
-        )
-        StatCell(
-            label = stringResource(R.string.profile_stat_streak),
-            // Streak isn't computed in the current data layer — surface a placeholder until
-            // a streak repository exists. Don't lie: show em-dash.
-            value = stringResource(R.string.profile_stat_streak_empty),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Next-badge callout
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun NextBadgeCallout(unlocked: Set<BadgeType>) {
-    val next = BadgeType.entries.firstOrNull { it !in unlocked }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = FluyoTeal.copy(alpha = 0.10f),
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(FluyoTeal.copy(alpha = 0.22f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = (next ?: BadgeType.FIRST_EXPENSE).icon(),
-                    contentDescription = null,
-                    tint = FluyoTeal,
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.profile_next_badge_title),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(2.dp))
-                if (next != null) {
+        Column {
+            // Title row — eyebrow + name + XP value
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(next.nameRes()),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        text = stringResource(R.string.profile_level_eyebrow, levelNumber),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.2.sp,
+                        ),
+                        color = NeutralRamp500,
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = stringResource(next.descriptionRes()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(levelNameRes(levelKey)),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = NeutralRamp900,
                     )
-                } else {
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = stringResource(R.string.profile_next_badge_locked_all),
-                        style = MaterialTheme.typography.titleSmall,
+                        text = totalPoints.toString(),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp,
+                        ),
+                        color = NeutralRamp900,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.profile_level_xp_suffix),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = NeutralRamp500,
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
                 }
             }
-            if (next != null) {
+
+            Spacer(Modifier.height(14.dp))
+
+            // Progress bar — chunky 8dp teal
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(TealRamp500.copy(alpha = 0.16f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(animated.coerceIn(0f, 1f))
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(TealRamp500),
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Bottom row — XP to next level on the left, streak chip on the right
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val toNextText = if (nextThreshold == null) {
+                    stringResource(R.string.profile_level_max_caption)
+                } else {
+                    val xpRemaining = (nextThreshold - totalPoints).coerceAtLeast(0)
+                    stringResource(R.string.profile_level_to_next, xpRemaining, levelNumber + 1)
+                }
                 Text(
-                    text = "+${next.points}",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = FluyoTeal,
+                    text = toNextText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NeutralRamp700,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = if (streak > 0) {
+                        stringResource(R.string.profile_level_streak, streak)
+                    } else {
+                        stringResource(R.string.profile_level_streak_none)
+                    },
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (streak > 0) TealRamp500 else NeutralRamp500,
                 )
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Configuración group — budget / phone / notifications expander
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Medallas grid ──────────────────────────────────────────────────────────
 
 @Composable
-private fun SettingsGroup(
+private fun MedallasSection(unlocked: Set<BadgeType>) {
+    val all = BadgeType.entries.toList()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.profile_medallas_header),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.profile_medallas_count, unlocked.size, all.size),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = NeutralRamp500,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        // 4-column rows — fits 8 badges in 2 rows. Stable layout regardless of unlock count.
+        all.chunked(4).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { type ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        BadgeTile(type = type, unlocked = type in unlocked)
+                    }
+                }
+                // Pad the last row if it doesn't fill 4 slots
+                repeat(4 - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
+    val containerColor = if (unlocked) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .alpha(if (unlocked) 1f else 0.55f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 14.dp, bottom = 10.dp, start = 8.dp, end = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = type.emoji(),
+                style = TextStyle(fontSize = 32.sp),
+            )
+            Text(
+                text = stringResource(type.nameRes()),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                ),
+                color = if (unlocked) NeutralRamp900 else NeutralRamp700,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+        // Coral dot in the top-right of unlocked tiles — the recurring brand motif.
+        if (unlocked) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(CoralRamp500),
+            )
+        }
+    }
+}
+
+// ─── Ajustes card ───────────────────────────────────────────────────────────
+
+@Composable
+private fun AjustesCard(
     user: User?,
     onEditBudget: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
@@ -511,37 +495,47 @@ private fun SettingsGroup(
 ) {
     var notificationsOpen by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         Column {
+            // Budget row — always wired
             SettingsRow(
                 icon = Icons.Outlined.Savings,
-                label = stringResource(R.string.profile_budget_label),
+                title = stringResource(R.string.profile_budget_label),
+                subtitle = stringResource(R.string.profile_budget_row_subtitle),
                 value = formatPen(user?.monthlyBudget ?: 0.0),
                 onClick = onEditBudget,
             )
             ThinDivider()
+            // Phone — display only for now; placeholder until phone-edit dialog ships
             SettingsRow(
                 icon = Icons.Outlined.Phone,
-                label = stringResource(R.string.profile_phone_label),
+                title = stringResource(R.string.profile_phone_label),
+                subtitle = stringResource(R.string.profile_phone_row_subtitle),
                 value = user?.phoneNumber?.takeIf { it.isNotBlank() }
                     ?: stringResource(R.string.profile_phone_unset),
-                // Phone editing isn't in the ViewModel yet — wired but no-op until a savePhone()
-                // method exists. Click feedback still useful for discoverability.
                 onClick = null,
             )
             ThinDivider()
-            NotificationsRow(
-                user = user,
-                expanded = notificationsOpen,
-                onToggleExpanded = { notificationsOpen = !notificationsOpen },
+            // Notifications expander row
+            val statusSubtitle = if (user?.notificationEnabled == false) {
+                stringResource(R.string.profile_notifications_row_subtitle_off)
+            } else {
+                stringResource(R.string.profile_notifications_row_subtitle_on, user?.notificationHour ?: 20)
+            }
+            SettingsRow(
+                icon = Icons.Outlined.Notifications,
+                title = stringResource(R.string.profile_notifications_row_label),
+                subtitle = statusSubtitle,
+                value = "",
+                onClick = { notificationsOpen = !notificationsOpen },
+                trailingChevron = true,
             )
             AnimatedVisibility(visible = notificationsOpen) {
-                // Re-use the existing dense settings card inside the expander.
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                     NotificationSettingsCard(
                         enabled = user?.notificationEnabled ?: true,
@@ -561,115 +555,79 @@ private fun SettingsGroup(
 @Composable
 private fun SettingsRow(
     icon: ImageVector,
-    label: String,
+    title: String,
+    subtitle: String,
     value: String,
     onClick: (() -> Unit)?,
+    trailingChevron: Boolean = true,
 ) {
-    val rowModifier = if (onClick != null) {
+    val rowMod = if (onClick != null) {
         Modifier.fillMaxWidth().clickable(onClick = onClick)
     } else {
         Modifier.fillMaxWidth()
     }
     Row(
-        modifier = rowModifier.padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier = rowMod.padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(TealRamp100.copy(alpha = 0.6f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = TealRamp500, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = NeutralRamp900,
             )
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeutralRamp500,
+                )
+            }
+        }
+        if (value.isNotEmpty()) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = NeutralRamp900,
             )
         }
-        if (onClick != null) {
+        if (trailingChevron && onClick != null) {
+            Spacer(Modifier.width(6.dp))
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = NeutralRamp500,
             )
         }
-    }
-}
-
-@Composable
-private fun NotificationsRow(user: User?, expanded: Boolean, onToggleExpanded: () -> Unit) {
-    val statusText = if (user?.notificationEnabled == false) {
-        stringResource(R.string.profile_notifications_row_off)
-    } else {
-        stringResource(R.string.profile_notifications_row_on, user?.notificationHour ?: 20)
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggleExpanded)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Notifications,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.profile_notifications_row_label),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            )
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Icon(
-            imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
 @Composable
 private fun ThinDivider() {
     HorizontalDivider(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = NeutralRamp200.copy(alpha = 0.8f),
         thickness = 1.dp,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Shared ────────────────────────────────────────────────────────────────
 
 @Composable
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
         modifier = Modifier.padding(top = 4.dp),
     )
 }
@@ -725,3 +683,6 @@ private fun BudgetEditDialog(
         },
     )
 }
+
+@Suppress("unused")
+private val previewMarker: Color = NeutralRamp300
