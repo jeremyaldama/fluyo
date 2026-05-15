@@ -180,7 +180,7 @@
     <string name="level_maestro">Maestro del flujo</string>
 
     <!-- Stats / Insights -->
-    <string name="stats_title">Insights</string>
+    <string name="stats_title">Stats</string>
     <string name="stats_subtitle">Tu dinero, visualizado.</string>
     <string name="stats_period_week">Semana</string>
     <string name="stats_period_month">Mes</string>
@@ -202,6 +202,16 @@
     <string name="stats_insight_over_caption_year">del año anterior.</string>
     <string name="stats_insight_flat">Similar al período anterior</string>
     <string name="stats_insight_no_baseline">Tu primer período registrado</string>
+    <!-- Concentration insight: shown when a single category owns ≥60% of the period total.
+         Far more actionable than the old "flat" placeholder. -->
+    <string name="stats_insight_dominant_title">%1$s lidera tus gastos</string>
+    <string name="stats_insight_dominant_caption">%1$d%% de tu total · %2$s</string>
+    <!-- Daily-average fallback for periods where no single category dominates and the
+         delta vs the prior period is too small to be interesting. -->
+    <string name="stats_insight_avg_day_title">Promedio %1$s al día</string>
+    <string name="stats_insight_avg_day_caption_week">Sobre %1$d días de la semana</string>
+    <string name="stats_insight_avg_day_caption_month">Sobre %1$d días del mes</string>
+    <string name="stats_insight_avg_day_caption_year">Sobre %1$d días del año</string>
     <string name="stats_weekly_pattern_title">Patrón semanal</string>
     <string name="stats_weekly_pattern_caption">Tus <b>%1$s</b> son los más caros — promedio %2$s.</string>
     <string name="stats_weekday_mon">L</string>

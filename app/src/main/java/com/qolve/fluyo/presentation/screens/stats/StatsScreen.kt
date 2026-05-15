@@ -84,8 +84,11 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        // More breathing room from the status bar (was 12.dp) and a touch more space
+        // between sections (was 16.dp) so the donut, bars and pattern card each feel
+        // like distinct chapters rather than one wall.
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item { TitleRow() }
 
@@ -122,7 +125,7 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
 @Composable
 private fun TitleRow() {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -201,46 +204,115 @@ private fun PeriodTab(
 
 // ─── Insight banner ─────────────────────────────────────────────────────────
 
+/**
+ * Three-tier insight banner.
+ *
+ *  1. **Delta** — when the user spent meaningfully more (≥5%) or less (≥5%) than the
+ *     previous period, that's the headline. ¡Chévere! when down, gentle warn when up.
+ *  2. **Concentration** — otherwise, if a single category owns ≥60% of the total,
+ *     surface that fact. Far more actionable than "you spent about the same":
+ *     "Comida lidera tus gastos · 97% de tu total · S/ 160.00".
+ *  3. **Daily average** — fallback when spend is well-distributed and the delta is
+ *     small. Anchors the user with a per-day number, which is easier to mentally
+ *     compare against a daily budget than a period total.
+ *
+ * "No baseline" still wins when there is literally no prior data to compare against.
+ *
+ * The 5% threshold (was 0.5%) intentionally suppresses noisy near-flat deltas so the
+ * dominant-category insight actually gets a chance to render in real-world usage.
+ */
 @Composable
 private fun InsightBanner(state: StatsUiState) {
     val delta = state.deltaPct
-    val isUnder = (delta ?: 0f) < -0.5f
-    val isOver = (delta ?: 0f) > 0.5f
+    val isUnder = (delta ?: 0f) < -5f
+    val isOver = (delta ?: 0f) > 5f
 
-    val emoji = when {
-        isUnder -> "👏"
-        isOver -> "⚠️"
-        delta == null -> "✨"
-        else -> "🟰"
+    val topCat = state.topCategory
+    val topShare = topCat?.share(state.total) ?: 0f
+    val isDominant = !isUnder && !isOver && topCat != null && topShare >= 0.60f
+
+    // Day count for the daily-average branch. `state.daily` is a continuous series the
+    // ViewModel builds for the current range, so its size = days elapsed in the period.
+    val daysInPeriod = state.daily.size.coerceAtLeast(1)
+    val dailyAverage = if (state.total > 0.0) state.total / daysInPeriod else 0.0
+
+    // Pick the variant up front; everything below reads from it.
+    val variant: InsightVariant = when {
+        delta == null && state.total <= 0.0 -> InsightVariant.NoBaseline
+        delta == null -> InsightVariant.NoBaseline
+        isUnder -> InsightVariant.Under(delta!!.absoluteValue.toInt())
+        isOver -> InsightVariant.Over(delta!!.toInt())
+        isDominant -> InsightVariant.Dominant(
+            name = topCat!!.name,
+            pct = (topShare * 100f).toInt(),
+            amount = topCat.total,
+            color = parseHexColor(topCat.color),
+        )
+        else -> InsightVariant.DailyAverage(amount = dailyAverage, days = daysInPeriod)
     }
-    // Banner backgrounds — bumped alphas (0.22+) so lime/coral tints stay readable in
-    // dark mode where a 0.18 alpha vanishes into the canvas. Neutral fallback uses
-    // surfaceVariant for the standard "no baseline / flat" path.
-    val (background, foreground, accentBg) = when {
-        isUnder -> Triple(
+
+    val emoji = when (variant) {
+        InsightVariant.NoBaseline -> "✨"
+        is InsightVariant.Under -> "👏"
+        is InsightVariant.Over -> "⚠️"
+        is InsightVariant.Dominant -> "🎯"
+        is InsightVariant.DailyAverage -> "📊"
+    }
+
+    // Tile palette per variant. The dominant variant uses the category's own color
+    // (orange for Comida, blue for Transporte, etc.) to make the banner feel attached
+    // to the row below it.
+    val (background, foreground, accentBg) = when (variant) {
+        is InsightVariant.Under -> Triple(
             AccentLime.copy(alpha = 0.24f),
             MaterialTheme.colorScheme.onSurface,
             AccentLime.copy(alpha = 0.38f),
         )
-        isOver -> Triple(
+        is InsightVariant.Over -> Triple(
             CoralRamp500.copy(alpha = 0.20f),
             MaterialTheme.colorScheme.onSurface,
             CoralRamp500.copy(alpha = 0.34f),
         )
-        else -> Triple(
+        is InsightVariant.Dominant -> Triple(
+            variant.color.copy(alpha = 0.16f),
+            MaterialTheme.colorScheme.onSurface,
+            variant.color.copy(alpha = 0.28f),
+        )
+        is InsightVariant.DailyAverage, InsightVariant.NoBaseline -> Triple(
             MaterialTheme.colorScheme.surfaceVariant,
             MaterialTheme.colorScheme.onSurface,
             MaterialTheme.colorScheme.outlineVariant,
         )
     }
 
-    val (title, caption) = when {
-        delta == null -> stringResource(R.string.stats_insight_no_baseline) to ""
-        isUnder -> stringResource(R.string.stats_insight_under_pct, delta.absoluteValue.toInt()) to
-            stringResource(periodUnderCaption(state.period))
-        isOver -> stringResource(R.string.stats_insight_over_pct, delta.toInt()) to
-            stringResource(periodOverCaption(state.period))
-        else -> stringResource(R.string.stats_insight_flat) to ""
+    val title: String = when (variant) {
+        InsightVariant.NoBaseline -> stringResource(R.string.stats_insight_no_baseline)
+        is InsightVariant.Under -> stringResource(R.string.stats_insight_under_pct, variant.pct)
+        is InsightVariant.Over -> stringResource(R.string.stats_insight_over_pct, variant.pct)
+        is InsightVariant.Dominant -> stringResource(R.string.stats_insight_dominant_title, variant.name)
+        is InsightVariant.DailyAverage -> stringResource(
+            R.string.stats_insight_avg_day_title,
+            formatPen(variant.amount),
+        )
+    }
+
+    val caption: String = when (variant) {
+        InsightVariant.NoBaseline -> ""
+        is InsightVariant.Under -> stringResource(periodUnderCaption(state.period))
+        is InsightVariant.Over -> stringResource(periodOverCaption(state.period))
+        is InsightVariant.Dominant -> stringResource(
+            R.string.stats_insight_dominant_caption,
+            variant.pct,
+            formatPen(variant.amount),
+        )
+        is InsightVariant.DailyAverage -> stringResource(
+            when (state.period) {
+                StatsPeriod.WEEK -> R.string.stats_insight_avg_day_caption_week
+                StatsPeriod.MONTH -> R.string.stats_insight_avg_day_caption_month
+                StatsPeriod.YEAR -> R.string.stats_insight_avg_day_caption_year
+            },
+            variant.days,
+        )
     }
 
     Row(
@@ -248,7 +320,7 @@ private fun InsightBanner(state: StatsUiState) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(background)
-            .padding(14.dp),
+            .padding(horizontal = 14.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -260,7 +332,7 @@ private fun InsightBanner(state: StatsUiState) {
         ) {
             Text(text = emoji, style = MaterialTheme.typography.titleLarge)
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -268,6 +340,7 @@ private fun InsightBanner(state: StatsUiState) {
                 color = foreground,
             )
             if (caption.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = caption,
                     style = MaterialTheme.typography.bodyMedium,
@@ -276,6 +349,19 @@ private fun InsightBanner(state: StatsUiState) {
             }
         }
     }
+}
+
+/**
+ * Sealed type drives both the copy and the tile palette for the insight banner.
+ * Keeping the decision in one place avoids the "which color goes with which message"
+ * skew the previous Triple-based logic invited.
+ */
+private sealed interface InsightVariant {
+    data object NoBaseline : InsightVariant
+    data class Under(val pct: Int) : InsightVariant
+    data class Over(val pct: Int) : InsightVariant
+    data class Dominant(val name: String, val pct: Int, val amount: Double, val color: Color) : InsightVariant
+    data class DailyAverage(val amount: Double, val days: Int) : InsightVariant
 }
 
 private fun periodUnderCaption(period: StatsPeriod): Int = when (period) {
@@ -440,7 +526,7 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 14.dp, horizontal = 14.dp),
+            .padding(vertical = 16.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Vertical color bar on the left — the category swatch.
