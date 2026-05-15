@@ -87,7 +87,8 @@ fun LoginScreen(
 }
 
 // Page background — pale mint, matches the mockup.
-private val LoginBackground = Color(0xFFF1F8F6)
+// Canvas color removed — now sourced from MaterialTheme.colorScheme.background so the
+// login screen inherits the dark canvas in dark mode (was a fixed pale mint before).
 
 @Composable
 private fun LoginContent(
@@ -95,12 +96,12 @@ private fun LoginContent(
     onGoogleClick: () -> Unit,
     onUseEmailPassword: () -> Unit,
 ) {
-    Scaffold(containerColor = LoginBackground) { inner ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(LoginBackground),
+                .background(MaterialTheme.colorScheme.background),
         ) {
             DecorativeWatermarks()
             DecorativeDots()
@@ -130,7 +131,7 @@ private fun LoginContent(
                             fontSize = 44.sp,
                             letterSpacing = (-1).sp,
                         ),
-                        color = Color(0xFF1A1A1A),
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -139,7 +140,7 @@ private fun LoginContent(
                             fontStyle = FontStyle.Italic,
                             fontFamily = FontFamily.Serif,
                         ),
-                        color = Color(0xFF1A1A1A),
+                        color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -207,7 +208,7 @@ private fun LoginContent(
                     Text(
                         text = legalAnnotated(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF606060),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
 

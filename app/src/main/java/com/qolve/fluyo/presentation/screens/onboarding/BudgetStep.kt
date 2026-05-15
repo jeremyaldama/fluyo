@@ -56,13 +56,13 @@ fun BudgetStep(
         Text(
             text = stringResource(R.string.onboarding_budget_title),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color(0xFF111111),
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.onboarding_budget_subtitle),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF606060),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(24.dp))
@@ -78,7 +78,7 @@ fun BudgetStep(
         Text(
             text = stringResource(R.string.onboarding_budget_lima_avg),
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF8A8A8A),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
         )
@@ -102,7 +102,8 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        // surface adapts: pure white in light, dark grey card in dark.
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
@@ -117,7 +118,7 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.2.sp,
                 ),
-                color = Color(0xFF7A7A7A),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             )
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.Top) {
@@ -126,7 +127,7 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
                     style = TextStyle(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF9A9A9A),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                     ),
                     modifier = Modifier.padding(top = 6.dp),
                 )
@@ -145,7 +146,7 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
                     textStyle = TextStyle(
                         fontSize = 56.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111111),
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                     ),
                     modifier = Modifier.width(180.dp),
@@ -155,7 +156,7 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
                     style = TextStyle(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF9A9A9A),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                     ),
                     modifier = Modifier.padding(top = 26.dp),
                 )
@@ -199,7 +200,7 @@ private fun QuickChips(value: String, onPick: (String) -> Unit) {
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
                     .background(
-                        if (isSelected) FluyoTeal.copy(alpha = 0.14f) else Color.White,
+                        if (isSelected) FluyoTeal.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface,
                     )
                     .clickable { onPick(choice.value.toString()) }
                     .padding(vertical = 10.dp),
@@ -210,7 +211,7 @@ private fun QuickChips(value: String, onPick: (String) -> Unit) {
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     ),
-                    color = if (isSelected) FluyoTeal else Color(0xFF333333),
+                    color = if (isSelected) FluyoTeal else MaterialTheme.colorScheme.onSurface,
                 )
             }
         }

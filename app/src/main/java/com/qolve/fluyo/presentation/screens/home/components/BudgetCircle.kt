@@ -31,7 +31,8 @@ import com.qolve.fluyo.domain.model.MonthlyBreakdown
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 import com.qolve.fluyo.presentation.theme.FluyoCoral
 import com.qolve.fluyo.presentation.theme.FluyoTeal
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
+// Switched off MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f) — center labels read from MaterialTheme.colorScheme so the
+// dark canvas doesn't swallow the "TE QUEDA", "S/" prefix, and "de S/ X" caption.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.formatPen
@@ -135,7 +136,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.4.sp,
             ),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
@@ -143,7 +144,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
                 text = "S/",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.titleMedium,
             )
@@ -162,7 +163,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
                 text = ".%02d".format(cents),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 10.dp),
                 style = MaterialTheme.typography.titleSmall,
             )
@@ -171,7 +172,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
         Text(
             text = "de " + formatPen(breakdown.monthlyBudget),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 }
@@ -194,7 +195,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.4.sp,
             ),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
@@ -202,7 +203,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
                 text = "S/",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 ),
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -218,7 +219,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
                 text = ".00",
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 ),
                 modifier = Modifier.padding(top = 10.dp),
             )
@@ -227,7 +228,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
         Text(
             text = stringResource(R.string.home_balance_full_subtitle),
             style = com.qolve.fluyo.presentation.theme.FluyoSpecialty.taglineSerif.copy(fontSize = 13.sp),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 }
@@ -238,7 +239,7 @@ private fun BudgetCenterEmpty() {
         Text(
             text = "Define tu",
             style = MaterialTheme.typography.bodyMedium,
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Text(
             text = "presupuesto",

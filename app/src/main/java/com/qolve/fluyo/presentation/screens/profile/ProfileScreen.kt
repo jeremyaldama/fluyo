@@ -65,11 +65,8 @@ import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.presentation.screens.profile.components.NotificationSettingsCard
 import com.qolve.fluyo.presentation.theme.CoralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp200
-import com.qolve.fluyo.presentation.theme.NeutralRamp300
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp700
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// Direct NeutralRamp references removed — they don't flip on dark mode. Text + chrome
+// now reads from MaterialTheme.colorScheme.* which the FluyoTheme wires per system mode.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.emoji
@@ -200,13 +197,13 @@ private fun ProfileHero(user: User?) {
         Text(
             text = displayName,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = NeutralRamp900,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(2.dp))
         Text(
             text = profileSubtitle(user),
             style = MaterialTheme.typography.bodyMedium,
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 }
@@ -231,12 +228,14 @@ private fun profileSubtitle(user: User?): String {
 private fun AvatarWithBadge(displayName: String, photoUrl: String?, notifCount: Int) {
     val initials = remember(displayName) { initialsOf(displayName) }
     Box {
-        // White circle with mint outer ring — the avatar holder.
+        // Outer halo + inner circle. Use the brand's primary-container so both light + dark
+        // get a softly tinted ring (mint in light, deep teal in dark) instead of a raw
+        // hex that turns muddy when inverted.
         Box(
             modifier = Modifier
                 .size(112.dp)
                 .clip(CircleShape)
-                .background(TealRamp100.copy(alpha = 0.5f)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -328,13 +327,13 @@ private fun LevelCard(
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 1.2.sp,
                         ),
-                        color = NeutralRamp500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = stringResource(levelNameRes(levelKey)),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = NeutralRamp900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Row(verticalAlignment = Alignment.Bottom) {
@@ -344,13 +343,13 @@ private fun LevelCard(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp,
                         ),
-                        color = NeutralRamp900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.profile_level_xp_suffix),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = NeutralRamp500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         modifier = Modifier.padding(bottom = 4.dp),
                     )
                 }
@@ -358,20 +357,23 @@ private fun LevelCard(
 
             Spacer(Modifier.height(14.dp))
 
-            // Progress bar — chunky 8dp teal
+            // Progress bar — chunky 8dp. Brand color from the theme so it stays vivid on
+            // both light and dark; the track uses an alpha-blended version so it sits
+            // visibly above any surface.
+            val barColor = MaterialTheme.colorScheme.primary
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(TealRamp500.copy(alpha = 0.16f)),
+                    .background(barColor.copy(alpha = 0.22f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(animated.coerceIn(0f, 1f))
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(TealRamp500),
+                        .background(barColor),
                 )
             }
 
@@ -388,7 +390,7 @@ private fun LevelCard(
                 Text(
                     text = toNextText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NeutralRamp700,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
@@ -398,7 +400,7 @@ private fun LevelCard(
                         stringResource(R.string.profile_level_streak_none)
                     },
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = if (streak > 0) TealRamp500 else NeutralRamp500,
+                    color = if (streak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }
@@ -420,7 +422,7 @@ private fun MedallasSection(unlocked: Set<BadgeType>) {
             Text(
                 text = stringResource(R.string.profile_medallas_count, unlocked.size, all.size),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -446,10 +448,13 @@ private fun MedallasSection(unlocked: Set<BadgeType>) {
 
 @Composable
 private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
+    // surfaceVariant is the "recessed" surface in both modes — light grey in light, dark
+    // grey-with-a-hint-of-teal in dark. Both unlocked + locked sit on it so locked tiles
+    // still read as cards (not as the canvas) on a dark phone.
     val containerColor = if (unlocked) {
         MaterialTheme.colorScheme.surface
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        MaterialTheme.colorScheme.surfaceVariant
     }
     Box(
         modifier = Modifier
@@ -457,7 +462,8 @@ private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
             .height(96.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(containerColor)
-            .alpha(if (unlocked) 1f else 0.55f),
+            // Subtler dim on dark — 0.55 swallowed the emoji + text completely.
+            .alpha(if (unlocked) 1f else 0.7f),
     ) {
         Column(
             modifier = Modifier
@@ -476,7 +482,7 @@ private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 10.sp,
                 ),
-                color = if (unlocked) NeutralRamp900 else NeutralRamp700,
+                color = if (unlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -590,23 +596,24 @@ private fun SettingsRow(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(TealRamp100.copy(alpha = 0.6f)),
+                // Match the avatar's tinted ring — primaryContainer flips correctly between modes.
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = TealRamp500, modifier = Modifier.size(18.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             if (subtitle.isNotEmpty()) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }
@@ -614,7 +621,7 @@ private fun SettingsRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         if (trailingChevron && onClick != null) {
@@ -622,7 +629,7 @@ private fun SettingsRow(
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = NeutralRamp500,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }
@@ -631,7 +638,7 @@ private fun SettingsRow(
 @Composable
 private fun ThinDivider() {
     HorizontalDivider(
-        color = NeutralRamp200.copy(alpha = 0.8f),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f),
         thickness = 1.dp,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
@@ -667,7 +674,7 @@ private fun PhoneEditDialog(
                 Text(
                     text = stringResource(R.string.profile_phone_row_subtitle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -676,7 +683,7 @@ private fun PhoneEditDialog(
                     Text(
                         text = "+51",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = NeutralRamp700,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.width(8.dp))
                     OutlinedTextField(
@@ -778,5 +785,3 @@ private fun BudgetEditDialog(
     )
 }
 
-@Suppress("unused")
-private val previewMarker: Color = NeutralRamp300

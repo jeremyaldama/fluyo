@@ -49,13 +49,13 @@ fun CategoriesStep() {
         Text(
             text = stringResource(R.string.onboarding_categories_title),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color(0xFF111111),
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.onboarding_categories_subtitle),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF606060),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(24.dp))
@@ -106,7 +106,7 @@ fun CategoriesStep() {
 private fun CategoryPreviewCard(preview: CategoryPreview) {
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -135,12 +135,12 @@ private fun CategoryPreviewCard(preview: CategoryPreview) {
                 Text(
                     text = stringResource(preview.nameRes),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF111111),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource(preview.hintRes),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF888888),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }

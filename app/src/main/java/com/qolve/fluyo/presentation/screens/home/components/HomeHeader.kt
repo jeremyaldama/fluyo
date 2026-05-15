@@ -36,7 +36,7 @@ import com.qolve.fluyo.presentation.theme.BrandDot
 import com.qolve.fluyo.presentation.theme.CoralRamp100
 import com.qolve.fluyo.presentation.theme.CoralRamp700
 import com.qolve.fluyo.presentation.theme.FluyoSpecialty
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// MaterialTheme.colorScheme.onSurface removed — text uses colorScheme.onSurface so it adapts to dark mode.
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import java.util.Locale
 
@@ -69,7 +69,7 @@ fun HomeHeader(
             Text(
                 text = stringResource(R.string.home_greeting_eyebrow),
                 style = FluyoSpecialty.taglineSerif.copy(fontSize = 16.sp),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = displayName ?: stringResource(R.string.profile_default_name),
@@ -77,7 +77,7 @@ fun HomeHeader(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp,
                 ),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         AvatarChip(displayName = displayName, photoUrl = avatarUrl, onClick = onAvatarClick)

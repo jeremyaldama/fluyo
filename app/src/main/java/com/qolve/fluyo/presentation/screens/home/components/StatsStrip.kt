@@ -23,8 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.AccentRose
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// Direct neutral ramp refs removed in favor of colorScheme.* for dark-mode flip.
 import com.qolve.fluyo.presentation.theme.TealRamp500
 
 /**
@@ -72,7 +71,7 @@ fun StatsStrip(
             Text(
                 text = stringResource(R.string.home_stat_per_day),
                 style = MaterialTheme.typography.labelSmall,
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
         StatCard(
@@ -87,20 +86,20 @@ fun StatsStrip(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp,
                         ),
-                        color = NeutralRamp900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.padding(2.dp))
                     Text(
                         text = "d",
                         style = MaterialTheme.typography.labelMedium,
-                        color = NeutralRamp500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
                 }
             } else {
                 Text(
                     text = stringResource(R.string.home_stat_days_placeholder),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }
@@ -130,7 +129,7 @@ private fun StatCard(
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.9.sp,
                 ),
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
             Spacer(Modifier.height(4.dp))
             content()
@@ -148,7 +147,7 @@ private fun BigMoney(value: Long) {
         Text(
             text = "S/",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(bottom = 2.dp),
         )
         Spacer(Modifier.padding(1.dp))
@@ -158,7 +157,7 @@ private fun BigMoney(value: Long) {
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp,
             ),
-            color = NeutralRamp900,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -174,7 +173,7 @@ private fun DeltaChip(deltaPct: Float) {
     val (text, color) = when {
         isUnder -> stringResource(R.string.home_stat_change_neg, kotlin.math.abs(deltaPct).toInt()) to AccentLime
         isOver -> stringResource(R.string.home_stat_change_pos, deltaPct.toInt()) to AccentRose
-        else -> "—" to NeutralRamp500
+        else -> "—" to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     }
     Text(
         text = text,

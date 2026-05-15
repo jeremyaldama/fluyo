@@ -1,7 +1,9 @@
 package com.qolve.fluyo.presentation.navigation
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -9,6 +11,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -17,25 +20,25 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.TealRamp100
-import com.qolve.fluyo.presentation.theme.TealRamp500
+import com.qolve.fluyo.presentation.theme.BrandDot
+import com.qolve.fluyo.presentation.theme.CoralRamp500
 
 /**
  * Fluyo bottom navigation.
  *
- * Two design choices worth flagging:
+ * **Two-layer icon rendering.** Material's `Icon` flattens a vector to a single tint color
+ * — useful for theme-aware ink, fatal for our two-tone glyphs. We split each nav icon:
  *
- *   1. We render each tab's glyph through [Image] rather than [androidx.compose.material3.Icon].
- *      Material's `Icon` applies `LocalContentColor` as an `SrcIn` tint over the entire
- *      vector, which would flatten our two-color glyphs (black outline + coral accent dot)
- *      down to a single hue. `Image` honors the colors baked into the `ImageVector` — so
- *      the coral pin stays coral regardless of selection state.
+ *   1. The outline (`FluyoIcons.Outline.*`) renders through `Icon` so its color follows
+ *      `LocalContentColor.current` — dark text on light surface in light mode, light text
+ *      on dark surface in dark mode.
+ *   2. A separate [BrandDot] overlay sits in the top-right corner of the icon's bounding
+ *      box, painted in static coral. The dot stays brand-true regardless of theme state
+ *      or selection state.
  *
- *   2. Selection state is communicated entirely by the mint indicator pill *behind* the
- *      icon and the teal label color. The icon itself stays unchanged across states. This
- *      matches the Fluyo design system (geometric, low-chrome) and keeps the brand-dot
- *      motif visible at all times.
+ * **Selection state** comes from the colors below — selected gets the brand primary text +
+ * the soft primary-container indicator pill; unselected uses `onSurfaceVariant`. Both flip
+ * cleanly between modes because they're sourced from `MaterialTheme.colorScheme`.
  */
 @Composable
 fun BottomNavBar(navController: NavHostController) {
@@ -49,13 +52,7 @@ fun BottomNavBar(navController: NavHostController) {
         BottomTab.entries.forEach { tab ->
             val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
             NavigationBarItem(
-                icon = {
-                    Image(
-                        imageVector = tab.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                    )
-                },
+                icon = { NavGlyph(icon = tab) },
                 label = {
                     Text(
                         text = stringResource(tab.labelRes),
@@ -73,11 +70,35 @@ fun BottomNavBar(navController: NavHostController) {
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedTextColor = TealRamp500,
-                    unselectedTextColor = NeutralRamp500,
-                    indicatorColor = TealRamp100,
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // primaryContainer adapts: light mint in light, deep teal in dark.
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
             )
         }
+    }
+}
+
+@Composable
+private fun NavGlyph(icon: BottomTab) {
+    Box(modifier = Modifier.size(24.dp)) {
+        Icon(
+            imageVector = icon.icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
+        // Coral accent dot anchored to the top-right of the icon's bounding box. The
+        // negative offsets pull it slightly above + outside so it reads as a stamp on the
+        // glyph rather than a colored pixel inside it.
+        BrandDot(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 2.dp, y = (-2).dp),
+            size = 5.dp,
+            color = CoralRamp500,
+        )
     }
 }

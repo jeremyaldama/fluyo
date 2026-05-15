@@ -27,8 +27,10 @@ enum class BottomTab(
     val labelRes: Int,
     val icon: ImageVector,
 ) {
-    Home(Routes.HOME, R.string.nav_home, FluyoIcons.Home),
-    Stats(Routes.STATS, R.string.nav_stats, FluyoIcons.Stats),
-    Goals(Routes.GOALS, R.string.nav_goals, FluyoIcons.Goals),
-    Profile(Routes.PROFILE, R.string.nav_profile, FluyoIcons.Profile),
+    // Outline-only variants — the nav bar adds the coral dot as an overlay so the icon
+    // outline auto-tints with LocalContentColor for proper dark-mode contrast.
+    Home(Routes.HOME, R.string.nav_home, FluyoIcons.Outline.Home),
+    Stats(Routes.STATS, R.string.nav_stats, FluyoIcons.Outline.Stats),
+    Goals(Routes.GOALS, R.string.nav_goals, FluyoIcons.Outline.Goals),
+    Profile(Routes.PROFILE, R.string.nav_profile, FluyoIcons.Outline.Profile),
 }

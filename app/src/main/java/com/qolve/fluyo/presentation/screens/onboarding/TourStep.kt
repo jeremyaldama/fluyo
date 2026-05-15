@@ -59,13 +59,13 @@ fun WhatsAppStep(
         Text(
             text = stringResource(R.string.onboarding_whatsapp_title),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color(0xFF111111),
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.onboarding_whatsapp_subtitle),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF606060),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(24.dp))
@@ -92,7 +92,7 @@ fun WhatsAppStep(
             Text(
                 text = stringResource(R.string.whatsapp_connect_hint),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF8A8A8A),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier
                     .padding(top = 6.dp)
                     .align(Alignment.CenterHorizontally),
@@ -138,12 +138,12 @@ private fun WhatsAppCard(phone: String, onPhoneChange: (String) -> Unit) {
                     Text(
                         text = stringResource(R.string.onboarding_whatsapp_card_title),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF111111),
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = stringResource(R.string.onboarding_whatsapp_card_subtitle),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF6A6A6A),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -155,7 +155,7 @@ private fun WhatsAppCard(phone: String, onPhoneChange: (String) -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(50))
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -164,7 +164,7 @@ private fun WhatsAppCard(phone: String, onPhoneChange: (String) -> Unit) {
                 Text(
                     text = "+51",
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF111111),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.width(10.dp))
                 BasicTextField(
@@ -176,7 +176,7 @@ private fun WhatsAppCard(phone: String, onPhoneChange: (String) -> Unit) {
                     textStyle = TextStyle(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111111),
+                        color = MaterialTheme.colorScheme.onSurface,
                     ),
                     decorationBox = { inner ->
                         Box {
@@ -205,7 +205,7 @@ private fun YapeHintCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
@@ -233,12 +233,12 @@ private fun YapeHintCard() {
                 Text(
                     text = stringResource(R.string.onboarding_yape_title),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF111111),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = stringResource(R.string.onboarding_yape_body),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF6A6A6A),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

@@ -49,8 +49,7 @@ import com.qolve.fluyo.presentation.screens.home.components.StatsStrip
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.CoralRamp100
 import com.qolve.fluyo.presentation.theme.CoralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// Neutral ramp imports removed — see notes in ProfileScreen / HomeHeader / StatsStrip.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.formatPen
@@ -158,7 +157,7 @@ private fun PaceChip(breakdown: MonthlyBreakdown) {
     val dailyPace = breakdown.remaining.coerceAtLeast(0.0) / daysLeft
 
     val (text, color) = when {
-        breakdown.monthlyBudget <= 0.0 -> stringResource(R.string.home_pace_no_budget_chip) to NeutralRamp500
+        breakdown.monthlyBudget <= 0.0 -> stringResource(R.string.home_pace_no_budget_chip) to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         breakdown.isOverBudget -> stringResource(R.string.home_pace_over_chip) to CoralRamp500
         else -> stringResource(R.string.home_pace_ok_chip, formatPen(dailyPace)) to TealRamp500
     }
@@ -198,7 +197,7 @@ private fun EmptyDayPreview() {
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.0.sp,
             ),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(8.dp))
         Card(
@@ -233,7 +232,7 @@ private fun EmptyDayPreview() {
                 Text(
                     text = stringResource(R.string.home_empty_preview_amount),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }
@@ -261,7 +260,7 @@ private fun DayHeader(date: LocalDate) {
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.0.sp,
         ),
-        color = NeutralRamp500,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
     )
 }
 

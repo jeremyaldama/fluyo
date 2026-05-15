@@ -28,6 +28,87 @@ import com.qolve.fluyo.presentation.theme.CoralRamp500
  */
 object FluyoIcons {
 
+    /**
+     * **Outline-only** variants for the bottom nav.
+     *
+     * Material's `Icon` applies a single `LocalContentColor` tint to the whole ImageVector,
+     * which would also recolor the coral accent dot. To keep the dot brand-coral in both
+     * light and dark mode, the nav bar renders the [Outline] variant (which gets tinted by
+     * Material) and overlays a separate `BrandDot` at the appropriate corner.
+     *
+     * Non-nav surfaces (e.g. AddExpenseSheet tiles, Profile badges) can keep using the
+     * full multi-color icons below since they render via `Image` without a tint and don't
+     * need to flip on dark mode.
+     */
+    object Outline {
+        val Home: ImageVector = lazyIcon("FluyoHomeOutline") {
+            path(
+                stroke = SolidColor(Color.Unspecified),
+                strokeLineWidth = 1.6f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(4f, 11f)
+                lineTo(12f, 4f)
+                lineTo(20f, 11f)
+                lineTo(20f, 19f)
+                lineTo(4f, 19f)
+                close()
+            }
+        }
+
+        val Stats: ImageVector = lazyIcon("FluyoStatsOutline") {
+            path(
+                stroke = SolidColor(Color.Unspecified),
+                strokeLineWidth = 1.6f,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                moveTo(5f, 19f); lineTo(5f, 14f)
+                moveTo(11f, 19f); lineTo(11f, 11f)
+                moveTo(17f, 19f); lineTo(17f, 7f)
+            }
+        }
+
+        val Goals: ImageVector = lazyIcon("FluyoGoalsOutline") {
+            path(
+                stroke = SolidColor(Color.Unspecified),
+                strokeLineWidth = 1.6f,
+            ) {
+                moveTo(20f, 12f)
+                arcTo(8f, 8f, 0f, isMoreThanHalf = true, isPositiveArc = true, 4.001f, 12f)
+                arcTo(8f, 8f, 0f, isMoreThanHalf = true, isPositiveArc = true, 20f, 12f)
+                close()
+                moveTo(16.5f, 12f)
+                arcTo(4.5f, 4.5f, 0f, isMoreThanHalf = true, isPositiveArc = true, 7.501f, 12f)
+                arcTo(4.5f, 4.5f, 0f, isMoreThanHalf = true, isPositiveArc = true, 16.5f, 12f)
+                close()
+            }
+            // We *do* keep the bullseye center filled because it reads as part of the
+            // glyph rather than the accent dot — Goals without a center looks broken.
+            path(fill = SolidColor(Color.Unspecified)) {
+                moveTo(13.8f, 12f)
+                arcTo(1.8f, 1.8f, 0f, isMoreThanHalf = false, isPositiveArc = true, 10.2f, 12f)
+                arcTo(1.8f, 1.8f, 0f, isMoreThanHalf = false, isPositiveArc = true, 13.8f, 12f)
+                close()
+            }
+        }
+
+        val Profile: ImageVector = lazyIcon("FluyoProfileOutline") {
+            path(
+                stroke = SolidColor(Color.Unspecified),
+                strokeLineWidth = 1.6f,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                moveTo(15.2f, 8f)
+                arcTo(3.2f, 3.2f, 0f, isMoreThanHalf = true, isPositiveArc = true, 8.801f, 8f)
+                arcTo(3.2f, 3.2f, 0f, isMoreThanHalf = true, isPositiveArc = true, 15.2f, 8f)
+                close()
+                moveTo(5f, 20f)
+                quadTo(12f, 13f, 19f, 20f)
+            }
+        }
+    }
+
     /** Home — pitched-roof house outline with a coral dot inside the lower-right corner. */
     val Home: ImageVector = lazyIcon("FluyoHome") {
         // Outline: roof + walls. Drawn as a single open path.

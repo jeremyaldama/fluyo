@@ -49,7 +49,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 
-private val OnboardingBackground = Color(0xFFF1F8F6)
+// Canvas color removed — Scaffold now reads from MaterialTheme.colorScheme.background so
+// dark mode gets the dark canvas, light mode the pale mint.
 
 @Composable
 fun OnboardingHost(
@@ -62,7 +63,7 @@ fun OnboardingHost(
         if (state.finished) onFinished()
     }
 
-    Scaffold(containerColor = OnboardingBackground) { inner ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,7 +87,7 @@ fun OnboardingHost(
                     Text(
                         text = stringResource(R.string.action_skip_short),
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color(0xFF606060),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -177,7 +178,8 @@ private fun StepPills(currentStep: Int, totalSteps: Int) {
             val (color, width) = when {
                 isActive -> FluyoTeal to 26.dp
                 isPast -> FluyoTeal.copy(alpha = 0.5f) to 18.dp
-                else -> Color(0xFFD7E2DF) to 18.dp
+                // Unfilled pill — outlineVariant flips per mode so it stays subtly visible.
+                else -> MaterialTheme.colorScheme.outlineVariant to 18.dp
             }
             Box(
                 modifier = Modifier
@@ -210,12 +212,12 @@ private fun BottomBar(
                 modifier = Modifier
                     .size(54.dp)
                     .clip(CircleShape)
-                    .background(Color.White),
+                    .background(MaterialTheme.colorScheme.surface),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = null,
-                    tint = Color(0xFF1A1A1A),
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }

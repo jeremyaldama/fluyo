@@ -40,13 +40,8 @@ import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Goal
 import com.qolve.fluyo.presentation.theme.CoralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp200
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp700
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
-import com.qolve.fluyo.presentation.theme.TealRamp100
+// Neutral ramp imports removed in favor of MaterialTheme.colorScheme.* — see ProfileScreen.
 import com.qolve.fluyo.presentation.theme.TealRamp500
-import com.qolve.fluyo.presentation.theme.TealRamp700
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -101,7 +96,7 @@ fun GoalCard(
                         Text(
                             text = goal.name,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = NeutralRamp900,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
@@ -110,7 +105,7 @@ fun GoalCard(
                         Text(
                             text = topRightLabel(goal, today),
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (isCompleted) CoralRamp500 else NeutralRamp500,
+                            color = if (isCompleted) CoralRamp500 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
                     }
                     Spacer(Modifier.height(4.dp))
@@ -135,7 +130,7 @@ fun GoalCard(
                         Text(
                             text = "de S/ %.0f".format(goal.targetAmount),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = NeutralRamp500,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.padding(bottom = 4.dp),
                         )
                     }
@@ -162,7 +157,7 @@ fun GoalCard(
                     Text(
                         text = depositCountLabel(goal.depositCount),
                         style = MaterialTheme.typography.bodySmall,
-                        color = NeutralRamp500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         modifier = Modifier.weight(1f),
                     )
                     DepositPillButton(onClick = onDeposit)
@@ -212,14 +207,15 @@ private fun DepositPillButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(TealRamp100)
+            // primaryContainer adapts: mint pill in light, deep teal in dark.
+            .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         Text(
             text = "+ ${stringResource(R.string.goal_deposit_cta)}",
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = TealRamp700,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }
@@ -308,7 +304,7 @@ fun CompletedGoalRow(goal: Goal, modifier: Modifier = Modifier) {
             Text(
                 text = "S/ %.0f".format(goal.targetAmount),
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = NeutralRamp700,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.width(10.dp))
             Icon(
@@ -321,5 +317,3 @@ fun CompletedGoalRow(goal: Goal, modifier: Modifier = Modifier) {
     }
 }
 
-@Suppress("unused")
-private val previewMarker: Color = NeutralRamp200

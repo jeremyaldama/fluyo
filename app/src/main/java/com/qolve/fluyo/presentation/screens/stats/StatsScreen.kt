@@ -56,10 +56,7 @@ import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.AccentRose
 import com.qolve.fluyo.presentation.theme.CoralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp200
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp700
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// Neutral ramp imports retired — see ProfileScreen for the same migration rationale.
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.formatPen
 import com.qolve.fluyo.presentation.util.parseHexColor
@@ -146,11 +143,13 @@ private fun PeriodPill(
     selected: StatsPeriod,
     onSelect: (StatsPeriod) -> Unit,
 ) {
+    // surfaceVariant gives us a recessed pill in both modes (pale grey in light, dark
+    // grey-with-teal-tint in dark) that reads clearly above the canvas.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(NeutralRamp200.copy(alpha = 0.55f))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -195,7 +194,7 @@ private fun PeriodTab(
             style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             ),
-            color = if (selected) NeutralRamp900 else NeutralRamp500,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
 }
@@ -214,21 +213,24 @@ private fun InsightBanner(state: StatsUiState) {
         delta == null -> "✨"
         else -> "🟰"
     }
+    // Banner backgrounds — bumped alphas (0.22+) so lime/coral tints stay readable in
+    // dark mode where a 0.18 alpha vanishes into the canvas. Neutral fallback uses
+    // surfaceVariant for the standard "no baseline / flat" path.
     val (background, foreground, accentBg) = when {
         isUnder -> Triple(
-            AccentLime.copy(alpha = 0.18f),
-            NeutralRamp900,
-            AccentLime.copy(alpha = 0.30f),
+            AccentLime.copy(alpha = 0.24f),
+            MaterialTheme.colorScheme.onSurface,
+            AccentLime.copy(alpha = 0.38f),
         )
         isOver -> Triple(
-            CoralRamp500.copy(alpha = 0.14f),
-            NeutralRamp900,
-            CoralRamp500.copy(alpha = 0.26f),
+            CoralRamp500.copy(alpha = 0.20f),
+            MaterialTheme.colorScheme.onSurface,
+            CoralRamp500.copy(alpha = 0.34f),
         )
         else -> Triple(
-            NeutralRamp200.copy(alpha = 0.6f),
-            NeutralRamp900,
-            NeutralRamp200,
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurface,
+            MaterialTheme.colorScheme.outlineVariant,
         )
     }
 
@@ -269,7 +271,7 @@ private fun InsightBanner(state: StatsUiState) {
                 Text(
                     text = caption,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NeutralRamp700,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -322,12 +324,15 @@ private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modif
         label = "donutSweep",
     )
     val gapDeg = 2f
+    // Capture the empty-state track color outside the DrawScope — MaterialTheme reads can
+    // only run inside an @Composable scope, and DrawScope is not one.
+    val emptyTrackColor = MaterialTheme.colorScheme.outlineVariant
 
     Canvas(modifier = modifier) {
         val strokeWidth = 30.dp.toPx()
         if (totalRaw <= 0f) {
             drawArc(
-                color = NeutralRamp200,
+                color = emptyTrackColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -377,7 +382,7 @@ private fun DonutCenter(state: StatsUiState) {
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.2.sp,
             ),
-            color = NeutralRamp500,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
@@ -385,7 +390,7 @@ private fun DonutCenter(state: StatsUiState) {
                 text = "S/",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 ),
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -396,13 +401,13 @@ private fun DonutCenter(state: StatsUiState) {
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-1.2).sp,
                 ),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = ".%02d".format(cents),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 ),
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -412,7 +417,7 @@ private fun DonutCenter(state: StatsUiState) {
             Text(
                 text = stringResource(vsLabelRes, formatPen(state.previousTotal)),
                 style = MaterialTheme.typography.labelMedium,
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }
@@ -451,7 +456,7 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
             Text(
                 text = summary.name,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = NeutralRamp900,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -470,7 +475,7 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
                 Text(
                     text = "S/",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(bottom = 1.dp),
                 )
                 Spacer(Modifier.padding(1.dp))
@@ -480,13 +485,13 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.2).sp,
                     ),
-                    color = NeutralRamp900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             Text(
                 text = "%.0f%%".format(share * 100f),
                 style = MaterialTheme.typography.labelSmall,
-                color = NeutralRamp500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }
@@ -516,7 +521,7 @@ private fun WeeklyPatternCard(state: StatsUiState) {
                     Text(
                         text = weeklyPatternCaption(peak.dayOfWeek, peak.average),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NeutralRamp700,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -593,7 +598,7 @@ private fun WeekdayChart(state: StatsUiState) {
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = if (isPeak) FontWeight.Bold else FontWeight.Medium,
                         ),
-                        color = if (isPeak) CoralRamp500 else NeutralRamp500,
+                        color = if (isPeak) CoralRamp500 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
                 }
             }
@@ -633,7 +638,7 @@ private fun weeklyPatternCaption(dayOfWeek: Int, avg: Double): AnnotatedString {
                 append(raw.substring(openIdx))
                 break
             }
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = NeutralRamp900)) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) {
                 append(raw.substring(openIdx + 3, closeIdx))
             }
             i = closeIdx + 4

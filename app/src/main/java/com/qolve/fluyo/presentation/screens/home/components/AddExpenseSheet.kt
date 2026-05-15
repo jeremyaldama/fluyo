@@ -44,10 +44,7 @@ import com.qolve.fluyo.presentation.theme.BrandDot
 import com.qolve.fluyo.presentation.theme.CoralRamp100
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 import com.qolve.fluyo.presentation.theme.FluyoSpecialty
-import com.qolve.fluyo.presentation.theme.NeutralRamp200
-import com.qolve.fluyo.presentation.theme.NeutralRamp500
-import com.qolve.fluyo.presentation.theme.NeutralRamp700
-import com.qolve.fluyo.presentation.theme.NeutralRamp900
+// Theme-driven colors replace raw NeutralRamp refs so dark mode renders correctly.
 import com.qolve.fluyo.presentation.theme.TealRamp500
 
 /**
@@ -96,13 +93,13 @@ fun AddExpenseSheet(
                         fontWeight = FontWeight.Bold,
                         fontSize = 22.sp,
                     ),
-                    color = NeutralRamp900,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = stringResource(R.string.add_sheet_subtitle),
                     style = FluyoSpecialty.taglineSerif.copy(fontSize = 14.sp),
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
 
@@ -214,7 +211,7 @@ private fun SecondaryTile(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (enabled) NeutralRamp900 else NeutralRamp500,
+                    tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -222,12 +219,12 @@ private fun SecondaryTile(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = if (enabled) NeutralRamp900 else NeutralRamp500,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
                 Text(
                     text = if (enabled) hint else stringResource(R.string.add_option_coming_soon),
                     style = MaterialTheme.typography.labelSmall,
-                    color = NeutralRamp500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
         }
@@ -254,7 +251,7 @@ private fun YapeTipCard() {
         Text(
             text = parseHtmlBoldTip(stringResource(R.string.add_sheet_yape_tip)),
             style = MaterialTheme.typography.bodySmall,
-            color = NeutralRamp700,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -285,5 +282,3 @@ private fun parseHtmlBoldTip(raw: String): AnnotatedString = buildAnnotatedStrin
     }
 }
 
-@Suppress("unused")
-private val previewMarker = NeutralRamp200
