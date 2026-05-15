@@ -186,7 +186,7 @@ private fun WhatsAppCard(phone: String, onPhoneChange: (String) -> Unit) {
                                     style = TextStyle(
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFB0B0B0),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                     ),
                                 )
                             }

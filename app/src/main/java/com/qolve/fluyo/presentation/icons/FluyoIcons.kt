@@ -41,9 +41,15 @@ object FluyoIcons {
      * need to flip on dark mode.
      */
     object Outline {
+        // Strokes are painted in solid black so they form opaque pixels for the rasterizer.
+        // Material's `Icon` then re-tints those pixels via `ColorFilter.tint(LocalContentColor)`
+        // with SrcIn blend mode — black is just a placeholder; the visible color is whatever
+        // the theme supplies (onSurface for unselected, primary for selected). Using
+        // `Color.Unspecified` here breaks: the renderer treats it as "no color", paints
+        // nothing, and the tint has no pixels to recolor → invisible icons in dark mode.
         val Home: ImageVector = lazyIcon("FluyoHomeOutline") {
             path(
-                stroke = SolidColor(Color.Unspecified),
+                stroke = SolidColor(Color.Black),
                 strokeLineWidth = 1.6f,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
@@ -59,8 +65,8 @@ object FluyoIcons {
 
         val Stats: ImageVector = lazyIcon("FluyoStatsOutline") {
             path(
-                stroke = SolidColor(Color.Unspecified),
-                strokeLineWidth = 1.6f,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.8f,
                 strokeLineCap = StrokeCap.Round,
             ) {
                 moveTo(5f, 19f); lineTo(5f, 14f)
@@ -71,7 +77,7 @@ object FluyoIcons {
 
         val Goals: ImageVector = lazyIcon("FluyoGoalsOutline") {
             path(
-                stroke = SolidColor(Color.Unspecified),
+                stroke = SolidColor(Color.Black),
                 strokeLineWidth = 1.6f,
             ) {
                 moveTo(20f, 12f)
@@ -83,9 +89,9 @@ object FluyoIcons {
                 arcTo(4.5f, 4.5f, 0f, isMoreThanHalf = true, isPositiveArc = true, 16.5f, 12f)
                 close()
             }
-            // We *do* keep the bullseye center filled because it reads as part of the
-            // glyph rather than the accent dot — Goals without a center looks broken.
-            path(fill = SolidColor(Color.Unspecified)) {
+            // Bullseye center — also painted in black so the tint can recolor it. Without a
+            // filled center the Goals glyph reads as two empty rings instead of a target.
+            path(fill = SolidColor(Color.Black)) {
                 moveTo(13.8f, 12f)
                 arcTo(1.8f, 1.8f, 0f, isMoreThanHalf = false, isPositiveArc = true, 10.2f, 12f)
                 arcTo(1.8f, 1.8f, 0f, isMoreThanHalf = false, isPositiveArc = true, 13.8f, 12f)
@@ -95,7 +101,7 @@ object FluyoIcons {
 
         val Profile: ImageVector = lazyIcon("FluyoProfileOutline") {
             path(
-                stroke = SolidColor(Color.Unspecified),
+                stroke = SolidColor(Color.Black),
                 strokeLineWidth = 1.6f,
                 strokeLineCap = StrokeCap.Round,
             ) {
