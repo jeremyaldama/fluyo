@@ -129,7 +129,7 @@ fun GoalCard(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "de S/ %.0f".format(goal.targetAmount),
+                            text = "de ${currencySymbol()} %.0f".format(goal.targetAmount),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.padding(bottom = 4.dp),
@@ -303,7 +303,7 @@ fun CompletedGoalRow(goal: Goal, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "S/ %.0f".format(goal.targetAmount),
+                text = "${currencySymbol()} %.0f".format(goal.targetAmount),
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
