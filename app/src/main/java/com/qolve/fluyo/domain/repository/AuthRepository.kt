@@ -19,6 +19,14 @@ interface AuthRepository {
 
     suspend fun signOut(): Result<Unit>
 
+    /**
+     * Deletes the user's `public.users` row — `ON DELETE CASCADE` removes their expenses,
+     * goals, deposits, badges and categories — then signs out (HU-11). The Supabase Auth
+     * `auth.users` record itself remains (removing it needs service-role privileges, out of
+     * scope for the client).
+     */
+    suspend fun deleteAccount(): Result<Unit>
+
     /** Upsert a row in `public.users` keyed by the current auth user. Triggers default-category seed. */
     suspend fun ensureUserRow(): Result<User>
 
@@ -27,7 +35,11 @@ interface AuthRepository {
     /** Returns the `public.users.id` UUID for the signed-in user (cached). */
     suspend fun currentUserId(): String?
 
-    suspend fun updateProfile(monthlyBudget: Double?, phoneNumber: String?): Result<User>
+    suspend fun updateProfile(
+        monthlyBudget: Double? = null,
+        phoneNumber: String? = null,
+        currency: String? = null,
+    ): Result<User>
 
     /** Updates the notification-related columns on `public.users`. Returns the refreshed row. */
     suspend fun updateNotificationSettings(

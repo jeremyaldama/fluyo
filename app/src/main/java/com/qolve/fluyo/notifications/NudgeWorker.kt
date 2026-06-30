@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.qolve.fluyo.MainActivity
 import com.qolve.fluyo.R
+import com.qolve.fluyo.data.badge.BadgeEngine
 import com.qolve.fluyo.data.local.NudgePrefs
 import com.qolve.fluyo.domain.usecase.ComputeNudgeUseCase
 import dagger.assisted.Assisted
@@ -25,9 +26,13 @@ class NudgeWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val computeNudge: ComputeNudgeUseCase,
     private val nudgePrefs: NudgePrefs,
+    private val badgeEngine: BadgeEngine,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        // Month-end "saver" badge check rides along with the daily run (HU-08).
+        runCatching { badgeEngine.checkSaverMonth() }
+
         val nudge = runCatching { computeNudge() }.getOrNull() ?: return Result.success()
 
         val canPost = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

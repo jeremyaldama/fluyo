@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.AccentRose
 // Direct neutral ramp refs removed in favor of colorScheme.* for dark-mode flip.
@@ -145,7 +146,7 @@ private fun BigMoney(value: Long) {
     ).format(value)
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
-            text = "S/",
+            text = currencySymbol(),
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(bottom = 2.dp),

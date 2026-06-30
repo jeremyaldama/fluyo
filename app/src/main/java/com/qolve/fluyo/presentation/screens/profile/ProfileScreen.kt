@@ -24,7 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Savings
@@ -35,6 +39,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,11 +74,14 @@ import com.qolve.fluyo.presentation.theme.CoralRamp500
 // now reads from MaterialTheme.colorScheme.* which the FluyoTheme wires per system mode.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
+import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.emoji
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.money
 import com.qolve.fluyo.presentation.util.levelNameRes
 import com.qolve.fluyo.presentation.util.nameRes
 import com.qolve.fluyo.presentation.util.openFluyoOnWhatsApp
+import android.content.Intent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -89,8 +97,26 @@ import java.util.Locale
  *   4. Ajustes — settings rows (budget, phone, notifications expander) + destructive sign-out.
  */
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
+fun ProfileScreen(
+    onManageCategories: () -> Unit = {},
+    viewModel: ProfileViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val shareCsvSubject = stringResource(R.string.profile_export_share_title)
+
+    // Fire the system share sheet whenever a CSV export completes (HU-11).
+    LaunchedEffect(Unit) {
+        viewModel.csvExportEvents.collect { uri ->
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, shareCsvSubject)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(send, shareCsvSubject))
+        }
+    }
 
     if (state.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -132,10 +158,14 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
                 user = user,
                 onEditBudget = viewModel::openBudgetDialog,
                 onEditPhone = viewModel::openPhoneDialog,
+                onEditCurrency = viewModel::openCurrencyDialog,
+                onManageCategories = onManageCategories,
+                onExportCsv = viewModel::exportCsv,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
                 onHourChange = viewModel::setNotificationHour,
                 onToggleNotificationType = viewModel::toggleNotificationType,
                 onSendTestNudge = viewModel::fireTestNudge,
+                onDeleteAccount = viewModel::openDeleteDialog,
             )
         }
 
@@ -181,6 +211,91 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
             onConfirm = viewModel::savePhone,
         )
     }
+
+    if (state.showCurrencyDialog) {
+        CurrencyPickerDialog(
+            selected = state.currencyInput,
+            isSaving = state.isSavingCurrency,
+            onSelect = viewModel::onCurrencySelect,
+            onDismiss = viewModel::closeCurrencyDialog,
+            onConfirm = viewModel::saveCurrency,
+        )
+    }
+
+    if (state.showDeleteDialog) {
+        DeleteAccountDialog(
+            isDeleting = state.isDeleting,
+            onDismiss = viewModel::closeDeleteDialog,
+            onConfirm = viewModel::deleteAccount,
+        )
+    }
+}
+
+@Composable
+private fun CurrencyPickerDialog(
+    selected: String,
+    isSaving: Boolean,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.profile_currency_dialog_title)) },
+        text = {
+            Column {
+                com.qolve.fluyo.presentation.util.SUPPORTED_CURRENCIES.forEach { (code, symbol) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(code) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = code == selected, onClick = { onSelect(code) })
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "$code  ·  $symbol",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isSaving) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun DeleteAccountDialog(
+    isDeleting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.profile_delete_dialog_title)) },
+        text = { Text(stringResource(R.string.profile_delete_dialog_body)) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isDeleting,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text(stringResource(R.string.profile_delete_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 // ─── Hero ───────────────────────────────────────────────────────────────────
@@ -509,10 +624,14 @@ private fun AjustesCard(
     user: User?,
     onEditBudget: () -> Unit,
     onEditPhone: () -> Unit,
+    onEditCurrency: () -> Unit,
+    onManageCategories: () -> Unit,
+    onExportCsv: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
     onHourChange: (Int) -> Unit,
     onToggleNotificationType: (NudgeType, Boolean) -> Unit,
     onSendTestNudge: () -> Unit,
+    onDeleteAccount: () -> Unit,
 ) {
     var notificationsOpen by remember { mutableStateOf(false) }
 
@@ -528,8 +647,26 @@ private fun AjustesCard(
                 icon = Icons.Outlined.Savings,
                 title = stringResource(R.string.profile_budget_label),
                 subtitle = stringResource(R.string.profile_budget_row_subtitle),
-                value = formatPen(user?.monthlyBudget ?: 0.0),
+                value = money(user?.monthlyBudget ?: 0.0),
                 onClick = onEditBudget,
+            )
+            ThinDivider()
+            // Currency picker (HU-11)
+            SettingsRow(
+                icon = Icons.Outlined.CurrencyExchange,
+                title = stringResource(R.string.profile_currency_label),
+                subtitle = stringResource(R.string.profile_currency_row_subtitle),
+                value = user?.currency ?: "PEN",
+                onClick = onEditCurrency,
+            )
+            ThinDivider()
+            // Manage categories (HU-11)
+            SettingsRow(
+                icon = Icons.Outlined.Category,
+                title = stringResource(R.string.profile_categories_label),
+                subtitle = stringResource(R.string.profile_categories_row_subtitle),
+                value = "",
+                onClick = onManageCategories,
             )
             ThinDivider()
             // Phone — opens the edit dialog. Clearing the field saves null so WhatsApp
@@ -570,6 +707,24 @@ private fun AjustesCard(
                     )
                 }
             }
+            ThinDivider()
+            // Export data to CSV (HU-11)
+            SettingsRow(
+                icon = Icons.Outlined.FileDownload,
+                title = stringResource(R.string.profile_export_label),
+                subtitle = stringResource(R.string.profile_export_row_subtitle),
+                value = "",
+                onClick = onExportCsv,
+            )
+            ThinDivider()
+            // Delete account (HU-11) — destructive, opens a confirmation dialog.
+            SettingsRow(
+                icon = Icons.Outlined.DeleteForever,
+                title = stringResource(R.string.profile_delete_label),
+                subtitle = stringResource(R.string.profile_delete_row_subtitle),
+                value = "",
+                onClick = onDeleteAccount,
+            )
         }
     }
 }
@@ -749,7 +904,7 @@ private fun BudgetEditDialog(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = stringResource(R.string.onboarding_currency_prefix),
+                        text = currencySymbol(),
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Spacer(Modifier.width(8.dp))

@@ -9,6 +9,7 @@ import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.notifications.NudgeScheduler
 import com.qolve.fluyo.presentation.events.AppEvents
 import com.qolve.fluyo.presentation.events.SharedImageEvents
+import com.qolve.fluyo.presentation.util.CurrencyState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.compose.auth.ComposeAuth
@@ -34,9 +35,13 @@ class RootViewModel @Inject constructor(
     val appEvents: AppEvents,
     val sharedImageEvents: SharedImageEvents,
     private val nudgeScheduler: NudgeScheduler,
+    private val currencyState: CurrencyState,
 ) : ViewModel() {
 
     val composeAuth: ComposeAuth = supabaseClient.composeAuth
+
+    /** Active currency code, provided to the composition as a symbol (HU-11). */
+    val currencyCode: StateFlow<String> = currencyState.code
 
     private val _uiState = MutableStateFlow(RootUiState())
     val uiState: StateFlow<RootUiState> = _uiState.asStateFlow()
@@ -69,6 +74,7 @@ class RootViewModel @Inject constructor(
         when (state) {
             is AuthState.SignedIn -> viewModelScope.launch {
                 val user = authRepository.currentUser().getOrNull()
+                user?.currency?.let { currencyState.set(it) }
                 if (user?.notificationEnabled == true) {
                     nudgeScheduler.schedule(user.notificationHour)
                 } else {

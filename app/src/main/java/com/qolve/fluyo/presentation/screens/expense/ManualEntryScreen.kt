@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
+import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
 
@@ -167,7 +168,7 @@ private fun AmountInput(
         horizontalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = stringResource(R.string.onboarding_currency_prefix),
+            text = currencySymbol(),
             style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Light),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

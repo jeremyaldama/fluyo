@@ -1,5 +1,6 @@
 package com.qolve.fluyo.presentation.screens.expense
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.model.Category
@@ -7,6 +8,7 @@ import com.qolve.fluyo.domain.model.ExpenseSource
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.usecase.RegisterExpenseUseCase
 import com.qolve.fluyo.data.badge.BadgeEngine
+import com.qolve.fluyo.data.voice.VoiceParser
 import com.qolve.fluyo.presentation.events.AppEvent
 import com.qolve.fluyo.presentation.events.AppEvents
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,16 +46,41 @@ class ManualEntryViewModel @Inject constructor(
     private val registerExpense: RegisterExpenseUseCase,
     private val appEvents: AppEvents,
     private val badgeEngine: BadgeEngine,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    // Prefill args — set by voice entry (HU-05); empty for plain manual entry.
+    private val source: ExpenseSource =
+        ExpenseSource.fromWire(savedStateHandle.get<String>("src") ?: "manual")
+    private val prefillAmount: String = savedStateHandle.get<String>("amount").orEmpty()
+    private val prefillDesc: String = savedStateHandle.get<String>("desc").orEmpty()
 
     private val _state = MutableStateFlow(ManualEntryUiState())
     val state: StateFlow<ManualEntryUiState> = _state.asStateFlow()
 
     init {
+        if (prefillAmount.isNotBlank()) onAmountChange(prefillAmount)
+        if (prefillDesc.isNotBlank()) onDescriptionChange(prefillDesc)
+
+        // For voice, guess a category from the dictated text (HU-05). Applied once the
+        // category list loads, and only if the user hasn't already picked one.
+        val categoryHint =
+            if (source == ExpenseSource.VOICE) VoiceParser.parse(prefillDesc).categoryHint else null
+
         viewModelScope.launch {
             categoryRepository.refresh()
             categoryRepository.observeCategories().collect { list ->
-                _state.update { it.copy(categories = list) }
+                _state.update { current ->
+                    val guessed = if (current.selectedCategoryId == null && categoryHint != null) {
+                        list.firstOrNull { it.name.equals(categoryHint, ignoreCase = true) }?.id
+                    } else {
+                        null
+                    }
+                    current.copy(
+                        categories = list,
+                        selectedCategoryId = current.selectedCategoryId ?: guessed,
+                    )
+                }
             }
         }
     }
@@ -95,7 +122,7 @@ class ManualEntryViewModel @Inject constructor(
                 categoryId = categoryId,
                 description = current.description.takeIf { it.isNotBlank() },
                 expenseDate = current.date,
-                source = ExpenseSource.MANUAL,
+                source = source,
             )
             result.fold(
                 onSuccess = { saved ->

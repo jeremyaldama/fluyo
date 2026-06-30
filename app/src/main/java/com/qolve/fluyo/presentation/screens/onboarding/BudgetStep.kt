@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import java.text.NumberFormat
 import java.util.Locale
@@ -123,7 +124,7 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    text = "S/",
+                    text = currencySymbol(),
                     style = TextStyle(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,

@@ -120,7 +120,7 @@ fun AddExpenseSheet(
                     icon = Icons.Outlined.Mic,
                     label = stringResource(R.string.add_option_voice_short),
                     hint = stringResource(R.string.add_option_voice_hint),
-                    enabled = false,
+                    enabled = true,
                     onClick = onVoice,
                     modifier = Modifier.weight(1f),
                 )

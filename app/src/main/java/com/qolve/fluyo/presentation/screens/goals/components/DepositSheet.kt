@@ -34,7 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Goal
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.money
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,7 +73,7 @@ fun DepositSheet(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(R.string.onboarding_currency_prefix),
+                    text = currencySymbol(),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Light),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -96,7 +97,7 @@ fun DepositSheet(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.deposit_remaining, formatPen(goal.remaining)),
+                text = stringResource(R.string.deposit_remaining, money(goal.remaining)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

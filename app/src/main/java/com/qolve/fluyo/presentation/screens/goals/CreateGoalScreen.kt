@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.util.currencySymbol
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -111,7 +112,7 @@ fun CreateGoalScreen(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(R.string.onboarding_currency_prefix),
+                    text = currencySymbol(),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Light),
                 )
                 Spacer(Modifier.width(8.dp))

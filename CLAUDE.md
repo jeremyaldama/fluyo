@@ -1,4 +1,6 @@
-# CLAUDE.md — Fluyo Development Context
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -12,6 +14,58 @@ Both interfaces write to the **same Supabase PostgreSQL database**, ensuring a s
 This is a thesis project for the Pontificia Universidad Católica del Perú (PUCP), Computer Science Engineering degree. The app is designed using User-Centered Design (UCD) methodology.
 
 **Target users:** University students aged 18-26 in Lima, Peru, who use Yape/Plin daily and struggle to track expenses due to the tedium of manual registration.
+
+---
+
+## Build, Test & Run Commands
+
+All commands run from the repo root via the Gradle wrapper (`./gradlew`). The single module is `:app`.
+
+```bash
+# Build
+./gradlew :app:assembleDebug          # debug APK → app/build/outputs/apk/debug/
+./gradlew :app:bundleRelease          # release AAB (needs RELEASE_KEYSTORE_* in local.properties)
+./gradlew clean                       # wipe build outputs
+
+# Install / run on a connected device or emulator
+./gradlew :app:installDebug
+adb shell am start -n com.qolve.fluyo/.MainActivity
+
+# Lint & static analysis
+./gradlew :app:lintDebug              # Android Lint → app/build/reports/lint-results-debug.html
+
+# Tests
+./gradlew :app:testDebugUnitTest      # JVM unit tests (src/test) — JUnit + Mockk + coroutines-test
+./gradlew :app:connectedDebugAndroidTest   # instrumented/Compose tests (src/androidTest, needs device)
+
+# Run a single unit test class or method
+./gradlew :app:testDebugUnitTest --tests "com.qolve.fluyo.ExampleUnitTest"
+./gradlew :app:testDebugUnitTest --tests "com.qolve.fluyo.SomeClass.someMethod"
+```
+
+> Test scaffolding only: `src/test` and `src/androidTest` currently contain just the generated `Example*Test` classes. Real domain/UI tests (Phase 7) are not written yet.
+
+## Local Configuration
+
+`app/build.gradle.kts` reads secrets from `local.properties` (gitignored) and exposes them as `BuildConfig` fields. Without these, auth and the Supabase client won't work:
+
+```properties
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_ANON_KEY=<anon_key>
+GOOGLE_WEB_CLIENT_ID=<oauth_web_client_id>   # for Credential Manager / Google One Tap
+# Release signing (optional; only needed for bundleRelease):
+RELEASE_KEYSTORE_PATH=...
+RELEASE_KEYSTORE_PASSWORD=...
+RELEASE_KEY_ALIAS=...
+RELEASE_KEY_PASSWORD=...
+```
+
+Dependency versions are centralized in `gradle/libs.versions.toml` (version catalog) — add/upgrade libraries there, not inline in `app/build.gradle.kts`.
+
+## Database / Supabase
+
+- Schema lives as ordered SQL migrations in `supabase/migrations/` (`0001_initial_schema.sql`, `0002_rls_policies.sql`, `0003_security_hardening.sql`) — these, not the snippets in this doc, are the source of truth for the live schema.
+- The Supabase MCP server is configured in `.mcp.json` (project ref `fxbrxfsyxmzadyonhaoj`); use the `mcp__supabase__*` tools to inspect tables, apply migrations, and check advisors before/after schema changes.
 
 ---
 
@@ -380,6 +434,8 @@ app/src/main/java/com/qolve/fluyo/
         └── CheckmarkAnimation.kt
 ```
 
+> The tree above is the target layout; the actual code has drifted. Notable real additions not shown: `notifications/` (`FluyoChannels`, `NudgeScheduler`, `NudgeWorker`, `NudgeOneShot` — WorkManager-driven nudges), `data/local/` (`NudgePrefs`, `OnboardingPrefs` — DataStore), `data/badge/BadgeEngine.kt`, `presentation/icons/`, `presentation/events/` + `screens/scan/` (OCR via system Share sheet — see `MainActivity` launchMode and `SharedImageEvents`), and `presentation/util/`. The `domain/usecase/` package currently holds only `RegisterExpenseUseCase`, `CreateGoalUseCase`, `DepositToGoalUseCase`, and `ComputeNudgeUseCase`; the rest of the listed use cases are not yet implemented. Verify against the filesystem before relying on a path.
+
 ---
 
 ## Features & User Flows
@@ -532,7 +588,7 @@ User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifie
 ## Constraints
 
 - All UI text in Spanish (Latin American), use strings.xml
-- Currency: PEN. Display: "S/ 15.50"
+- Currency: user-selectable (default PEN). Symbol/formatting via `presentation/util/Money.kt` (`money()` / `currencySymbol()` read `LocalCurrencySymbol`, seeded from `User.currency`). Display: "S/ 15.50"
 - OCR on-device only (ML Kit). No financial data to external APIs.
 - Compliant with Ley N° 29733 (Peruvian data protection)
 - No ads, no premium. Thesis prototype.

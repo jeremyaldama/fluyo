@@ -58,7 +58,8 @@ import com.qolve.fluyo.presentation.theme.AccentRose
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 // Neutral ramp imports retired — see ProfileScreen for the same migration rationale.
 import com.qolve.fluyo.presentation.theme.TealRamp500
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.money
 import com.qolve.fluyo.presentation.util.parseHexColor
 import kotlin.math.absoluteValue
 import kotlin.math.cos
@@ -292,7 +293,7 @@ private fun InsightBanner(state: StatsUiState) {
         is InsightVariant.Dominant -> stringResource(R.string.stats_insight_dominant_title, variant.name)
         is InsightVariant.DailyAverage -> stringResource(
             R.string.stats_insight_avg_day_title,
-            formatPen(variant.amount),
+            money(variant.amount),
         )
     }
 
@@ -303,7 +304,7 @@ private fun InsightBanner(state: StatsUiState) {
         is InsightVariant.Dominant -> stringResource(
             R.string.stats_insight_dominant_caption,
             variant.pct,
-            formatPen(variant.amount),
+            money(variant.amount),
         )
         is InsightVariant.DailyAverage -> stringResource(
             when (state.period) {
@@ -473,7 +474,7 @@ private fun DonutCenter(state: StatsUiState) {
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
             Text(
-                text = "S/",
+                text = currencySymbol(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
@@ -501,7 +502,7 @@ private fun DonutCenter(state: StatsUiState) {
         if (state.previousTotal > 0.0) {
             Spacer(Modifier.height(2.dp))
             Text(
-                text = stringResource(vsLabelRes, formatPen(state.previousTotal)),
+                text = stringResource(vsLabelRes, money(state.previousTotal)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
@@ -559,7 +560,7 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
         Column(horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = "S/",
+                    text = currencySymbol(),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(bottom = 1.dp),
@@ -709,7 +710,7 @@ private fun weeklyPatternCaption(dayOfWeek: Int, avg: Double): AnnotatedString {
             else -> R.string.stats_weekday_sun_full
         },
     )
-    val raw = stringResource(R.string.stats_weekly_pattern_caption, fullName, formatPen(avg))
+    val raw = stringResource(R.string.stats_weekly_pattern_caption, fullName, money(avg))
     return buildAnnotatedString {
         var i = 0
         while (i < raw.length) {

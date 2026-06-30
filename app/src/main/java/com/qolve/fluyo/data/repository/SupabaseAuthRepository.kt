@@ -83,6 +83,18 @@ class SupabaseAuthRepository @Inject constructor(
         client.auth.signOut()
     }
 
+    override suspend fun deleteAccount(): Result<Unit> = runCatching {
+        val authUser = client.auth.currentUserOrNull() ?: error("No authenticated user")
+        // Deleting the users row cascades to all owned data (expenses, goals, deposits,
+        // badges, categories) via ON DELETE CASCADE in the schema.
+        client.postgrest.from("users")
+            .delete { filter { eq("auth_id", authUser.id) } }
+        // Reuse sign-out so local caches are cleared and the auth session ends.
+        sessionCaches.get().forEach { runCatching { it.clearForSignOut() } }
+        cachedUserId.value = null
+        client.auth.signOut()
+    }
+
     override suspend fun currentUserId(): String? {
         cachedUserId.value?.let { return it }
         val authUser = client.auth.currentUserOrNull() ?: return null
@@ -145,6 +157,7 @@ class SupabaseAuthRepository @Inject constructor(
     override suspend fun updateProfile(
         monthlyBudget: Double?,
         phoneNumber: String?,
+        currency: String?,
     ): Result<User> = runCatching {
         val authUser = client.auth.currentUserOrNull()
             ?: error("No authenticated user")
@@ -152,6 +165,7 @@ class SupabaseAuthRepository @Inject constructor(
         val patch = UserProfileUpdateDto(
             monthlyBudget = monthlyBudget,
             phoneNumber = phoneNumber?.takeIf { it.isNotBlank() },
+            currency = currency?.takeIf { it.isNotBlank() },
         )
 
         client.postgrest.from("users")

@@ -25,7 +25,7 @@ import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
 import com.qolve.fluyo.domain.model.ExpenseSource
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.money
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
 import com.qolve.fluyo.presentation.util.relativeTimeFrom
@@ -94,7 +94,7 @@ fun ExpenseRow(
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            text = formatPen(expense.amount),
+            text = money(expense.amount),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
         )
     }

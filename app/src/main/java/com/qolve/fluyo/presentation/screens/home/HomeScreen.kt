@@ -52,7 +52,7 @@ import com.qolve.fluyo.presentation.theme.CoralRamp500
 // Neutral ramp imports removed — see notes in ProfileScreen / HomeHeader / StatsStrip.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.money
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -159,7 +159,7 @@ private fun PaceChip(breakdown: MonthlyBreakdown) {
     val (text, color) = when {
         breakdown.monthlyBudget <= 0.0 -> stringResource(R.string.home_pace_no_budget_chip) to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         breakdown.isOverBudget -> stringResource(R.string.home_pace_over_chip) to CoralRamp500
-        else -> stringResource(R.string.home_pace_ok_chip, formatPen(dailyPace)) to TealRamp500
+        else -> stringResource(R.string.home_pace_ok_chip, money(dailyPace)) to TealRamp500
     }
 
     Row(

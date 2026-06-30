@@ -12,6 +12,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,7 +34,7 @@ class NudgeScheduler @Inject constructor(
             Duration.ofHours(24),
             Duration.ofMinutes(30),
         )
-            .setInitialDelay(initialDelay)
+            .setInitialDelay(initialDelay.toMillis(), TimeUnit.MILLISECONDS)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)

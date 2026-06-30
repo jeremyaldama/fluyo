@@ -4,10 +4,12 @@ import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
+import com.qolve.fluyo.notifications.BadgeNotifier
 import com.qolve.fluyo.presentation.events.AppEvent
 import com.qolve.fluyo.presentation.events.AppEvents
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +24,7 @@ class BadgeEngine @Inject constructor(
     private val badgeRepository: BadgeRepository,
     private val expenseRepository: ExpenseRepository,
     private val appEvents: AppEvents,
+    private val badgeNotifier: BadgeNotifier,
 ) {
 
     suspend fun checkAfterExpense() {
@@ -58,8 +61,35 @@ class BadgeEngine @Inject constructor(
         if (BadgeType.FIRST_GOAL !in held) tryUnlock(BadgeType.FIRST_GOAL)
     }
 
+    /**
+     * "Ahorrador del Mes" (HU-08). Evaluated on the **last calendar day of the month**
+     * (the daily nudge worker calls this), unlocking when the month closed under budget.
+     * `UNIQUE(user_id, badge_type)` makes it a one-time achievement.
+     */
+    suspend fun checkSaverMonth(today: LocalDate = LocalDate.now()) {
+        authRepository.currentUserId() ?: return
+        if (today != today.with(TemporalAdjusters.lastDayOfMonth())) return
+
+        val budget = authRepository.currentUser().getOrNull()?.monthlyBudget ?: 0.0
+        if (budget <= 0.0) return
+
+        badgeRepository.refresh()
+        val held = badgeRepository.observeBadges().first().map { it.type }.toSet()
+        if (BadgeType.SAVER_MONTH in held) return
+
+        val firstOfMonth = today.with(TemporalAdjusters.firstDayOfMonth())
+        val spent = expenseRepository.loadByDateRange(firstOfMonth, today)
+            .getOrDefault(emptyList())
+            .sumOf { it.amount }
+
+        if (spent <= budget) tryUnlock(BadgeType.SAVER_MONTH)
+    }
+
     private suspend fun tryUnlock(type: BadgeType) {
         val unlocked = badgeRepository.unlockIfMissing(type).getOrDefault(false)
-        if (unlocked) appEvents.emit(AppEvent.BadgeUnlocked(type.wire))
+        if (unlocked) {
+            appEvents.emit(AppEvent.BadgeUnlocked(type.wire))
+            badgeNotifier.notify(type)
+        }
     }
 }

@@ -13,4 +13,9 @@ class CreateGoalUseCase @Inject constructor(
         target: Double,
         deadline: LocalDate?,
     ): Result<Goal> = goalRepository.createGoal(name, target, deadline)
+
+    companion object {
+        /** HU-07: a user may keep at most this many goals active at once. */
+        const val MAX_ACTIVE_GOALS = 5
+    }
 }

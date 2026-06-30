@@ -1,11 +1,15 @@
 package com.qolve.fluyo.presentation.navigation
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.qolve.fluyo.data.voice.VoiceParser
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,8 +43,11 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.navArgument
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
+import androidx.compose.runtime.CompositionLocalProvider
 import com.qolve.fluyo.presentation.events.AppEvent
 import com.qolve.fluyo.presentation.events.AppEvents
+import com.qolve.fluyo.presentation.util.LocalCurrencySymbol
+import com.qolve.fluyo.presentation.util.currencySymbolFor
 import com.qolve.fluyo.presentation.util.nameRes
 import com.qolve.fluyo.presentation.screens.auth.LoginScreen
 import com.qolve.fluyo.presentation.screens.expense.ManualEntryScreen
@@ -59,6 +65,7 @@ fun FluyoNavHost(
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val state by rootViewModel.uiState.collectAsStateWithLifecycle()
+    val currencyCode by rootViewModel.currencyCode.collectAsStateWithLifecycle()
     val rootNav = rememberNavController()
 
     // Single effect: navigate to the auth-gated start destination FIRST, then
@@ -82,6 +89,7 @@ fun FluyoNavHost(
         }
     }
 
+    CompositionLocalProvider(LocalCurrencySymbol provides currencySymbolFor(currencyCode)) {
     NavHost(
         navController = rootNav,
         startDestination = Routes.SPLASH,
@@ -113,9 +121,20 @@ fun FluyoNavHost(
                     rootNav.navigate(Routes.scanConfirm(encoded))
                 },
                 onOpenGoalCreate = { rootNav.navigate(Routes.GOAL_CREATE) },
+                onOpenManageCategories = { rootNav.navigate(Routes.MANAGE_CATEGORIES) },
+                onOpenVoiceEntry = { amount, desc ->
+                    rootNav.navigate(Routes.manualEntryPrefilled(amount, desc, "voice"))
+                },
             )
         }
-        composable(Routes.MANUAL_ENTRY) {
+        composable(
+            route = Routes.MANUAL_ENTRY_ROUTE,
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType; defaultValue = "" },
+                navArgument("desc") { type = NavType.StringType; defaultValue = "" },
+                navArgument("src") { type = NavType.StringType; defaultValue = "manual" },
+            ),
+        ) {
             ManualEntryScreen(
                 onClose = { rootNav.popBackStack() },
                 onSaved = { rootNav.popBackStack() },
@@ -136,6 +155,12 @@ fun FluyoNavHost(
                 onSaved = { rootNav.popBackStack() },
             )
         }
+        composable(Routes.MANAGE_CATEGORIES) {
+            com.qolve.fluyo.presentation.screens.profile.ManageCategoriesScreen(
+                onBack = { rootNav.popBackStack() },
+            )
+        }
+    }
     }
 }
 
@@ -152,6 +177,8 @@ private fun MainShell(
     onOpenManualEntry: () -> Unit,
     onOpenScan: (Uri) -> Unit,
     onOpenGoalCreate: () -> Unit,
+    onOpenManageCategories: () -> Unit,
+    onOpenVoiceEntry: (amount: String, desc: String) -> Unit,
 ) {
     val nav: NavHostController = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -159,9 +186,11 @@ private fun MainShell(
 
     var sheetOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val ctx = LocalContext.current
     val savedMessage = stringResource(R.string.expense_saved_snackbar)
     val badgePrefix = stringResource(R.string.badge_unlocked_prefix)
+    val voicePrompt = stringResource(R.string.add_option_voice_hint)
+    // Precomputed badge names (stringResource can't be called from the event collector).
+    val badgeNames = BadgeType.entries.associateWith { stringResource(it.nameRes()) }
 
     LaunchedEffect(Unit) {
         appEvents.events.collect { event ->
@@ -172,7 +201,7 @@ private fun MainShell(
                 is AppEvent.BadgeUnlocked -> {
                     val type = BadgeType.entries.firstOrNull { it.wire == event.typeWire }
                     if (type != null) {
-                        val name = ctx.getString(type.nameRes())
+                        val name = badgeNames[type].orEmpty()
                         snackbarHostState.showSnackbar("$badgePrefix $name")
                     }
                 }
@@ -184,6 +213,36 @@ private fun MainShell(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
         uri?.let { onOpenScan(it) }
+    }
+
+    // In-app voice entry (HU-05). RecognizerIntent shows the system speech UI (on-device
+    // where available) and returns a transcript — no RECORD_AUDIO permission needed. We
+    // parse it and hand off to the manual-entry screen, pre-filled, for confirmation.
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val transcript = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            val parsed = VoiceParser.parse(transcript)
+            val amount = parsed.amount?.let {
+                if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
+            }.orEmpty()
+            onOpenVoiceEntry(amount, parsed.description.orEmpty())
+        }
+    }
+    val launchSpeech: () -> Unit = {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-PE")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, voicePrompt)
+        }
+        runCatching { speechLauncher.launch(intent) }
     }
 
     // Ask once for POST_NOTIFICATIONS on Android 13+. The system enforces
@@ -246,7 +305,9 @@ private fun MainShell(
             }
             composable(Routes.STATS) { StatsScreen() }
             composable(Routes.GOALS) { GoalsScreen(onCreateGoal = onOpenGoalCreate) }
-            composable(Routes.PROFILE) { ProfileScreen() }
+            composable(Routes.PROFILE) {
+                ProfileScreen(onManageCategories = onOpenManageCategories)
+            }
         }
     }
 
@@ -263,7 +324,10 @@ private fun MainShell(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                 )
             },
-            onVoice = { sheetOpen = false },
+            onVoice = {
+                sheetOpen = false
+                launchSpeech()
+            },
         )
     }
 }

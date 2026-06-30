@@ -31,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Goal
+import com.qolve.fluyo.domain.usecase.CreateGoalUseCase.Companion.MAX_ACTIVE_GOALS
 import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.screens.goals.components.CompletedGoalRow
 import com.qolve.fluyo.presentation.screens.goals.components.ConfettiOverlay
@@ -52,7 +55,7 @@ import com.qolve.fluyo.presentation.screens.goals.components.DepositSheet
 import com.qolve.fluyo.presentation.screens.goals.components.GoalCard
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import com.qolve.fluyo.presentation.theme.FluyoTealLight
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.currencySymbol
 
 @Composable
 fun GoalsScreen(
@@ -61,7 +64,18 @@ fun GoalsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val goalCompletedText = stringResource(R.string.goal_completed_snackbar)
+    val limitReachedText = stringResource(R.string.goals_limit_reached, MAX_ACTIVE_GOALS)
+
+    // HU-07: at the cap, tapping "Nueva meta" surfaces a hint instead of navigating.
+    val onCreateGoalGated: () -> Unit = {
+        if (state.active.size >= MAX_ACTIVE_GOALS) {
+            scope.launch { snackbarHostState.showSnackbar(limitReachedText) }
+        } else {
+            onCreateGoal()
+        }
+    }
 
     LaunchedEffect(state.showConfetti) {
         if (state.showConfetti) {
@@ -81,7 +95,7 @@ fun GoalsScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 ExtendedFloatingActionButton(
-                    onClick = onCreateGoal,
+                    onClick = onCreateGoalGated,
                     icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                     text = { Text(stringResource(R.string.goals_create_cta)) },
                 )
@@ -225,7 +239,7 @@ private fun GoalsHeroCard(active: List<Goal>, completed: List<Goal>) {
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    text = "S/",
+                    text = currencySymbol(),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White.copy(alpha = 0.85f),

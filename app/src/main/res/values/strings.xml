@@ -5,6 +5,34 @@
     <!-- Common -->
     <string name="action_continue">Continuar</string>
     <string name="action_back">Atrás</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_cancel">Cancelar</string>
+
+    <!-- Profile · currency / categories / export / delete (HU-11) -->
+    <string name="profile_currency_label">Moneda</string>
+    <string name="profile_currency_row_subtitle">Cómo se muestran tus montos</string>
+    <string name="profile_currency_dialog_title">Elige tu moneda</string>
+    <string name="profile_categories_label">Categorías</string>
+    <string name="profile_categories_row_subtitle">Crea y edita tus categorías</string>
+    <string name="profile_categories_title">Mis categorías</string>
+    <string name="profile_export_label">Exportar datos (CSV)</string>
+    <string name="profile_export_row_subtitle">Descarga tus gastos en un archivo</string>
+    <string name="profile_export_share_title">Mis gastos en Fluyo</string>
+    <string name="profile_delete_label">Eliminar cuenta</string>
+    <string name="profile_delete_row_subtitle">Borra tu cuenta y todos tus datos</string>
+    <string name="profile_delete_dialog_title">¿Eliminar tu cuenta?</string>
+    <string name="profile_delete_dialog_body">Esto borrará de forma permanente tus gastos, metas, medallas y categorías. Esta acción no se puede deshacer.</string>
+    <string name="profile_delete_confirm">Eliminar</string>
+
+    <!-- Category editor (HU-11) -->
+    <string name="category_add">Agregar categoría</string>
+    <string name="category_edit">Editar</string>
+    <string name="category_delete">Eliminar</string>
+    <string name="category_new_title">Nueva categoría</string>
+    <string name="category_edit_title">Editar categoría</string>
+    <string name="category_name_label">Nombre</string>
+    <string name="category_icon_label">Ícono</string>
+    <string name="category_color_label">Color</string>
     <string name="action_skip">Omitir</string>
     <string name="action_finish">Finalizar</string>
     <string name="action_sign_out">Cerrar sesión</string>
@@ -253,6 +281,7 @@
     <string name="goal_target_inline">de %1$s</string>
     <string name="goal_deadline_label">Hasta el %1$s</string>
     <string name="goal_completed_snackbar">¡Meta completada! 🎉</string>
+    <string name="goals_limit_reached">Llegaste al máximo de %1$d metas activas. Completa o elimina una para crear otra.</string>
     <string name="goals_summary_title">Tu progreso</string>
     <string name="goals_summary_active_one">Tienes 1 meta activa</string>
     <string name="goals_summary_active_other">Tienes %1$d metas activas</string>

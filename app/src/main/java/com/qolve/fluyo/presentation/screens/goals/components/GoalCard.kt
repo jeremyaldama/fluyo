@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.domain.model.Goal
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 // Neutral ramp imports removed in favor of MaterialTheme.colorScheme.* — see ProfileScreen.
@@ -112,7 +113,7 @@ fun GoalCard(
                     // Amount row
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = "S/",
+                            text = currencySymbol(),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = accent.copy(alpha = 0.7f),
                             modifier = Modifier.padding(bottom = 2.dp),

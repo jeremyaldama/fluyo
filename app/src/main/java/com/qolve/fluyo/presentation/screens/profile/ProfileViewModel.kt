@@ -8,19 +8,29 @@ import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.domain.model.UserLevel
 import com.qolve.fluyo.domain.model.UserLevelCatalog
+import android.net.Uri
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.notifications.NudgeOneShot
 import com.qolve.fluyo.notifications.NudgeScheduler
+import com.qolve.fluyo.presentation.util.CsvExporter
+import com.qolve.fluyo.presentation.util.CurrencyState
+import com.qolve.fluyo.presentation.util.SUPPORTED_CURRENCIES
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 data class ProfileUiState(
@@ -36,8 +46,16 @@ data class ProfileUiState(
     val showPhoneDialog: Boolean = false,
     val phoneInput: String = "",
     val isSavingPhone: Boolean = false,
+    /** Currency-picker dialog state. */
+    val showCurrencyDialog: Boolean = false,
+    val currencyInput: String = "PEN",
+    val isSavingCurrency: Boolean = false,
+    /** Delete-account confirmation state. */
+    val showDeleteDialog: Boolean = false,
+    val isDeleting: Boolean = false,
     val errorMessage: String? = null,
 ) {
+    val currency: String get() = user?.currency ?: "PEN"
     val totalPoints: Int get() = badges.sumOf { it.type.points }
     val currentLevel: UserLevel get() = UserLevelCatalog.levelFor(totalPoints)
     val unlockedTypes: Set<BadgeType> get() = badges.map { it.type }.toSet()
@@ -48,13 +66,20 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val badgeRepository: BadgeRepository,
     private val expenseRepository: ExpenseRepository,
+    private val categoryRepository: CategoryRepository,
     private val nudgeScheduler: NudgeScheduler,
     private val nudgeOneShot: NudgeOneShot,
+    private val currencyState: CurrencyState,
+    private val csvExporter: CsvExporter,
 ) : ViewModel() {
 
     private val userState = MutableStateFlow<User?>(null)
     private val streakState = MutableStateFlow(0)
     private val sheet = MutableStateFlow(SheetState())
+
+    /** One-shot CSV export results — the screen collects this and fires the share sheet. */
+    private val csvExports = Channel<Uri>(Channel.BUFFERED)
+    val csvExportEvents: Flow<Uri> = csvExports.receiveAsFlow()
 
     val uiState: StateFlow<ProfileUiState> = combine(
         userState,
@@ -73,6 +98,11 @@ class ProfileViewModel @Inject constructor(
             showPhoneDialog = s.showPhone,
             phoneInput = s.phoneInput,
             isSavingPhone = s.savingPhone,
+            showCurrencyDialog = s.showCurrency,
+            currencyInput = s.currencyInput,
+            isSavingCurrency = s.savingCurrency,
+            showDeleteDialog = s.showDelete,
+            isDeleting = s.deleting,
             errorMessage = s.error,
         )
     }.stateIn(
@@ -186,6 +216,77 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // ─── Currency picker (HU-11) ─────────────────────────────────────────────
+    fun openCurrencyDialog() {
+        sheet.update {
+            it.copy(showCurrency = true, currencyInput = userState.value?.currency ?: "PEN")
+        }
+    }
+
+    fun closeCurrencyDialog() {
+        sheet.update { it.copy(showCurrency = false, savingCurrency = false) }
+    }
+
+    fun onCurrencySelect(code: String) {
+        sheet.update { it.copy(currencyInput = code) }
+    }
+
+    fun saveCurrency() {
+        val code = sheet.value.currencyInput.takeIf { it in SUPPORTED_CURRENCIES } ?: return
+        sheet.update { it.copy(savingCurrency = true, error = null) }
+        viewModelScope.launch {
+            authRepository.updateProfile(currency = code).fold(
+                onSuccess = { updated ->
+                    userState.value = updated
+                    currencyState.set(updated.currency)
+                    sheet.update { it.copy(showCurrency = false, savingCurrency = false) }
+                },
+                onFailure = { e ->
+                    sheet.update { it.copy(savingCurrency = false, error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
+    }
+
+    // ─── CSV export (HU-11) ──────────────────────────────────────────────────
+    fun exportCsv() {
+        viewModelScope.launch {
+            runCatching {
+                val expenses = expenseRepository
+                    .loadByDateRange(LocalDate.of(2000, 1, 1), LocalDate.now())
+                    .getOrDefault(emptyList())
+                val names = categoryRepository.observeCategories().first()
+                    .associate { it.id to it.name }
+                val code = userState.value?.currency ?: "PEN"
+                csvExporter.export(expenses, names, code)
+            }.fold(
+                onSuccess = { uri -> csvExports.send(uri) },
+                onFailure = { e ->
+                    sheet.update { it.copy(error = e.localizedMessage ?: "No se pudo exportar") }
+                },
+            )
+        }
+    }
+
+    // ─── Delete account (HU-11) ──────────────────────────────────────────────
+    fun openDeleteDialog() {
+        sheet.update { it.copy(showDelete = true) }
+    }
+
+    fun closeDeleteDialog() {
+        sheet.update { it.copy(showDelete = false, deleting = false) }
+    }
+
+    fun deleteAccount() {
+        sheet.update { it.copy(deleting = true, error = null) }
+        viewModelScope.launch {
+            // On success the auth state flips to SignedOut and RootViewModel routes to login.
+            authRepository.deleteAccount().onFailure { e ->
+                sheet.update { it.copy(deleting = false, error = e.localizedMessage ?: "Error") }
+            }
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch { authRepository.signOut() }
     }
@@ -253,6 +354,11 @@ class ProfileViewModel @Inject constructor(
         val showPhone: Boolean = false,
         val phoneInput: String = "",
         val savingPhone: Boolean = false,
+        val showCurrency: Boolean = false,
+        val currencyInput: String = "PEN",
+        val savingCurrency: Boolean = false,
+        val showDelete: Boolean = false,
+        val deleting: Boolean = false,
         val error: String? = null,
     )
 }

@@ -2,6 +2,8 @@ package com.qolve.fluyo.data.repository
 
 import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.CategoryDto
+import com.qolve.fluyo.data.dto.CategoryInsertDto
+import com.qolve.fluyo.data.dto.CategoryUpdateDto
 import com.qolve.fluyo.data.mapper.toDomain
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.repository.AuthRepository
@@ -38,5 +40,54 @@ class SupabaseCategoryRepository @Inject constructor(
             }
             .decodeList<CategoryDto>()
             .map { it.toDomain() }
+    }
+
+    override suspend fun createCategory(
+        name: String,
+        icon: String,
+        color: String,
+    ): Result<Category> = runCatching {
+        val userId = authRepository.currentUserId() ?: error("No authenticated user")
+        val nextOrder = (state.value.maxOfOrNull { it.displayOrder } ?: 0) + 1
+        val created = client.postgrest.from("categories")
+            .insert(
+                CategoryInsertDto(
+                    userId = userId,
+                    name = name.trim(),
+                    icon = icon,
+                    color = color,
+                    isDefault = false,
+                    displayOrder = nextOrder,
+                ),
+            ) { select() }
+            .decodeSingle<CategoryDto>()
+            .toDomain()
+        refresh()
+        created
+    }
+
+    override suspend fun updateCategory(
+        id: String,
+        name: String,
+        icon: String,
+        color: String,
+    ): Result<Category> = runCatching {
+        val updated = client.postgrest.from("categories")
+            .update(
+                CategoryUpdateDto(name = name.trim(), icon = icon, color = color),
+            ) {
+                filter { eq("id", id) }
+                select()
+            }
+            .decodeSingle<CategoryDto>()
+            .toDomain()
+        refresh()
+        updated
+    }
+
+    override suspend fun deleteCategory(id: String): Result<Unit> = runCatching {
+        client.postgrest.from("categories")
+            .delete { filter { eq("id", id) } }
+        refresh()
     }
 }

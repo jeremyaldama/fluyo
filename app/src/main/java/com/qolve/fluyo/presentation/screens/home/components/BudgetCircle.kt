@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.MonthlyBreakdown
+import com.qolve.fluyo.presentation.theme.AccentAmber
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 import com.qolve.fluyo.presentation.theme.FluyoCoral
 import com.qolve.fluyo.presentation.theme.FluyoTeal
@@ -35,7 +36,8 @@ import com.qolve.fluyo.presentation.theme.FluyoTeal
 // dark canvas doesn't swallow the "TE QUEDA", "S/" prefix, and "de S/ X" caption.
 import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
-import com.qolve.fluyo.presentation.util.formatPen
+import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.money
 import androidx.compose.ui.res.stringResource
 import kotlin.math.cos
 import kotlin.math.sin
@@ -67,7 +69,14 @@ fun BudgetCircle(
         label = "budgetArc",
     )
 
-    val arcColor = TealRamp500
+    // Traffic-light arc (HU-06): green while healthy, amber as the budget tightens,
+    // coral once most of it is spent. Keyed off the target percentage (not the animated
+    // value) so the color is stable rather than sweeping through ramps during the fill.
+    val arcColor = when {
+        breakdown.percentageUsed < 0.5f -> TealRamp500
+        breakdown.percentageUsed < 0.8f -> AccentAmber
+        else -> CoralRamp500
+    }
     val trackColor = TealRamp100
     val strokeWidthDp = 18.dp
 
@@ -141,7 +150,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
             Text(
-                text = "S/",
+                text = currencySymbol(),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
@@ -170,7 +179,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
         }
         Spacer(Modifier.height(2.dp))
         Text(
-            text = "de " + formatPen(breakdown.monthlyBudget),
+            text = "de " + money(breakdown.monthlyBudget),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
@@ -200,7 +209,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Top) {
             Text(
-                text = "S/",
+                text = currencySymbol(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),

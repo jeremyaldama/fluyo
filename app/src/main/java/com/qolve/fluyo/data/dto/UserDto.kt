@@ -33,6 +33,7 @@ data class UserUpsertDto(
 data class UserProfileUpdateDto(
     @SerialName("monthly_budget") val monthlyBudget: Double? = null,
     @SerialName("phone_number") val phoneNumber: String? = null,
+    val currency: String? = null,
 )
 
 @Serializable

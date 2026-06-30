@@ -2,11 +2,14 @@ package com.qolve.fluyo.presentation.screens.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qolve.fluyo.domain.repository.GoalRepository
 import com.qolve.fluyo.domain.usecase.CreateGoalUseCase
+import com.qolve.fluyo.domain.usecase.CreateGoalUseCase.Companion.MAX_ACTIVE_GOALS
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -31,6 +34,7 @@ data class CreateGoalUiState(
 @HiltViewModel
 class CreateGoalViewModel @Inject constructor(
     private val createGoal: CreateGoalUseCase,
+    private val goalRepository: GoalRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CreateGoalUiState())
@@ -72,6 +76,18 @@ class CreateGoalViewModel @Inject constructor(
         val target = current.parsedTarget ?: return
         _state.update { it.copy(isSaving = true) }
         viewModelScope.launch {
+            // HU-07: enforce the active-goals cap. Checked here (not just in the UI) so the
+            // limit holds even if the screen is reached with the cap already met.
+            if (goalRepository.observeActiveGoals().first().size >= MAX_ACTIVE_GOALS) {
+                _state.update {
+                    it.copy(
+                        isSaving = false,
+                        errorMessage = "Llegaste al máximo de $MAX_ACTIVE_GOALS metas activas. " +
+                            "Completa o elimina una para crear otra.",
+                    )
+                }
+                return@launch
+            }
             val result = createGoal(current.name.trim(), target, current.deadline)
             result.fold(
                 onSuccess = { _state.update { it.copy(isSaving = false, savedOk = true) } },
