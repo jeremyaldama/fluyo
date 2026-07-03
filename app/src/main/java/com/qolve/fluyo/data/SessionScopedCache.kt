@@ -4,7 +4,7 @@ package com.qolve.fluyo.data
  * Anything that holds per-user state in memory or on disk and would leak across users
  * if not reset on sign-out. Implementations register themselves into a Hilt multibinding
  * set; [com.qolve.fluyo.data.repository.SupabaseAuthRepository.signOut] iterates the set
- * before tearing down the Supabase session.
+ * before tearing down the Supabase session.<
  *
  * **Why this exists.** Every repository in this app is `@Singleton` and holds a
  * `MutableStateFlow` cache of the current user's data. When user A signs out and user B

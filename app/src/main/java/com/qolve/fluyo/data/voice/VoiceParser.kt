@@ -21,13 +21,15 @@ object VoiceParser {
     private val amountRegex = Regex("""(\d{1,3}(?:[.,]\d{1,2})?)""")
 
     // Keyword → canonical default-category name (matches the seed_default_categories list).
+    // The `(?U)` flag makes `\b` Unicode-aware so accented keywords (café, menú, útiles)
+    // still match at word boundaries — without it Java's ASCII `\b` fails next to é/ú/í.
     private val categoryKeywords: List<Pair<Regex, String>> = listOf(
-        Regex("""\b(almuerzo|comida|desayuno|cena|menú|menu|restaurante|comí|comi)\b""") to "Comida",
-        Regex("""\b(taxi|bus|uber|combi|pasaje|micro|tren|metro|transporte)\b""") to "Transporte",
-        Regex("""\b(cine|película|pelicula|juego|videojuego|concierto|fiesta|entretenimiento)\b""") to "Entretenimiento",
-        Regex("""\b(café|cafe|snack|galleta|gaseosa|kiosko|propina)\b""") to "Snacks",
-        Regex("""\b(farmacia|medicina|doctor|salud|clínica|clinica|pastilla)\b""") to "Salud",
-        Regex("""\b(libro|curso|útiles|utiles|universidad|matrícula|matricula|educación|educacion)\b""") to "Educación",
+        Regex("""(?U)\b(almuerzo|comida|desayuno|cena|menú|menu|restaurante|comí|comi)\b""") to "Comida",
+        Regex("""(?U)\b(taxi|bus|uber|combi|pasaje|micro|tren|metro|transporte)\b""") to "Transporte",
+        Regex("""(?U)\b(cine|película|pelicula|juego|videojuego|concierto|fiesta|entretenimiento)\b""") to "Entretenimiento",
+        Regex("""(?U)\b(café|cafe|snack|galleta|gaseosa|kiosko|propina)\b""") to "Snacks",
+        Regex("""(?U)\b(farmacia|medicina|doctor|salud|clínica|clinica|pastilla)\b""") to "Salud",
+        Regex("""(?U)\b(libro|curso|útiles|utiles|universidad|matrícula|matricula|educación|educacion)\b""") to "Educación",
     )
 
     fun parse(transcript: String): VoiceParsed {
