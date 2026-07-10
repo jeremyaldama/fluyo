@@ -110,6 +110,8 @@ class OcrConfirmViewModel @Inject constructor(
                 amountInput = parsed.amount?.let { formatAmountForInput(it) } ?: current.amountInput,
                 recipient = parsed.recipient ?: current.recipient,
                 date = parsed.date ?: current.date,
+                // The voucher's message chip ("delicia") becomes the description prefill.
+                description = parsed.note ?: current.description,
                 autoDetected = parsed.detected,
                 parseError = parsed.amount == null,
             )

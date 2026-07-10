@@ -25,11 +25,13 @@ class YapeParser @Inject constructor() {
         val amount = extractAmount(rawText, lines)?.also { detected += DetectedField.AMOUNT }
         val recipient = extractRecipient(lines)?.also { detected += DetectedField.RECIPIENT }
         val date = extractDate(rawText)?.also { detected += DetectedField.DATE }
+        val note = extractNote(lines)?.also { detected += DetectedField.NOTE }
 
         return ParsedReceipt(
             amount = amount,
             recipient = recipient,
             date = date,
+            note = note,
             rawText = rawText,
             detected = detected,
         )
@@ -103,6 +105,14 @@ class YapeParser @Inject constructor() {
                 }
             }
         }
+
+        // New Yape layout (2026): "¡Yapeaste!" headline (no trailing "a"), amount, then
+        // the recipient alone on its own line right above the date/time row.
+        val dateLineIdx = lines.indexOfFirst { isDateOrTimeLine(it) }
+        if (dateLineIdx > 0) {
+            val above = lines[dateLineIdx - 1]
+            if (looksLikeName(above)) return cleanName(above)
+        }
         return null
     }
 
@@ -118,6 +128,58 @@ class YapeParser @Inject constructor() {
 
     private fun cleanName(text: String): String =
         text.replace(Regex("""[^\p{L}\s]"""), "").trim().take(80)
+
+    // ── Note (the voucher's free-text message chip, e.g. "delicia") ────────────
+
+    private val timeRegex = Regex("""\d{1,2}:\d{2}""")
+    // `(?iu)`: the `u` makes case-insensitivity Unicode-aware — plain `(?i)` is
+    // ASCII-only in Java, so `[oó]` would not match the "Ó" in "CÓDIGO".
+    private val stopLabelRegex = Regex(
+        """(?iu)c[oó]digo\s+de\s+seguridad|datos\s+de\s+la\s+transacci|nro\.?\s+de|n[uú]mero\s+de|destino|comisi[oó]n|operaci[oó]n""",
+    )
+
+    private fun isDateOrTimeLine(line: String): Boolean =
+        timeRegex.containsMatchIn(line) ||
+            Regex("""\d{1,2}[/-]\d{1,2}[/-]\d{2,4}""").containsMatchIn(line) ||
+            Regex("""(?i)\d{1,2}\s*(?:de\s+)?[a-záéíóú]{3,12}\.?\s*(?:de(?:l)?\s*)?\d{2,4}""").containsMatchIn(line)
+
+    /**
+     * The note chip sits between the date/time row and the security-code / transaction
+     * block. Conservative: return the first free-text line in that window, or null —
+     * never a label, an amount, a name-cased header, or a digit run (security code).
+     */
+    private fun extractNote(lines: List<String>): String? {
+        val dateIdx = lines.indexOfFirst { isDateOrTimeLine(it) }
+        if (dateIdx == -1) return null
+
+        for (i in (dateIdx + 1) until lines.size) {
+            val line = lines[i]
+            if (stopLabelRegex.containsMatchIn(line)) return null
+            val candidate = line.trim()
+            val hasLetters = candidate.any { it.isLetter() }
+            val isAmountish = candidate.contains("S/") || candidate.contains("S /")
+            if (hasLetters && !isAmountish && candidate.length in 2..60) {
+                return cleanNote(candidate)
+            }
+            // Digit runs (security code) or symbols: keep scanning until a stop label.
+        }
+        return null
+    }
+
+    /**
+     * The chip's message icon often OCRs as a stray leading letter ("F delicia").
+     * Drop a leading single-letter token unless it's a real one-letter Spanish word.
+     */
+    private fun cleanNote(raw: String): String? {
+        var note = raw.trim()
+        val tokens = note.split(Regex("""\s+"""))
+        if (tokens.size >= 2 && tokens[0].length == 1 &&
+            tokens[0].lowercase() !in setOf("a", "e", "o", "u", "y")
+        ) {
+            note = tokens.drop(1).joinToString(" ")
+        }
+        return note.take(60).takeIf { it.length >= 2 }
+    }
 
     private fun extractDate(rawText: String): LocalDate? {
         // Try common Latin-American formats: "DD/MM/YYYY", "DD-MM-YYYY", and Spanish month names.
@@ -149,8 +211,9 @@ class YapeParser @Inject constructor() {
             "nov" to 11, "noviembre" to 11,
             "dic" to 12, "diciembre" to 12,
         )
+        // `\.?` after the month: abbreviated months print with a period ("27 jun. 2026").
         val spanishDateRegex = Regex(
-            """(\d{1,2})\s*(?:de\s+)?([a-záéíóú]{3,12})\s*(?:de(?:l)?\s*)?(\d{2,4})""",
+            """(\d{1,2})\s*(?:de\s+)?([a-záéíóú]{3,12})\.?\s*(?:de(?:l)?\s*)?(\d{2,4})""",
             RegexOption.IGNORE_CASE,
         )
         spanishDateRegex.findAll(rawText).forEach { match ->
