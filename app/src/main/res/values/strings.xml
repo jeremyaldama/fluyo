@@ -352,7 +352,7 @@
     <string name="home_pace_over_chip">Pasaste tu plan · ajusta el ritmo</string>
     <string name="home_pace_no_budget_chip">Define un presupuesto para ver tu ritmo</string>
     <string name="home_stat_week">ESTA SEMANA</string>
-    <string name="home_stat_avg">PROMEDIO</string>
+    <string name="home_stat_avg">GASTO PROM.</string>
     <string name="home_stat_next_pay">PRÓX. COBRO</string>
     <string name="home_stat_per_day">/día</string>
     <string name="home_stat_days_short">%1$d d</string>
@@ -385,8 +385,8 @@
     <string name="add_option_manual_short">Manual</string>
     <string name="add_option_manual_hint">tecla a tecla</string>
     <string name="add_option_voice_short">Voz</string>
-    <string name="add_option_voice_hint">\"15 soles en el menú\"</string>
-    <string name="home_recent_expenses">Movimientos recientes</string>´
+    <string name="add_option_voice_hint">“15 soles en el menú”</string>
+    <string name="home_recent_expenses">Movimientos recientes</string>
     <string name="home_empty_title">Aún no registras gastos</string>
     <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
 

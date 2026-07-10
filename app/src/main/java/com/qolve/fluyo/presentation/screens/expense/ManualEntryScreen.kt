@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -95,11 +96,15 @@ fun ManualEntryScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
+        // imePadding keeps the Guardar button visible above the numeric keyboard, which
+        // opens on entry (amount auto-focus) — core to the ≤5 s manual flow. Horizontal
+        // padding is applied per-child (not on the Column) so the category carousel can
+        // bleed to the true screen edge and clip there, reading clearly as scrollable.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp),
+                .imePadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(8.dp))
@@ -107,12 +112,14 @@ fun ManualEntryScreen(
                 value = state.amountInput,
                 onChange = viewModel::onAmountChange,
                 focusRequester = amountFocus,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
             Text(
                 text = stringResource(R.string.manual_entry_category_label),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
             CategoryPicker(
                 categories = state.categories,
@@ -125,7 +132,9 @@ fun ManualEntryScreen(
                 onValueChange = viewModel::onDescriptionChange,
                 label = { Text(stringResource(R.string.manual_entry_description_label)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
             )
 
             Spacer(Modifier.weight(1f))
@@ -136,7 +145,7 @@ fun ManualEntryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .padding(bottom = 0.dp),
+                    .padding(horizontal = 24.dp),
                 shape = RoundedCornerShape(16.dp),
             ) {
                 if (state.isSaving) {
@@ -159,9 +168,10 @@ private fun AmountInput(
     value: String,
     onChange: (String) -> Unit,
     focusRequester: FocusRequester,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -201,7 +211,10 @@ private fun CategoryPicker(
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 4.dp),
+        // Full-bleed carousel: the row spans the whole screen and chips clip at the true
+        // edge (standard scroll affordance); this padding keeps the first/last chip
+        // aligned with the 24.dp content margin of the rest of the form.
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
     ) {
         items(categories, key = { it.id }) { category ->
             CategoryChip(

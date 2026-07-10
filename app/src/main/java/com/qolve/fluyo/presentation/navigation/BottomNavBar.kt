@@ -1,7 +1,5 @@
 package com.qolve.fluyo.presentation.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -11,7 +9,6 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -20,21 +17,15 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.qolve.fluyo.presentation.theme.BrandDot
-import com.qolve.fluyo.presentation.theme.CoralRamp500
 
 /**
  * Fluyo bottom navigation.
  *
- * **Two-layer icon rendering.** Material's `Icon` flattens a vector to a single tint color
- * — useful for theme-aware ink, fatal for our two-tone glyphs. We split each nav icon:
- *
- *   1. The outline (`FluyoIcons.Outline.*`) renders through `Icon` so its color follows
- *      `LocalContentColor.current` — dark text on light surface in light mode, light text
- *      on dark surface in dark mode.
- *   2. A separate [BrandDot] overlay sits in the top-right corner of the icon's bounding
- *      box, painted in static coral. The dot stays brand-true regardless of theme state
- *      or selection state.
+ * Icons render through `Icon` so their color follows `LocalContentColor.current` — dark
+ * text on light surface in light mode, light text on dark surface in dark mode. No coral
+ * [com.qolve.fluyo.presentation.theme.BrandDot] here on purpose: a dot over a nav icon is
+ * Android's notification-badge convention, and a permanent decorative one reads as "you
+ * have something pending" on all four tabs. The brand dot lives on the logo and the FAB.
  *
  * **Selection state** comes from the colors below — selected gets the brand primary text +
  * the soft primary-container indicator pill; unselected uses `onSurfaceVariant`. Both flip
@@ -84,21 +75,9 @@ fun BottomNavBar(navController: NavHostController) {
 
 @Composable
 private fun NavGlyph(icon: BottomTab) {
-    Box(modifier = Modifier.size(24.dp)) {
-        Icon(
-            imageVector = icon.icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-        )
-        // Coral accent dot anchored to the top-right of the icon's bounding box. The
-        // negative offsets pull it slightly above + outside so it reads as a stamp on the
-        // glyph rather than a colored pixel inside it.
-        BrandDot(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 2.dp, y = (-2).dp),
-            size = 5.dp,
-            color = CoralRamp500,
-        )
-    }
+    Icon(
+        imageVector = icon.icon,
+        contentDescription = null,
+        modifier = Modifier.size(24.dp),
+    )
 }

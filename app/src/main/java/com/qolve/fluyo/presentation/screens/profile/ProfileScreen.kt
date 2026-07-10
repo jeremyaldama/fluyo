@@ -76,6 +76,7 @@ import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.emoji
+import com.qolve.fluyo.presentation.util.grayscale
 import com.qolve.fluyo.presentation.util.money
 import com.qolve.fluyo.presentation.util.levelNameRes
 import com.qolve.fluyo.presentation.util.nameRes
@@ -590,6 +591,9 @@ private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
             Text(
                 text = type.emoji(),
                 style = TextStyle(fontSize = 32.sp),
+                // Grayscale is what actually signals "locked" — emoji keep their full
+                // palette under the container alpha alone.
+                modifier = Modifier.grayscale(enabled = !unlocked),
             )
             Text(
                 text = stringResource(type.nameRes()),

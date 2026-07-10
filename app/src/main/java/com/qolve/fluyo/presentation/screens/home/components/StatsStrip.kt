@@ -75,11 +75,13 @@ fun StatsStrip(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
-        StatCard(
-            label = stringResource(R.string.home_stat_next_pay),
-            modifier = Modifier.weight(1f),
-        ) {
-            if (daysUntilNextPay != null) {
+        // Hidden while there is no salary model feeding it — a permanent "—" reads as
+        // broken. HomeScreen still passes null; the card returns when the data exists.
+        if (daysUntilNextPay != null) {
+            StatCard(
+                label = stringResource(R.string.home_stat_next_pay),
+                modifier = Modifier.weight(1f),
+            ) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = daysUntilNextPay.toString(),
@@ -96,12 +98,6 @@ fun StatsStrip(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
                 }
-            } else {
-                Text(
-                    text = stringResource(R.string.home_stat_days_placeholder),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
             }
         }
     }

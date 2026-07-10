@@ -34,7 +34,6 @@ import com.qolve.fluyo.presentation.theme.FluyoCoral
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 // Switched off MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f) — center labels read from MaterialTheme.colorScheme so the
 // dark canvas doesn't swallow the "TE QUEDA", "S/" prefix, and "de S/ X" caption.
-import com.qolve.fluyo.presentation.theme.TealRamp100
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.money
@@ -77,7 +76,9 @@ fun BudgetCircle(
         breakdown.percentageUsed < 0.8f -> AccentAmber
         else -> CoralRamp500
     }
-    val trackColor = TealRamp100
+    // primaryContainer = TealRamp100 in light (unchanged) and deep teal in dark, so the
+    // track stops glowing near-white on dark surfaces.
+    val trackColor = MaterialTheme.colorScheme.primaryContainer
     val strokeWidthDp = 18.dp
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
