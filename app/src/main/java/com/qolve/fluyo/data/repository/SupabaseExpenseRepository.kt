@@ -4,6 +4,7 @@ import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.dto.CurrentMonthBudgetDto
 import com.qolve.fluyo.data.dto.ExpenseDto
 import com.qolve.fluyo.data.dto.ExpenseInsertDto
+import com.qolve.fluyo.data.dto.ExpenseUpdateDto
 import com.qolve.fluyo.data.mapper.toDomain
 import com.qolve.fluyo.domain.model.Expense
 import com.qolve.fluyo.domain.model.ExpenseSource
@@ -78,6 +79,48 @@ class SupabaseExpenseRepository @Inject constructor(
         loadBreakdown(userId)
 
         saved
+    }
+
+    override suspend fun getById(id: String): Result<Expense?> = runCatching {
+        client.postgrest.from("expenses")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<ExpenseDto>()
+            ?.toDomain()
+    }
+
+    override suspend fun update(
+        id: String,
+        amount: Double,
+        categoryId: String?,
+        description: String?,
+        expenseDate: LocalDate,
+    ): Result<Expense> = runCatching {
+        val userId = authRepository.currentUserId() ?: error("No authenticated user")
+        val updated = client.postgrest.from("expenses")
+            .update(
+                ExpenseUpdateDto(
+                    amount = amount,
+                    categoryId = categoryId,
+                    description = description?.takeIf { it.isNotBlank() },
+                    expenseDate = expenseDate.toString(),
+                ),
+            ) {
+                filter { eq("id", id) }
+                select()
+            }
+            .decodeSingle<ExpenseDto>()
+            .toDomain()
+        loadExpenses(userId)
+        loadBreakdown(userId)
+        updated
+    }
+
+    override suspend fun delete(id: String): Result<Unit> = runCatching {
+        val userId = authRepository.currentUserId() ?: error("No authenticated user")
+        client.postgrest.from("expenses")
+            .delete { filter { eq("id", id) } }
+        loadExpenses(userId)
+        loadBreakdown(userId)
     }
 
     private suspend fun loadExpenses(userId: String) {

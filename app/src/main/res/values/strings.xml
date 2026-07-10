@@ -386,6 +386,7 @@
     <string name="add_option_manual_hint">tecla a tecla</string>
     <string name="add_option_voice_short">Voz</string>
     <string name="add_option_voice_hint">“15 soles en el menú”</string>
+    <string name="add_option_scan_camera">Usar cámara</string>
     <string name="home_recent_expenses">Movimientos recientes</string>
     <string name="home_empty_title">Aún no registras gastos</string>
     <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
@@ -409,9 +410,20 @@
 
     <!-- Manual entry -->
     <string name="manual_entry_title">Nuevo gasto</string>
+    <string name="manual_entry_edit_title">Editar gasto</string>
     <string name="manual_entry_category_label">Categoría</string>
     <string name="manual_entry_description_label">Descripción (opcional)</string>
     <string name="manual_entry_save">Guardar</string>
+    <string name="expense_delete_action">Eliminar gasto</string>
+    <string name="all_expenses_title">Movimientos</string>
+    <string name="all_expenses_empty">Aún no registras gastos</string>
+    <string name="all_expenses_count">%1$d movimientos en total</string>
+    <string name="expense_delete_confirm_title">¿Eliminar este gasto?</string>
+    <string name="expense_delete_confirm_body">Se restará de tus totales. Esta acción no se puede deshacer.</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="goal_delete_action">Eliminar meta</string>
+    <string name="goal_delete_confirm_title">¿Eliminar esta meta?</string>
+    <string name="goal_delete_confirm_body">Se eliminará junto con el historial de sus depósitos. Esta acción no se puede deshacer.</string>
 
     <!-- Expense row -->
     <string name="expense_untitled">Gasto</string>

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.ExpenseSource
 import com.qolve.fluyo.domain.repository.CategoryRepository
+import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.domain.usecase.RegisterExpenseUseCase
 import com.qolve.fluyo.data.badge.BadgeEngine
 import com.qolve.fluyo.data.voice.VoiceParser
@@ -29,6 +30,7 @@ data class ManualEntryUiState(
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val savedOk: Boolean = false,
+    val isEditing: Boolean = false,
 ) {
     val parsedAmount: Double?
         get() = amountInput
@@ -44,6 +46,7 @@ data class ManualEntryUiState(
 class ManualEntryViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val registerExpense: RegisterExpenseUseCase,
+    private val expenseRepository: ExpenseRepository,
     private val appEvents: AppEvents,
     private val badgeEngine: BadgeEngine,
     savedStateHandle: SavedStateHandle,
@@ -55,12 +58,17 @@ class ManualEntryViewModel @Inject constructor(
     private val prefillAmount: String = savedStateHandle.get<String>("amount").orEmpty()
     private val prefillDesc: String = savedStateHandle.get<String>("desc").orEmpty()
 
-    private val _state = MutableStateFlow(ManualEntryUiState())
+    // Edit mode — set when the screen is opened from an existing expense row.
+    private val expenseId: String? =
+        savedStateHandle.get<String>("expenseId")?.takeIf { it.isNotBlank() }
+
+    private val _state = MutableStateFlow(ManualEntryUiState(isEditing = expenseId != null))
     val state: StateFlow<ManualEntryUiState> = _state.asStateFlow()
 
     init {
         if (prefillAmount.isNotBlank()) onAmountChange(prefillAmount)
         if (prefillDesc.isNotBlank()) onDescriptionChange(prefillDesc)
+        expenseId?.let { loadForEdit(it) }
 
         // For voice, guess a category from the dictated text (HU-05). Applied once the
         // category list loads, and only if the user hasn't already picked one.
@@ -82,6 +90,41 @@ class ManualEntryViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    private fun loadForEdit(id: String) {
+        viewModelScope.launch {
+            expenseRepository.getById(id).getOrNull()?.let { expense ->
+                _state.update {
+                    it.copy(
+                        amountInput = java.math.BigDecimal.valueOf(expense.amount)
+                            .stripTrailingZeros().toPlainString(),
+                        description = expense.description.orEmpty(),
+                        selectedCategoryId = expense.categoryId ?: it.selectedCategoryId,
+                        date = expense.expenseDate,
+                    )
+                }
+            }
+        }
+    }
+
+    fun onDateChange(value: LocalDate) {
+        _state.update { it.copy(date = value) }
+    }
+
+    fun delete() {
+        val id = expenseId ?: return
+        _state.update { it.copy(isSaving = true, errorMessage = null) }
+        viewModelScope.launch {
+            expenseRepository.delete(id).fold(
+                onSuccess = { _state.update { it.copy(isSaving = false, savedOk = true) } },
+                onFailure = { e ->
+                    _state.update {
+                        it.copy(isSaving = false, errorMessage = e.localizedMessage ?: "Error")
+                    }
+                },
+            )
         }
     }
 
@@ -117,19 +160,32 @@ class ManualEntryViewModel @Inject constructor(
 
         _state.update { it.copy(isSaving = true, errorMessage = null) }
         viewModelScope.launch {
-            val result = registerExpense(
-                amount = amount,
-                categoryId = categoryId,
-                description = current.description.takeIf { it.isNotBlank() },
-                expenseDate = current.date,
-                source = source,
-            )
+            val result = if (expenseId != null) {
+                // Edit: silent update — no celebration event, no badge re-check.
+                expenseRepository.update(
+                    id = expenseId,
+                    amount = amount,
+                    categoryId = categoryId,
+                    description = current.description.takeIf { it.isNotBlank() },
+                    expenseDate = current.date,
+                )
+            } else {
+                registerExpense(
+                    amount = amount,
+                    categoryId = categoryId,
+                    description = current.description.takeIf { it.isNotBlank() },
+                    expenseDate = current.date,
+                    source = source,
+                )
+            }
             result.fold(
                 onSuccess = { saved ->
-                    appEvents.emit(
-                        AppEvent.ExpenseSaved(saved.amount, AppEvent.ExpenseSaved.Source.MANUAL),
-                    )
-                    runCatching { badgeEngine.checkAfterExpense() }
+                    if (expenseId == null) {
+                        appEvents.emit(
+                            AppEvent.ExpenseSaved(saved.amount, AppEvent.ExpenseSaved.Source.MANUAL),
+                        )
+                        runCatching { badgeEngine.checkAfterExpense() }
+                    }
                     _state.update { it.copy(isSaving = false, savedOk = true) }
                 },
                 onFailure = { e ->

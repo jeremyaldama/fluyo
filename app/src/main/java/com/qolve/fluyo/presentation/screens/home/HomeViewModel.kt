@@ -62,6 +62,9 @@ class HomeViewModel @Inject constructor(
         initialValue = HomeUiState(),
     )
 
+    /** True while a user-initiated pull-to-refresh is in flight. */
+    val isRefreshing = MutableStateFlow(false)
+
     init {
         refresh()
         viewModelScope.launch {
@@ -73,8 +76,10 @@ class HomeViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
+            isRefreshing.value = true
             categoryRepository.refresh()
             expenseRepository.refresh()
+            isRefreshing.value = false
         }
     }
 }

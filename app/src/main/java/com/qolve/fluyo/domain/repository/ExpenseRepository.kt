@@ -24,6 +24,20 @@ interface ExpenseRepository {
         imageUrl: String? = null,
     ): Result<Expense>
 
+    /** Single expense lookup — used by the edit screen. Null when not found / not owned. */
+    suspend fun getById(id: String): Result<Expense?>
+
+    /** Updates the user-editable fields; source/recipient/image are preserved. */
+    suspend fun update(
+        id: String,
+        amount: Double,
+        categoryId: String?,
+        description: String?,
+        expenseDate: LocalDate,
+    ): Result<Expense>
+
+    suspend fun delete(id: String): Result<Unit>
+
     /**
      * Returns the current "streak" — the count of consecutive days, ending today, on which
      * the user has registered at least one expense. Today missing → streak is 0. Used by

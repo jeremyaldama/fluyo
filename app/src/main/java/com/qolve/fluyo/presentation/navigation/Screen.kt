@@ -11,10 +11,13 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val MAIN = "main"
     const val MANUAL_ENTRY = "manual_entry"
-    // Optional prefill args (used by voice entry, HU-05). Plain "manual_entry" still matches.
-    const val MANUAL_ENTRY_ROUTE = "manual_entry?amount={amount}&desc={desc}&src={src}"
+    // Optional prefill args (used by voice entry, HU-05) and edit mode (expenseId).
+    // Plain "manual_entry" still matches.
+    const val MANUAL_ENTRY_ROUTE = "manual_entry?amount={amount}&desc={desc}&src={src}&expenseId={expenseId}"
     fun manualEntryPrefilled(amount: String, desc: String, src: String): String =
         "manual_entry?amount=$amount&desc=${android.net.Uri.encode(desc)}&src=$src"
+    fun editExpense(expenseId: String): String = "manual_entry?expenseId=$expenseId"
+    const val ALL_EXPENSES = "all_expenses"
     const val SCAN_CONFIRM = "scan_confirm"
     const val SCAN_CONFIRM_ROUTE = "$SCAN_CONFIRM/{uri}"
     fun scanConfirm(encodedUri: String) = "$SCAN_CONFIRM/$encodedUri"

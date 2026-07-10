@@ -1,6 +1,7 @@
 package com.qolve.fluyo.presentation.screens.home.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,12 +37,15 @@ fun ExpenseRow(
     expense: Expense,
     category: Category?,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     val swatchColor = category?.let { parseHexColor(it.color) } ?: MaterialTheme.colorScheme.outline
     val icon = iconForToken(category?.icon ?: "tag")
 
     Row(
-        modifier = modifier.padding(vertical = 10.dp),
+        modifier = modifier
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

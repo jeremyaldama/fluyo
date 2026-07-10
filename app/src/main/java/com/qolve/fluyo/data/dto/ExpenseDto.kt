@@ -29,6 +29,15 @@ data class ExpenseInsertDto(
     @SerialName("image_url") val imageUrl: String? = null,
 )
 
+/** Partial update for user-editable fields; source/recipient/image are preserved. */
+@Serializable
+data class ExpenseUpdateDto(
+    val amount: Double,
+    @SerialName("category_id") val categoryId: String? = null,
+    val description: String? = null,
+    @SerialName("expense_date") val expenseDate: String,
+)
+
 @Serializable
 data class CurrentMonthBudgetDto(
     @SerialName("user_id") val userId: String,

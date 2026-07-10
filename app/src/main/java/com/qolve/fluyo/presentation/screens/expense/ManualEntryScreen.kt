@@ -22,22 +22,33 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +67,10 @@ import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,9 +82,12 @@ fun ManualEntryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val amountFocus = remember { FocusRequester() }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        amountFocus.requestFocus()
+    LaunchedEffect(state.isEditing) {
+        // On edit the user usually tweaks one field — don't force the keyboard open.
+        if (!state.isEditing) amountFocus.requestFocus()
     }
 
     LaunchedEffect(state.savedOk) {
@@ -86,10 +104,28 @@ fun ManualEntryScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.manual_entry_title)) },
+                title = {
+                    Text(
+                        stringResource(
+                            if (state.isEditing) R.string.manual_entry_edit_title
+                            else R.string.manual_entry_title,
+                        ),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                },
+                actions = {
+                    if (state.isEditing) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.expense_delete_action),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 },
             )
@@ -137,6 +173,18 @@ fun ManualEntryScreen(
                     .padding(horizontal = 24.dp),
             )
 
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Outlined.CalendarToday, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(text = state.date.format(expenseDateFmt))
+            }
+
             Spacer(Modifier.weight(1f))
 
             Button(
@@ -160,8 +208,61 @@ fun ManualEntryScreen(
             }
             Spacer(Modifier.height(16.dp))
         }
+
+        if (showDatePicker) {
+            val initialMillis = state.date
+                .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pickerState.selectedDateMillis?.let { ms ->
+                            viewModel.onDateChange(
+                                Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate(),
+                            )
+                        }
+                        showDatePicker = false
+                    }) { Text(stringResource(R.string.action_save)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            ) {
+                DatePicker(state = pickerState)
+            }
+        }
+
+        if (showDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text(stringResource(R.string.expense_delete_confirm_title)) },
+                text = { Text(stringResource(R.string.expense_delete_confirm_body)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteConfirm = false
+                        viewModel.delete()
+                    }) {
+                        Text(
+                            stringResource(R.string.action_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            )
+        }
     }
 }
+
+private val expenseDateFmt: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d 'de' MMMM, yyyy", Locale.forLanguageTag("es-PE"))
 
 @Composable
 private fun AmountInput(

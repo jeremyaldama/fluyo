@@ -2,6 +2,8 @@ package com.qolve.fluyo.presentation.screens.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +45,8 @@ import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
 import com.qolve.fluyo.domain.model.MonthlyBreakdown
 import com.qolve.fluyo.presentation.screens.home.components.BudgetCircle
-import com.qolve.fluyo.presentation.screens.home.components.ExpenseRow
+import com.qolve.fluyo.presentation.screens.home.components.DayExpensesCard
+import com.qolve.fluyo.presentation.screens.home.components.DayHeader
 import com.qolve.fluyo.presentation.screens.home.components.HomeHeader
 import com.qolve.fluyo.presentation.screens.home.components.StatsStrip
 import com.qolve.fluyo.presentation.theme.AccentLime
@@ -74,9 +77,12 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onAvatarClick: () -> Unit = {},
+    onExpenseClick: (String) -> Unit = {},
+    onViewAll: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     val grouped: List<Pair<LocalDate, List<Expense>>> = remember(state.recentExpenses) {
         state.recentExpenses.groupBy { it.expenseDate }
@@ -84,6 +90,18 @@ fun HomeScreen(
             .sortedByDescending { it.first }
     }
 
+    // External writes (WhatsApp bot, another device) land directly in Supabase — re-query
+    // whenever the user comes back to the app so Home never shows stale totals.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 120.dp),
@@ -128,24 +146,39 @@ fun HomeScreen(
                 )
             }
             item {
-                // "Ver todo →" intentionally omitted until an all-expenses screen exists.
-                // Showing a teal text link that does nothing would erode trust in every
-                // other teal link on the app. Re-introduce when Routes.ALL_EXPENSES lands.
-                Text(
-                    text = stringResource(R.string.home_movements_title),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp),
-                )
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_movements_title),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    )
+                    Text(
+                        text = stringResource(R.string.home_view_all),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable(onClick = onViewAll)
+                            .padding(vertical = 4.dp, horizontal = 4.dp),
+                    )
+                }
             }
             grouped.forEach { (date, expenses) ->
                 item(key = "header-$date") { DayHeader(date = date) }
                 item(key = "card-$date") {
-                    DayExpensesCard(expenses = expenses, categoriesById = state.categoriesById)
+                    DayExpensesCard(
+                        expenses = expenses,
+                        categoriesById = state.categoriesById,
+                        onExpenseClick = { onExpenseClick(it.id) },
+                    )
                 }
             }
         }
+    }
     }
 }
 
@@ -244,52 +277,8 @@ private fun EmptyDayPreview() {
  *  details into HomeScreen. */
 private fun Modifier.graphicsAlpha(value: Float) = this.alpha(value)
 
-@Composable
-private fun DayHeader(date: LocalDate) {
-    val label = when (date) {
-        LocalDate.now() -> stringResource(R.string.home_day_today_caps)
-        LocalDate.now().minusDays(1) -> stringResource(R.string.home_day_yesterday_caps)
-        else -> date.format(dayHeaderFmt).uppercase(Locale.forLanguageTag("es-PE"))
-    }
-    Text(
-        text = label,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 0.dp, ),
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.0.sp,
-        ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-    )
-}
-
-@Composable
-private fun DayExpensesCard(
-    expenses: List<Expense>,
-    categoriesById: Map<String, Category>,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-            expenses.forEachIndexed { index, expense ->
-                ExpenseRow(
-                    expense = expense,
-                    category = expense.categoryId?.let { categoriesById[it] },
-                )
-                if (index != expenses.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    )
-                }
-            }
-        }
-    }
-}
+// DayHeader / DayExpensesCard moved to components/DayExpenseList.kt — shared with
+// the all-expenses history screen.
 
 // ─── Derived stats helpers ──────────────────────────────────────────────────
 //
@@ -309,5 +298,3 @@ private fun monthlyDailyAverage(breakdown: MonthlyBreakdown): Double {
     return breakdown.totalSpent / daysElapsed.toDouble()
 }
 
-private val dayHeaderFmt: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-PE"))
