@@ -49,11 +49,10 @@ class RootViewModel @Inject constructor(
     init {
         try {
             combine(authRepository.authState, onboardingPrefs.completed) { auth, onboardingDone ->
-                when (auth) {
-                    AuthState.Unknown -> null
-                    AuthState.SignedOut -> Routes.LOGIN
-                    is AuthState.SignedIn -> if (onboardingDone) Routes.MAIN else Routes.ONBOARDING
-                }
+                // Unknown keeps the last known route (see StartRouteReducer): the session
+                // status cycles through Initializing on background→foreground, and a null
+                // regression would re-trigger the popUpTo(0) start navigation in the NavHost.
+                StartRouteReducer.reduce(_uiState.value.startRoute, auth, onboardingDone)
             }
                 .onEach { route ->
                     Log.d("RootViewModel", "Navigation route determined: $route")
