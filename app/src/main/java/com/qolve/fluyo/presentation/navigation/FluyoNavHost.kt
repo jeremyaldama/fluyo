@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -125,6 +126,8 @@ fun FluyoNavHost(
                 onOpenVoiceEntry = { amount, desc ->
                     rootNav.navigate(Routes.manualEntryPrefilled(amount, desc, "voice"))
                 },
+                onOpenExpense = { id -> rootNav.navigate(Routes.editExpense(id)) },
+                onOpenAllExpenses = { rootNav.navigate(Routes.ALL_EXPENSES) },
             )
         }
         composable(
@@ -133,11 +136,18 @@ fun FluyoNavHost(
                 navArgument("amount") { type = NavType.StringType; defaultValue = "" },
                 navArgument("desc") { type = NavType.StringType; defaultValue = "" },
                 navArgument("src") { type = NavType.StringType; defaultValue = "manual" },
+                navArgument("expenseId") { type = NavType.StringType; defaultValue = "" },
             ),
         ) {
             ManualEntryScreen(
                 onClose = { rootNav.popBackStack() },
                 onSaved = { rootNav.popBackStack() },
+            )
+        }
+        composable(Routes.ALL_EXPENSES) {
+            com.qolve.fluyo.presentation.screens.expense.AllExpensesScreen(
+                onBack = { rootNav.popBackStack() },
+                onExpenseClick = { id -> rootNav.navigate(Routes.editExpense(id)) },
             )
         }
         composable(
@@ -179,6 +189,8 @@ private fun MainShell(
     onOpenGoalCreate: () -> Unit,
     onOpenManageCategories: () -> Unit,
     onOpenVoiceEntry: (amount: String, desc: String) -> Unit,
+    onOpenExpense: (String) -> Unit,
+    onOpenAllExpenses: () -> Unit,
 ) {
     val nav: NavHostController = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -213,6 +225,31 @@ private fun MainShell(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
         uri?.let { onOpenScan(it) }
+    }
+
+    // In-app camera capture for physical receipts. TakePicture writes to a FileProvider
+    // URI in cacheDir/captures (no CAMERA permission needed — the system camera handles
+    // capture). The pending URI survives process death via rememberSaveable.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var pendingCaptureUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val takePicture = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        if (success) pendingCaptureUri?.let { onOpenScan(Uri.parse(it)) }
+        pendingCaptureUri = null
+    }
+    val launchCamera: () -> Unit = {
+        runCatching {
+            val dir = java.io.File(context.cacheDir, "captures").apply { mkdirs() }
+            val file = java.io.File.createTempFile("receipt-", ".jpg", dir)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            pendingCaptureUri = uri.toString()
+            takePicture.launch(uri)
+        }
     }
 
     // In-app voice entry (HU-05). RecognizerIntent shows the system speech UI (on-device
@@ -301,6 +338,8 @@ private fun MainShell(
                             restoreState = true
                         }
                     },
+                    onExpenseClick = onOpenExpense,
+                    onViewAll = onOpenAllExpenses,
                 )
             }
             composable(Routes.STATS) { StatsScreen() }
@@ -323,6 +362,10 @@ private fun MainShell(
                 pickImage.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                 )
+            },
+            onCamera = {
+                sheetOpen = false
+                launchCamera()
             },
             onVoice = {
                 sheetOpen = false

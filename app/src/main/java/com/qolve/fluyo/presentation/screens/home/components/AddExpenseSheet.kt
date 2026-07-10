@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Card
@@ -68,6 +70,7 @@ fun AddExpenseSheet(
     onDismiss: () -> Unit,
     onManual: () -> Unit,
     onScan: () -> Unit,
+    onCamera: () -> Unit,
     onVoice: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -103,8 +106,8 @@ fun AddExpenseSheet(
                 )
             }
 
-            // Primary CTA — big teal pill, full width
-            ScanPrimaryCta(onClick = onScan)
+            // Primary CTA — big teal pill, full width (gallery), with a camera shortcut
+            ScanPrimaryCta(onClick = onScan, onCamera = onCamera)
 
             // Secondary tiles row
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -132,44 +135,74 @@ fun AddExpenseSheet(
 }
 
 @Composable
-private fun ScanPrimaryCta(onClick: () -> Unit) {
-    Box(
+private fun ScanPrimaryCta(onClick: () -> Unit, onCamera: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(82.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(TealRamp500)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.CenterStart,
+            .background(TealRamp500),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Main area — pick the Yape/Plin screenshot from the gallery (the common case).
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.PhotoLibrary,
+                    contentDescription = null,
+                    tint = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier.size(28.dp),
+                )
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.add_option_scan_title),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = androidx.compose.ui.graphics.Color.White,
+                    )
+                    Text(
+                        text = stringResource(R.string.add_option_scan_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                    )
+                }
+            }
+            // Small accent dot at the bottom-right corner — the recurring brand motif.
+            BrandDot(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                size = 8.dp,
+                color = CoralRamp500,
+            )
+        }
+        // Camera shortcut — photograph a physical receipt directly.
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(1.dp)
+                .padding(vertical = 18.dp)
+                .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f)),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(64.dp)
+                .clickable(onClick = onCamera),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
                 imageVector = Icons.Outlined.CameraAlt,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.add_option_scan_camera),
                 tint = androidx.compose.ui.graphics.Color.White,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(26.dp),
             )
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = stringResource(R.string.add_option_scan_title),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = androidx.compose.ui.graphics.Color.White,
-                )
-                Text(
-                    text = stringResource(R.string.add_option_scan_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
-                )
-            }
         }
-        // Small accent dot at the bottom-right corner — the recurring brand motif.
-        BrandDot(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-            size = 8.dp,
-            color = CoralRamp500,
-        )
     }
 }
 

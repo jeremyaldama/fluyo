@@ -104,6 +104,8 @@ class GoalsViewModel @Inject constructor(
                     if (outcome.justCompleted) {
                         runCatching { badgeEngine.checkAfterGoalCompleted() }
                     }
+                    // "Mil soles ahorrados" accumulates across all goals — check every deposit.
+                    runCatching { badgeEngine.checkAfterDeposit() }
                     sheetState.update {
                         it.copy(
                             open = null,
@@ -112,6 +114,22 @@ class GoalsViewModel @Inject constructor(
                             confetti = outcome.justCompleted,
                         )
                     }
+                },
+                onFailure = { e ->
+                    sheetState.update { it.copy(saving = false, error = e.localizedMessage ?: "Error") }
+                },
+            )
+        }
+    }
+
+    /** Deletes the goal currently open in the deposit sheet (after UI confirmation). */
+    fun deleteGoal() {
+        val goal = sheetState.value.open ?: return
+        sheetState.update { it.copy(saving = true, error = null) }
+        viewModelScope.launch {
+            goalRepository.deleteGoal(goal.id).fold(
+                onSuccess = {
+                    sheetState.update { it.copy(open = null, input = "", saving = false) }
                 },
                 onFailure = { e ->
                     sheetState.update { it.copy(saving = false, error = e.localizedMessage ?: "Error") }

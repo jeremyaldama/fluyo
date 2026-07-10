@@ -2,4 +2,6 @@
 <paths>
     <!-- CSV exports written to cacheDir/exports and shared via FileProvider (HU-11). -->
     <cache-path name="exports" path="exports/" />
+    <!-- Receipt photos captured in-app (TakePicture target), OCR'd on-device. -->
+    <cache-path name="captures" path="captures/" />
 </paths>

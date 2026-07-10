@@ -127,6 +127,7 @@ fun GoalsScreen(
             onInputChange = viewModel::onDepositChange,
             onDismiss = viewModel::closeDepositSheet,
             onConfirm = viewModel::deposit,
+            onDelete = viewModel::deleteGoal,
         )
     }
 }
