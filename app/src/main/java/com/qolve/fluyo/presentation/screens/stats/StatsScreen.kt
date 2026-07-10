@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -417,12 +418,19 @@ private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modif
 
     Canvas(modifier = modifier) {
         val strokeWidth = 30.dp.toPx()
+        // Inset the arc bounds by half the stroke so the ring paints inside the layout
+        // box instead of bleeding ~15dp into the neighbors' spacing (same fix as the
+        // Home budget ring).
+        val arcTopLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
+        val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
         if (totalRaw <= 0f) {
             drawArc(
                 color = emptyTrackColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
             return@Canvas
@@ -437,6 +445,8 @@ private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modif
                 startAngle = startAngle,
                 sweepAngle = sweepWithGap,
                 useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
             startAngle += sweep
