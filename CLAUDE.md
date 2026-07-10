@@ -43,7 +43,7 @@ adb shell am start -n com.qolve.fluyo/.MainActivity
 ./gradlew :app:testDebugUnitTest --tests "com.qolve.fluyo.SomeClass.someMethod"
 ```
 
-> Test scaffolding only: `src/test` and `src/androidTest` currently contain just the generated `Example*Test` classes. Real domain/UI tests (Phase 7) are not written yet.
+> Unit tests use **JUnit 4 + MockK + coroutines-test** (`runTest`). `src/test` covers the pure-Kotlin logic: `VoiceParserTest`, `MoneyTest`, `GoalTest` (domain math), `CreateGoalUseCaseTest` (fake-repo delegation), and `StartRouteReducerTest` (auth→route mapping). `src/androidTest` still holds only the generated `ExampleInstrumentedTest`; Compose UI tests (Phase 7) are not written yet. A `scripts/smoke-test.sh` installs the debug APK on a running emulator, launches `MainActivity`, screenshots it, and fails on a missing foreground activity or a logcat crash.
 
 ## Local Configuration
 
@@ -64,7 +64,7 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 
 ## Database / Supabase
 
-- Schema lives as ordered SQL migrations in `supabase/migrations/` (`0001_initial_schema.sql`, `0002_rls_policies.sql`, `0003_security_hardening.sql`) — these, not the snippets in this doc, are the source of truth for the live schema.
+- Schema lives as ordered SQL migrations in `supabase/migrations/` (`0001_initial_schema.sql`, `0002_rls_policies.sql`, `0003_security_hardening.sql`, `0004_category_ondelete_setnull.sql` — makes `expenses.category_id` FK `ON DELETE SET NULL`) — these, not the snippets in this doc, are the source of truth for the live schema.
 - The Supabase MCP server is configured in `.mcp.json` (project ref `fxbrxfsyxmzadyonhaoj`); use the `mcp__supabase__*` tools to inspect tables, apply migrations, and check advisors before/after schema changes.
 
 ---
@@ -145,7 +145,7 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 | Auth         | Credential Manager + Google ID   | Modern One Tap flow; supabase-kt Compose Auth integration      |
 | OCR          | Google ML Kit Text Recognition   | On-device, no server upload                                    |
 | Charts       | Vico                             | Donut chart for categories (chosen for Compose-native API)     |
-| Testing      | JUnit 5 + Espresso + Mockk       | Domain + UI tests                                              |
+| Testing      | JUnit 4 + Espresso + Mockk       | Domain unit tests (src/test); Compose/UI tests pending         |
 | Build        | Gradle 9.4.1 (Kotlin DSL) + AGP 9.2.1 | Version catalog (`gradle/libs.versions.toml`)             |
 | App ID       | `com.qolve.fluyo`                | Namespace + applicationId                                       |
 
