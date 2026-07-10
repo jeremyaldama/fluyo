@@ -30,8 +30,8 @@ class NudgeWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        // Month-end "saver" badge check rides along with the daily run (HU-08).
-        runCatching { badgeEngine.checkSaverMonth() }
+        // Month-end badge checks (saver + perfect month) ride along with the daily run (HU-08).
+        runCatching { badgeEngine.checkMonthEndBadges() }
 
         val nudge = runCatching { computeNudge() }.getOrNull() ?: return Result.success()
 

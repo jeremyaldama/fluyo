@@ -41,6 +41,9 @@ interface AuthRepository {
         currency: String? = null,
     ): Result<User>
 
+    /** Persists the badge-derived XP rollup (`total_points`, `level`) on `public.users`. */
+    suspend fun updateGamification(totalPoints: Int, level: Int): Result<Unit>
+
     /** Updates the notification-related columns on `public.users`. Returns the refreshed row. */
     suspend fun updateNotificationSettings(
         enabled: Boolean? = null,

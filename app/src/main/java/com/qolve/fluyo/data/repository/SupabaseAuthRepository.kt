@@ -1,6 +1,7 @@
 package com.qolve.fluyo.data.repository
 
 import com.qolve.fluyo.data.SessionScopedCache
+import com.qolve.fluyo.data.dto.GamificationUpdateDto
 import com.qolve.fluyo.data.dto.NotificationSettingsUpdateDto
 import com.qolve.fluyo.data.dto.UserDto
 import com.qolve.fluyo.data.dto.UserProfileUpdateDto
@@ -175,6 +176,14 @@ class SupabaseAuthRepository @Inject constructor(
             }
             .decodeSingle<UserDto>()
             .toDomain()
+    }
+
+    override suspend fun updateGamification(totalPoints: Int, level: Int): Result<Unit> = runCatching {
+        val authUser = client.auth.currentUserOrNull() ?: error("No authenticated user")
+        client.postgrest.from("users")
+            .update(GamificationUpdateDto(totalPoints = totalPoints, level = level)) {
+                filter { eq("auth_id", authUser.id) }
+            }
     }
 
     override suspend fun updateNotificationSettings(

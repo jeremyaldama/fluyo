@@ -36,6 +36,13 @@ data class UserProfileUpdateDto(
     val currency: String? = null,
 )
 
+/** Badge-derived XP rollup — written by BadgeEngine on every unlock. */
+@Serializable
+data class GamificationUpdateDto(
+    @SerialName("total_points") val totalPoints: Int,
+    val level: Int,
+)
+
 @Serializable
 data class NotificationSettingsUpdateDto(
     @SerialName("notification_enabled") val notificationEnabled: Boolean? = null,
