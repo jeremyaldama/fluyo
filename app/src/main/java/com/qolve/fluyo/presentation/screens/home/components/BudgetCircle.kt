@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -83,13 +84,21 @@ fun BudgetCircle(
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(size)) {
-            val stroke = Stroke(width = strokeWidthDp.toPx(), cap = StrokeCap.Round)
+            val strokePx = strokeWidthDp.toPx()
+            val stroke = Stroke(width = strokePx, cap = StrokeCap.Round)
+            // Inset the arc bounds by half the stroke so the full stroke width renders
+            // inside the canvas AND the arc centerline radius matches the endpoint-dot
+            // radius below — otherwise the dot rides the ring's inner edge, off-center.
+            val arcTopLeft = Offset(strokePx / 2f, strokePx / 2f)
+            val arcSize = Size(this.size.width - strokePx, this.size.height - strokePx)
             // Track
             drawArc(
                 color = trackColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
                 style = stroke,
             )
             // Progress arc
@@ -99,11 +108,14 @@ fun BudgetCircle(
                     startAngle = -90f,
                     sweepAngle = 360f * percentage,
                     useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
                     style = stroke,
                 )
-                // Coral dot at progress endpoint — the recurring brand motif.
+                // Coral dot at progress endpoint — the recurring brand motif. Same
+                // radius as the arc centerline, so it sits centered on the stroke.
                 val angleRad = Math.toRadians((-90f + 360f * percentage).toDouble())
-                val radiusPx = (size.toPx() - strokeWidthDp.toPx()) / 2f
+                val radiusPx = (this.size.width - strokePx) / 2f
                 val cx = this.size.width / 2f + (radiusPx * cos(angleRad)).toFloat()
                 val cy = this.size.height / 2f + (radiusPx * sin(angleRad)).toFloat()
                 drawCircle(
