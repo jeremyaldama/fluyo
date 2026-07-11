@@ -2,8 +2,12 @@ package com.qolve.fluyo.presentation.screens.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.draw.clip
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.qolve.fluyo.presentation.components.BudgetEditDialog
+import com.qolve.fluyo.presentation.components.ExtraIncomeDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,6 +87,7 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
 
     val grouped: List<Pair<LocalDate, List<Expense>>> = remember(state.recentExpenses) {
         state.recentExpenses.groupBy { it.expenseDate }
@@ -120,7 +125,16 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                BudgetCircle(breakdown = state.breakdown, size = 240.dp)
+                BudgetCircle(
+                    breakdown = state.breakdown,
+                    size = 240.dp,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(
+                            onClickLabel = stringResource(R.string.home_budget_edit_a11y),
+                            onClick = viewModel::openBudgetDialog,
+                        ),
+                )
             }
         }
 
@@ -179,6 +193,34 @@ fun HomeScreen(
             }
         }
     }
+    }
+
+    if (budgetDialog.showBudget) {
+        BudgetEditDialog(
+            input = budgetDialog.budgetInput,
+            isSaving = budgetDialog.isSaving,
+            error = budgetDialog.error,
+            extraIncome = budgetDialog.monthExtrasTotal,
+            onInputChange = viewModel::onBudgetInputChange,
+            onDismiss = viewModel::closeBudgetDialog,
+            onConfirm = viewModel::saveBudget,
+            onAddExtra = viewModel::openExtraDialog,
+        )
+    }
+
+    if (budgetDialog.showExtra) {
+        ExtraIncomeDialog(
+            amountInput = budgetDialog.extraAmountInput,
+            noteInput = budgetDialog.extraNoteInput,
+            isSaving = budgetDialog.isSavingExtra,
+            error = budgetDialog.error,
+            extras = budgetDialog.monthExtras,
+            onAmountChange = viewModel::onExtraAmountChange,
+            onNoteChange = viewModel::onExtraNoteChange,
+            onDelete = viewModel::deleteExtra,
+            onDismiss = viewModel::closeExtraDialog,
+            onConfirm = viewModel::saveExtra,
+        )
     }
 }
 

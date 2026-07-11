@@ -65,6 +65,14 @@ fun BudgetStep(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(8.dp))
+        // "Safe floor" guidance for irregular incomes: the budget is a spending
+        // plan, not an income forecast — start with what's certain, adjust later.
+        Text(
+            text = stringResource(R.string.onboarding_budget_guidance),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
 
         Spacer(Modifier.height(24.dp))
 

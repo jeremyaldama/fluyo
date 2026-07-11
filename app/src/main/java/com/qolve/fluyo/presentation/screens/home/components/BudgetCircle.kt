@@ -192,10 +192,17 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
         }
         Spacer(Modifier.height(2.dp))
         Text(
-            text = "de " + money(breakdown.monthlyBudget),
+            text = stringResource(R.string.home_balance_of, money(breakdown.monthlyBudget)),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
+        if (breakdown.extraIncome > 0.0) {
+            Text(
+                text = stringResource(R.string.home_balance_includes_extra, money(breakdown.extraIncome)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -259,12 +266,12 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
 private fun BudgetCenterEmpty() {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "Define tu",
+            text = stringResource(R.string.home_budget_empty_line1),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Text(
-            text = "presupuesto",
+            text = stringResource(R.string.home_budget_empty_line2),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
         )
     }

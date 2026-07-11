@@ -68,6 +68,8 @@ import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
+import com.qolve.fluyo.presentation.components.BudgetEditDialog
+import com.qolve.fluyo.presentation.components.ExtraIncomeDialog
 import com.qolve.fluyo.presentation.screens.profile.components.NotificationSettingsCard
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 // Direct NeutralRamp references removed — they don't flip on dark mode. Text + chrome
@@ -196,9 +198,26 @@ fun ProfileScreen(
             input = state.budgetInput,
             isSaving = state.isSavingBudget,
             error = state.errorMessage,
+            extraIncome = state.monthExtrasTotal,
             onInputChange = viewModel::onBudgetInputChange,
             onDismiss = viewModel::closeBudgetDialog,
             onConfirm = viewModel::saveBudget,
+            onAddExtra = viewModel::openExtraDialog,
+        )
+    }
+
+    if (state.showExtraDialog) {
+        ExtraIncomeDialog(
+            amountInput = state.extraAmountInput,
+            noteInput = state.extraNoteInput,
+            isSaving = state.isSavingExtra,
+            error = state.errorMessage,
+            extras = state.monthExtras,
+            onAmountChange = viewModel::onExtraAmountChange,
+            onNoteChange = viewModel::onExtraNoteChange,
+            onDelete = viewModel::deleteExtra,
+            onDismiss = viewModel::closeExtraDialog,
+            onConfirm = viewModel::saveExtra,
         )
     }
 
@@ -892,55 +911,5 @@ private fun PhoneEditDialog(
     )
 }
 
-@Composable
-private fun BudgetEditDialog(
-    input: String,
-    isSaving: Boolean,
-    error: String?,
-    onInputChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.profile_budget_dialog_title)) },
-        text = {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = currencySymbol(),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = onInputChange,
-                        placeholder = { Text("0.00") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                if (error != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isSaving && input.toDoubleOrNull() != null) {
-                Text(stringResource(R.string.action_continue))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_back))
-            }
-        },
-    )
-}
+// BudgetEditDialog moved to presentation/components (shared with Home's ring tap).
 

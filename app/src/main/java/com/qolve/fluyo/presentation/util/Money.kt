@@ -56,3 +56,18 @@ fun money(amount: Double): String = "${LocalCurrencySymbol.current} ${amountForm
  * composables should prefer [money] so the amount honors the user's selected currency.
  */
 fun formatPen(amount: Double): String = "S/ ${amountFormat.format(amount)}"
+
+/**
+ * Sanitizes free text into a money input: digits plus at most one decimal separator
+ * (comma normalized to dot) and max two decimals. Shared by every amount field
+ * (budget, extras, deposits) so they all accept the same shapes.
+ */
+fun sanitizeDecimalInput(value: String): String {
+    val cleaned = value.filter { it.isDigit() || it == '.' || it == ',' }.replace(',', '.')
+    val parts = cleaned.split('.')
+    return when {
+        parts.size > 2 -> parts[0] + "." + parts.drop(1).joinToString("").take(2)
+        parts.size == 2 -> parts[0] + "." + parts[1].take(2)
+        else -> cleaned
+    }
+}

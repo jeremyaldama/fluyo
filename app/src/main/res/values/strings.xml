@@ -75,6 +75,7 @@
     <string name="onboarding_budget_card_label">PRESUPUESTO MENSUAL</string>
     <string name="onboarding_budget_per_day">≈ %1$s al día</string>
     <string name="onboarding_budget_lima_avg">El promedio de un universitario en Lima es S/ 950</string>
+    <string name="onboarding_budget_guidance">¿No sabes cuánto tendrás este mes? Empieza con lo seguro — incluye efectivo y todas tus cuentas — y súmale cuando llegue más.</string>
     <string name="onboarding_budget_chip_600">S/ 600</string>
     <string name="onboarding_budget_chip_900">S/ 900</string>
     <string name="onboarding_budget_chip_1200">S/ 1.2K</string>
@@ -177,6 +178,19 @@
     <string name="profile_medallas_count">%1$d / %2$d</string>
     <string name="profile_section_settings_simple">Ajustes</string>
     <string name="profile_budget_row_subtitle">Cambia tu meta del mes</string>
+    <!-- Budget dialog (shared: Perfil + tap on the Home ring) + monthly extras (0005) -->
+    <string name="budget_dialog_helper">Tu plan de gasto total del mes — incluye efectivo, Yape y cuentas.</string>
+    <string name="budget_dialog_effective_caption">Este mes: %1$s + %2$s extra</string>
+    <string name="budget_dialog_add_extra">Agregar ingreso extra</string>
+    <string name="extra_income_dialog_title">Ingreso extra del mes</string>
+    <string name="extra_income_explainer">Suma solo al presupuesto de este mes. Tu presupuesto base no cambia.</string>
+    <string name="extra_income_note_hint">Nota (opcional)</string>
+    <string name="extra_income_delete">Eliminar ingreso extra</string>
+    <string name="home_budget_empty_line1">Define tu</string>
+    <string name="home_budget_empty_line2">presupuesto</string>
+    <string name="home_balance_of">de %1$s</string>
+    <string name="home_balance_includes_extra">incluye +%1$s extra</string>
+    <string name="home_budget_edit_a11y">Editar presupuesto</string>
     <string name="profile_notifications_row_subtitle_on">Te avisamos a las %1$d:00</string>
     <string name="profile_notifications_row_subtitle_off">Toca para activar</string>
     <string name="profile_phone_row_subtitle">Para mensajes y voz</string>

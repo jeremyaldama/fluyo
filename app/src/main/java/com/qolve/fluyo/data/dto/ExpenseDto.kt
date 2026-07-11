@@ -41,7 +41,10 @@ data class ExpenseUpdateDto(
 @Serializable
 data class CurrentMonthBudgetDto(
     @SerialName("user_id") val userId: String,
+    /** EFFECTIVE budget: base users.monthly_budget + this month's extras (view 0005). */
     @SerialName("monthly_budget") val monthlyBudget: Double = 0.0,
     @SerialName("total_spent") val totalSpent: Double = 0.0,
     val remaining: Double = 0.0,
+    /** This month's "ingreso extra" total; default keeps compat with the pre-0005 view. */
+    @SerialName("extra_income") val extraIncome: Double = 0.0,
 )

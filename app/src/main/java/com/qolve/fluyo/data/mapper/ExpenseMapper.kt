@@ -24,6 +24,7 @@ fun ExpenseDto.toDomain(): Expense = Expense(
 fun CurrentMonthBudgetDto.toDomain(): MonthlyBreakdown = MonthlyBreakdown(
     monthlyBudget = monthlyBudget,
     totalSpent = totalSpent,
+    extraIncome = extraIncome,
 )
 
 // Postgres returns timestamps either as "2026-05-12T13:45:00.123456+00:00" or with "Z".

@@ -2,11 +2,13 @@ package com.qolve.fluyo.di
 
 import com.qolve.fluyo.data.repository.SupabaseAuthRepository
 import com.qolve.fluyo.data.repository.SupabaseBadgeRepository
+import com.qolve.fluyo.data.repository.SupabaseBudgetExtraRepository
 import com.qolve.fluyo.data.repository.SupabaseCategoryRepository
 import com.qolve.fluyo.data.repository.SupabaseExpenseRepository
 import com.qolve.fluyo.data.repository.SupabaseGoalRepository
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.domain.repository.BudgetExtraRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.domain.repository.GoalRepository
@@ -39,4 +41,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBadgeRepository(impl: SupabaseBadgeRepository): BadgeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBudgetExtraRepository(impl: SupabaseBudgetExtraRepository): BudgetExtraRepository
 }

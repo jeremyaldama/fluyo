@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.model.Badge
 import com.qolve.fluyo.domain.model.BadgeType
+import com.qolve.fluyo.domain.model.BudgetExtra
 import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.domain.model.UserLevel
@@ -11,6 +12,7 @@ import com.qolve.fluyo.domain.model.UserLevelCatalog
 import android.net.Uri
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.domain.repository.BudgetExtraRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.notifications.NudgeOneShot
@@ -18,6 +20,7 @@ import com.qolve.fluyo.notifications.NudgeScheduler
 import com.qolve.fluyo.presentation.util.CsvExporter
 import com.qolve.fluyo.presentation.util.CurrencyState
 import com.qolve.fluyo.presentation.util.SUPPORTED_CURRENCIES
+import com.qolve.fluyo.presentation.util.sanitizeDecimalInput
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 
 data class ProfileUiState(
@@ -42,6 +46,12 @@ data class ProfileUiState(
     val showBudgetDialog: Boolean = false,
     val budgetInput: String = "",
     val isSavingBudget: Boolean = false,
+    /** "Ingreso extra del mes" dialog state. */
+    val showExtraDialog: Boolean = false,
+    val extraAmountInput: String = "",
+    val extraNoteInput: String = "",
+    val isSavingExtra: Boolean = false,
+    val monthExtras: List<BudgetExtra> = emptyList(),
     /** Phone-edit dialog state. Mirrors the budget-dialog pattern for consistency. */
     val showPhoneDialog: Boolean = false,
     val phoneInput: String = "",
@@ -56,6 +66,7 @@ data class ProfileUiState(
     val errorMessage: String? = null,
 ) {
     val currency: String get() = user?.currency ?: "PEN"
+    val monthExtrasTotal: Double get() = monthExtras.sumOf { it.amount }
     val totalPoints: Int get() = badges.sumOf { it.type.points }
     val currentLevel: UserLevel get() = UserLevelCatalog.levelFor(totalPoints)
     val unlockedTypes: Set<BadgeType> get() = badges.map { it.type }.toSet()
@@ -67,6 +78,7 @@ class ProfileViewModel @Inject constructor(
     private val badgeRepository: BadgeRepository,
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
+    private val budgetExtraRepository: BudgetExtraRepository,
     private val nudgeScheduler: NudgeScheduler,
     private val nudgeOneShot: NudgeOneShot,
     private val currencyState: CurrencyState,
@@ -95,6 +107,11 @@ class ProfileViewModel @Inject constructor(
             showBudgetDialog = s.showBudget,
             budgetInput = s.budgetInput,
             isSavingBudget = s.savingBudget,
+            showExtraDialog = s.showExtra,
+            extraAmountInput = s.extraAmountInput,
+            extraNoteInput = s.extraNoteInput,
+            isSavingExtra = s.savingExtra,
+            monthExtras = s.monthExtras,
             showPhoneDialog = s.showPhone,
             phoneInput = s.phoneInput,
             isSavingPhone = s.savingPhone,
@@ -132,6 +149,7 @@ class ProfileViewModel @Inject constructor(
                 budgetInput = formatBudgetForInput(userState.value?.monthlyBudget ?: 0.0),
             )
         }
+        reloadMonthExtras()
     }
 
     fun closeBudgetDialog() {
@@ -139,14 +157,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun onBudgetInputChange(value: String) {
-        val cleaned = value.filter { it.isDigit() || it == '.' || it == ',' }.replace(',', '.')
-        val parts = cleaned.split('.')
-        val trimmed = when {
-            parts.size > 2 -> parts[0] + "." + parts.drop(1).joinToString("").take(2)
-            parts.size == 2 -> parts[0] + "." + parts[1].take(2)
-            else -> cleaned
-        }
-        sheet.update { it.copy(budgetInput = trimmed) }
+        sheet.update { it.copy(budgetInput = sanitizeDecimalInput(value)) }
     }
 
     fun saveBudget() {
@@ -159,6 +170,8 @@ class ProfileViewModel @Inject constructor(
                 onSuccess = { updated ->
                     userState.value = updated
                     sheet.update { it.copy(showBudget = false, savingBudget = false, budgetInput = "") }
+                    // Re-query the breakdown so the Home ring reflects the new base at once.
+                    expenseRepository.refresh()
                 },
                 onFailure = { e ->
                     sheet.update {
@@ -166,6 +179,63 @@ class ProfileViewModel @Inject constructor(
                     }
                 },
             )
+        }
+    }
+
+    // ─── "Ingreso extra del mes" (adds to the current month only) ───────────
+
+    private fun reloadMonthExtras() {
+        viewModelScope.launch {
+            val extras = budgetExtraRepository
+                .extrasForMonth(YearMonth.now())
+                .getOrDefault(emptyList())
+            sheet.update { it.copy(monthExtras = extras) }
+        }
+    }
+
+    fun openExtraDialog() {
+        sheet.update { it.copy(showExtra = true, extraAmountInput = "", extraNoteInput = "") }
+    }
+
+    fun closeExtraDialog() {
+        sheet.update { it.copy(showExtra = false, extraAmountInput = "", extraNoteInput = "", savingExtra = false) }
+    }
+
+    fun onExtraAmountChange(value: String) {
+        sheet.update { it.copy(extraAmountInput = sanitizeDecimalInput(value)) }
+    }
+
+    fun onExtraNoteChange(value: String) {
+        sheet.update { it.copy(extraNoteInput = value.take(60)) }
+    }
+
+    fun saveExtra() {
+        val amount = sheet.value.extraAmountInput.toDoubleOrNull() ?: return
+        if (amount <= 0.0) return
+        sheet.update { it.copy(savingExtra = true, error = null) }
+        viewModelScope.launch {
+            budgetExtraRepository
+                .addExtra(amount, sheet.value.extraNoteInput.takeIf { it.isNotBlank() }, YearMonth.now())
+                .fold(
+                    onSuccess = {
+                        sheet.update {
+                            it.copy(showExtra = false, extraAmountInput = "", extraNoteInput = "", savingExtra = false)
+                        }
+                        reloadMonthExtras()
+                        expenseRepository.refresh()
+                    },
+                    onFailure = { e ->
+                        sheet.update { it.copy(savingExtra = false, error = e.localizedMessage ?: "Error") }
+                    },
+                )
+        }
+    }
+
+    fun deleteExtra(extra: BudgetExtra) {
+        viewModelScope.launch {
+            budgetExtraRepository.deleteExtra(extra.id)
+            reloadMonthExtras()
+            expenseRepository.refresh()
         }
     }
 
@@ -351,6 +421,11 @@ class ProfileViewModel @Inject constructor(
         val showBudget: Boolean = false,
         val budgetInput: String = "",
         val savingBudget: Boolean = false,
+        val showExtra: Boolean = false,
+        val extraAmountInput: String = "",
+        val extraNoteInput: String = "",
+        val savingExtra: Boolean = false,
+        val monthExtras: List<BudgetExtra> = emptyList(),
         val showPhone: Boolean = false,
         val phoneInput: String = "",
         val savingPhone: Boolean = false,

@@ -5,6 +5,7 @@ import com.qolve.fluyo.domain.model.ExpenseSource
 import com.qolve.fluyo.domain.model.UserLevelCatalog
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
+import com.qolve.fluyo.domain.repository.BudgetExtraRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.domain.repository.GoalRepository
 import com.qolve.fluyo.notifications.BadgeNotifier
@@ -27,6 +28,7 @@ class BadgeEngine @Inject constructor(
     private val badgeRepository: BadgeRepository,
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
+    private val budgetExtraRepository: BudgetExtraRepository,
     private val appEvents: AppEvents,
     private val badgeNotifier: BadgeNotifier,
 ) {
@@ -103,7 +105,16 @@ class BadgeEngine @Inject constructor(
         authRepository.currentUserId() ?: return
         if (today != today.with(TemporalAdjusters.lastDayOfMonth())) return
 
-        val budget = authRepository.currentUser().getOrNull()?.monthlyBudget ?: 0.0
+        // Effective budget = base + this month's extras, queried by DEVICE month.
+        // Deliberately NOT the current_month_budget view: this runs ~20:00 Lima
+        // (01:00 UTC next day), when the server-side view has already rolled over
+        // to the new month and would drop the extras being judged.
+        val base = authRepository.currentUser().getOrNull()?.monthlyBudget ?: 0.0
+        val extras = budgetExtraRepository
+            .extrasForMonth(java.time.YearMonth.from(today))
+            .getOrDefault(emptyList())
+            .sumOf { it.amount }
+        val budget = base + extras
         if (budget <= 0.0) return
 
         badgeRepository.refresh()

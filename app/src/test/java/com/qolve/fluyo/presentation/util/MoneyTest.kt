@@ -36,4 +36,13 @@ class MoneyTest {
         assertEquals("S/ 0.00", formatPen(0.0))
         assertEquals("S/ 99.90", formatPen(99.9))
     }
+
+    @Test
+    fun `sanitizeDecimalInput keeps digits and one separator with two decimals`() {
+        assertEquals("15.50", sanitizeDecimalInput("15,50"))
+        assertEquals("15.50", sanitizeDecimalInput("15.505"))
+        assertEquals("1200", sanitizeDecimalInput("S/ 1200"))
+        assertEquals("9.99", sanitizeDecimalInput("9.9.9"))
+        assertEquals("", sanitizeDecimalInput("abc"))
+    }
 }
