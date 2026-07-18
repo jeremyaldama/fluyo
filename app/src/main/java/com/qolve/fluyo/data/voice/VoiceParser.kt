@@ -21,15 +21,23 @@ object VoiceParser {
     private val amountRegex = Regex("""(\d{1,3}(?:[.,]\d{1,2})?)""")
 
     // Keyword → canonical default-category name (matches the seed_default_categories list).
-    // The `(?U)` flag makes `\b` Unicode-aware so accented keywords (café, menú, útiles)
-    // still match at word boundaries — without it Java's ASCII `\b` fails next to é/ú/í.
+    // Word edges use `(?<![\p{L}])…(?![\p{L}])` ("not adjacent to a Unicode letter") so
+    // accented keywords (café, menú, útiles) match at boundaries — a plain ASCII `\b` fails
+    // next to é/ú/í.
+    //
+    // DO NOT use the `(?U)` inline flag here. It works on the JVM (so `src/test` stayed
+    // green) but Android's ICU-backed regex engine rejects it with PatternSyntaxException,
+    // which threw in this object's <clinit> and crashed voice entry the instant parse() ran
+    // on a real device. The emulator never caught it because with no mic the recognizer
+    // never returns RESULT_OK, so parse() was never called. `\p{L}` is honored by BOTH
+    // engines; VoiceParserInstrumentedTest guards this on-device.
     private val categoryKeywords: List<Pair<Regex, String>> = listOf(
-        Regex("""(?U)\b(almuerzo|comida|desayuno|cena|menú|menu|restaurante|comí|comi)\b""") to "Comida",
-        Regex("""(?U)\b(taxi|bus|uber|combi|pasaje|micro|tren|metro|transporte)\b""") to "Transporte",
-        Regex("""(?U)\b(cine|película|pelicula|juego|videojuego|concierto|fiesta|entretenimiento)\b""") to "Entretenimiento",
-        Regex("""(?U)\b(café|cafe|snack|galleta|gaseosa|kiosko|propina)\b""") to "Snacks",
-        Regex("""(?U)\b(farmacia|medicina|doctor|salud|clínica|clinica|pastilla)\b""") to "Salud",
-        Regex("""(?U)\b(libro|curso|útiles|utiles|universidad|matrícula|matricula|educación|educacion)\b""") to "Educación",
+        Regex("""(?<![\p{L}])(almuerzo|comida|desayuno|cena|menú|menu|restaurante|comí|comi)(?![\p{L}])""") to "Comida",
+        Regex("""(?<![\p{L}])(taxi|bus|uber|combi|pasaje|micro|tren|metro|transporte)(?![\p{L}])""") to "Transporte",
+        Regex("""(?<![\p{L}])(cine|película|pelicula|juego|videojuego|concierto|fiesta|entretenimiento)(?![\p{L}])""") to "Entretenimiento",
+        Regex("""(?<![\p{L}])(café|cafe|snack|galleta|gaseosa|kiosko|propina)(?![\p{L}])""") to "Snacks",
+        Regex("""(?<![\p{L}])(farmacia|medicina|doctor|salud|clínica|clinica|pastilla)(?![\p{L}])""") to "Salud",
+        Regex("""(?<![\p{L}])(libro|curso|útiles|utiles|universidad|matrícula|matricula|educación|educacion)(?![\p{L}])""") to "Educación",
     )
 
     fun parse(transcript: String): VoiceParsed {
