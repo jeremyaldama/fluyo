@@ -5,6 +5,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      Package visibility (Android 11+): without this, the in-app voice entry (HU-05)
+      can't see the system speech recognizer, so RecognizerIntent silently fails to
+      resolve. Declaring the RECOGNIZE_SPEECH activity intent makes it launchable.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".FluyoApp"
         android:allowBackup="true"
@@ -15,11 +26,21 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Fluyo">
+        <!--
+          launchMode = singleTop (NOT singleTask): the app is single-Activity, so
+          singleTop already delivers shared images to the running instance via
+          onNewIntent (the OCR share flow). singleTask additionally re-parents/relaunches
+          the task on return from a child activity, which corrupts the Activity Result
+          API used by voice entry (HU-05), the photo picker and the camera — on real
+          devices that killed the process while the recognizer was foreground, the
+          RESULT_OK came back to a broken task and crashed. singleTop keeps the share
+          flow and leaves Activity Results intact.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Fluyo">
             <intent-filter>
