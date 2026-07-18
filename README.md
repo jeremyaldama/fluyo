@@ -21,6 +21,7 @@ La solución reduce esa fricción combinando **escaneo OCR de capturas de Yape/P
 - [Base de datos](#base-de-datos)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Contexto académico](#contexto-académico)
+- [Licencia](#licencia)
 
 ---
 
@@ -201,3 +202,18 @@ Proyecto de tesis para la carrera de **Ingeniería Informática** de la **Pontif
 - **OCR solo en el dispositivo** (ML Kit); ningún dato financiero se envía a APIs externas.
 - Cumple con la **Ley N.° 29733** de protección de datos personales (Perú).
 - Sin publicidad ni funciones premium — es un prototipo de tesis.
+
+## Licencia
+
+Copyright (C) 2026 Jeremy Aldama
+
+Fluyo es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la
+**Licencia Pública General de GNU (GNU GPL)** publicada por la Free Software Foundation,
+ya sea la versión 3 de la Licencia o (a tu elección) cualquier versión posterior.
+
+Se distribuye con la esperanza de que sea útil, pero **SIN NINGUNA GARANTÍA**; ni siquiera
+la garantía implícita de COMERCIABILIDAD o IDONEIDAD PARA UN PROPÓSITO PARTICULAR. Consulta
+la GNU GPL para más detalles.
+
+El texto completo está en el archivo [`LICENSE`](LICENSE) o en
+<https://www.gnu.org/licenses/gpl-3.0.html>.
