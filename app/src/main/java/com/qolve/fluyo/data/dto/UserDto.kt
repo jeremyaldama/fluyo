@@ -9,7 +9,6 @@ data class UserDto(
     @SerialName("auth_id") val authId: String,
     val email: String? = null,
     @SerialName("display_name") val displayName: String? = null,
-    @SerialName("phone_number") val phoneNumber: String? = null,
     @SerialName("monthly_budget") val monthlyBudget: Double = 0.0,
     val currency: String = "PEN",
     val level: Int = 1,
@@ -20,27 +19,6 @@ data class UserDto(
     val notificationTypes: List<String> = listOf("progress", "reminder", "budget", "goal"),
     /** ISO-8601 timestamp from `users.created_at` — surfaces as "Desde [mes año]" on Profile. */
     @SerialName("created_at") val createdAt: String? = null,
-)
-
-@Serializable
-data class UserUpsertDto(
-    @SerialName("auth_id") val authId: String,
-    val email: String? = null,
-    @SerialName("display_name") val displayName: String? = null,
-)
-
-@Serializable
-data class UserProfileUpdateDto(
-    @SerialName("monthly_budget") val monthlyBudget: Double? = null,
-    @SerialName("phone_number") val phoneNumber: String? = null,
-    val currency: String? = null,
-)
-
-/** Badge-derived XP rollup — written by BadgeEngine on every unlock. */
-@Serializable
-data class GamificationUpdateDto(
-    @SerialName("total_points") val totalPoints: Int,
-    val level: Int,
 )
 
 @Serializable

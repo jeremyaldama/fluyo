@@ -33,6 +33,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,14 +44,20 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,9 +70,14 @@ import coil.compose.AsyncImage
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.DetectedField
+import com.qolve.fluyo.domain.time.FluyoTime
+import com.qolve.fluyo.presentation.util.LocalDateSelectableDates
+import com.qolve.fluyo.presentation.util.MIN_EXPENSE_DATE
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.datePickerUtcMillisToLocalDate
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
+import com.qolve.fluyo.presentation.util.toDatePickerUtcMillis
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -109,7 +122,9 @@ fun OcrConfirmScreen(
                 onAmountChange = viewModel::onAmountChange,
                 onRecipientChange = viewModel::onRecipientChange,
                 onDescriptionChange = viewModel::onDescriptionChange,
+                onDateChange = viewModel::onDateChange,
                 onCategorySelect = viewModel::onCategorySelect,
+                onRetryCategories = viewModel::retryCategories,
                 onSave = viewModel::save,
                 contentPadding = padding,
             )
@@ -142,16 +157,21 @@ private fun ProcessingState(modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConfirmForm(
     state: OcrConfirmUiState,
     onAmountChange: (String) -> Unit,
     onRecipientChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onDateChange: (java.time.LocalDate) -> Unit,
     onCategorySelect: (String) -> Unit,
+    onRetryCategories: () -> Unit,
     onSave: () -> Unit,
     contentPadding: PaddingValues,
 ) {
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -182,6 +202,43 @@ private fun ConfirmForm(
             selectedId = state.selectedCategoryId,
             onSelect = onCategorySelect,
         )
+        when {
+            state.isLoadingCategories && state.categories.isEmpty() -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = stringResource(R.string.ocr_categories_loading),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            state.categoryLoadError != null && state.categories.isEmpty() -> {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = state.categoryLoadError,
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        TextButton(onClick = onRetryCategories) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                }
+            }
+        }
 
         FieldLabel(stringResource(R.string.ocr_recipient_label))
         DetectableTextField(
@@ -195,6 +252,7 @@ private fun ConfirmForm(
         DateChip(
             date = state.date,
             autoDetected = DetectedField.DATE in state.autoDetected,
+            onClick = { showDatePicker = true },
         )
 
         FieldLabel(stringResource(R.string.manual_entry_description_label))
@@ -226,6 +284,39 @@ private fun ConfirmForm(
             }
         }
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showDatePicker) {
+        val today = FluyoTime.today()
+        val selectableDates = remember(today) {
+            LocalDateSelectableDates(MIN_EXPENSE_DATE, today)
+        }
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.date.toDatePickerUtcMillis(),
+            selectableDates = selectableDates,
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            onDateChange(datePickerUtcMillisToLocalDate(millis))
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text(stringResource(R.string.action_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
     }
 }
 
@@ -268,7 +359,7 @@ private fun DetectedBanner(count: Int) {
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = stringResource(R.string.ocr_detected_banner, count),
+                text = pluralStringResource(R.plurals.ocr_detected_banner, count, count),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -397,12 +488,14 @@ private fun DetectableTextField(
 private fun DateChip(
     date: java.time.LocalDate,
     autoDetected: Boolean,
+    onClick: () -> Unit,
 ) {
     val fmt = remember {
         DateTimeFormatter.ofPattern("d 'de' MMMM, yyyy", Locale.forLanguageTag("es-PE"))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Card(
+            modifier = Modifier.clickable(onClick = onClick),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         ) {

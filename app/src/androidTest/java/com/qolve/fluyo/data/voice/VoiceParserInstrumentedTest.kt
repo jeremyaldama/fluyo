@@ -1,6 +1,7 @@
 package com.qolve.fluyo.data.voice
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.qolve.fluyo.domain.model.MoneyAmount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,7 +24,7 @@ class VoiceParserInstrumentedTest {
     @Test
     fun parsesAccentedKeywordOnDeviceEngine() {
         val r = VoiceParser.parse("S/ 12.50 en café")
-        assertEquals(12.50, r.amount!!, 0.001)
+        assertEquals(MoneyAmount.ofCents(1_250), r.amount)
         assertEquals("Snacks", r.categoryHint)
         assertEquals("café", r.description)
     }
@@ -31,7 +32,7 @@ class VoiceParserInstrumentedTest {
     @Test
     fun parsesFullPhraseOnDeviceEngine() {
         val r = VoiceParser.parse("gasté 15 soles en almuerzo")
-        assertEquals(15.0, r.amount!!, 0.001)
+        assertEquals(MoneyAmount.ofCents(1_500), r.amount)
         assertEquals("Comida", r.categoryHint)
         assertEquals("almuerzo", r.description)
     }

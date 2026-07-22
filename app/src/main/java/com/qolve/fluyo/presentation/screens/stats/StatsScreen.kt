@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,7 +41,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -51,8 +55,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.CategorySummary
+import com.qolve.fluyo.domain.model.MoneyAmount
+import com.qolve.fluyo.domain.model.sumMoney
 import com.qolve.fluyo.presentation.components.IllustratedEmptyState
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.AccentRose
@@ -61,10 +68,12 @@ import com.qolve.fluyo.presentation.theme.CoralRamp500
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.money
+import com.qolve.fluyo.presentation.util.formatAmount
 import com.qolve.fluyo.presentation.util.parseHexColor
 import kotlin.math.absoluteValue
 import kotlin.math.cos
 import kotlin.math.sin
+import java.math.RoundingMode
 
 /**
  * Insights screen — the redesigned "Stats" page.
@@ -84,6 +93,11 @@ import kotlin.math.sin
 fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // More breathing room from the status bar (was 12.dp) and a touch more space
@@ -98,16 +112,60 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
             PeriodPill(selected = state.period, onSelect = viewModel::selectPeriod)
         }
 
-        if (state.isLoading) {
+        if (state.isLoading && !state.hasLoaded) {
             item {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(top = 80.dp),
                     contentAlignment = Alignment.Center,
                 ) { CircularProgressIndicator(strokeWidth = 3.dp) }
             }
+        } else if (state.errorMessage != null && !state.hasLoaded) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 72.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = state.errorMessage.orEmpty(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Button(onClick = viewModel::refresh, modifier = Modifier.padding(top = 16.dp)) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+            }
         } else if (state.summaries.isEmpty()) {
+            state.errorMessage?.let { message ->
+                item(key = "refresh-error") {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Button(onClick = viewModel::refresh, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                }
+            }
             item { EmptyState() }
         } else {
+            state.errorMessage?.let { message ->
+                item(key = "refresh-error") {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Button(onClick = viewModel::refresh, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                }
+            }
             item { InsightBanner(state = state) }
             item { DonutHero(state = state) }
 
@@ -115,7 +173,7 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
                 CategoryBarRow(summary = summary, total = state.total)
             }
 
-            if (state.weekdayPattern.any { it.average > 0 }) {
+            if (state.weekdayPattern.any { it.average > MoneyAmount.ZERO }) {
                 item { WeeklyPatternCard(state = state) }
             }
         }
@@ -236,11 +294,15 @@ private fun InsightBanner(state: StatsUiState) {
     // Day count for the daily-average branch. `state.daily` is a continuous series the
     // ViewModel builds for the current range, so its size = days elapsed in the period.
     val daysInPeriod = state.daily.size.coerceAtLeast(1)
-    val dailyAverage = if (state.total > 0.0) state.total / daysInPeriod else 0.0
+    val dailyAverage = if (state.total > MoneyAmount.ZERO) {
+        state.total.dividedBy(daysInPeriod.toLong(), RoundingMode.HALF_EVEN)
+    } else {
+        MoneyAmount.ZERO
+    }
 
     // Pick the variant up front; everything below reads from it.
     val variant: InsightVariant = when {
-        delta == null && state.total <= 0.0 -> InsightVariant.NoBaseline
+        delta == null && state.total <= MoneyAmount.ZERO -> InsightVariant.NoBaseline
         delta == null -> InsightVariant.NoBaseline
         isUnder -> InsightVariant.Under(delta!!.absoluteValue.toInt())
         isOver -> InsightVariant.Over(delta!!.toInt())
@@ -307,12 +369,13 @@ private fun InsightBanner(state: StatsUiState) {
             variant.pct,
             money(variant.amount),
         )
-        is InsightVariant.DailyAverage -> stringResource(
+        is InsightVariant.DailyAverage -> pluralStringResource(
             when (state.period) {
-                StatsPeriod.WEEK -> R.string.stats_insight_avg_day_caption_week
-                StatsPeriod.MONTH -> R.string.stats_insight_avg_day_caption_month
-                StatsPeriod.YEAR -> R.string.stats_insight_avg_day_caption_year
+                StatsPeriod.WEEK -> R.plurals.stats_insight_avg_day_caption_week
+                StatsPeriod.MONTH -> R.plurals.stats_insight_avg_day_caption_month
+                StatsPeriod.YEAR -> R.plurals.stats_insight_avg_day_caption_year
             },
+            variant.days,
             variant.days,
         )
     }
@@ -362,8 +425,8 @@ private sealed interface InsightVariant {
     data object NoBaseline : InsightVariant
     data class Under(val pct: Int) : InsightVariant
     data class Over(val pct: Int) : InsightVariant
-    data class Dominant(val name: String, val pct: Int, val amount: Double, val color: Color) : InsightVariant
-    data class DailyAverage(val amount: Double, val days: Int) : InsightVariant
+    data class Dominant(val name: String, val pct: Int, val amount: MoneyAmount, val color: Color) : InsightVariant
+    data class DailyAverage(val amount: MoneyAmount, val days: Int) : InsightVariant
 }
 
 private fun periodUnderCaption(period: StatsPeriod): Int = when (period) {
@@ -392,7 +455,7 @@ private fun DonutHero(state: StatsUiState) {
         ) {
             MultiSliceDonut(
                 slices = state.summaries.map {
-                    DonutSlice(it.total.toFloat(), parseHexColor(it.color))
+                    DonutSlice(it.total, parseHexColor(it.color))
                 },
                 modifier = Modifier.size(260.dp),
             )
@@ -401,13 +464,13 @@ private fun DonutHero(state: StatsUiState) {
     }
 }
 
-private data class DonutSlice(val value: Float, val color: Color)
+private data class DonutSlice(val amount: MoneyAmount, val color: Color)
 
 @Composable
 private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modifier) {
-    val totalRaw = slices.sumOf { it.value.toDouble() }.toFloat()
+    val total = slices.map { it.amount }.sumMoney()
     val animatedProgress by animateFloatAsState(
-        targetValue = if (totalRaw > 0f) 1f else 0f,
+        targetValue = if (total > MoneyAmount.ZERO) 1f else 0f,
         animationSpec = tween(900, easing = LinearOutSlowInEasing),
         label = "donutSweep",
     )
@@ -423,7 +486,7 @@ private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modif
         // Home budget ring).
         val arcTopLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
         val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
-        if (totalRaw <= 0f) {
+        if (total <= MoneyAmount.ZERO) {
             drawArc(
                 color = emptyTrackColor,
                 startAngle = -90f,
@@ -438,7 +501,7 @@ private fun MultiSliceDonut(slices: List<DonutSlice>, modifier: Modifier = Modif
 
         var startAngle = -90f
         slices.forEach { slice ->
-            val sweep = (slice.value / totalRaw) * 360f * animatedProgress
+            val sweep = slice.amount.ratioOf(total) * 360f * animatedProgress
             val sweepWithGap = (sweep - gapDeg).coerceAtLeast(0.5f)
             drawArc(
                 color = slice.color,
@@ -466,8 +529,8 @@ private fun DonutCenter(state: StatsUiState) {
         StatsPeriod.MONTH -> R.string.stats_vs_prev_month
         StatsPeriod.YEAR -> R.string.stats_vs_prev_year
     }
-    val integer = state.total.toLong()
-    val cents = ((state.total - integer) * 100).toLong().coerceIn(0, 99)
+    val integer = state.total.cents / 100L
+    val cents = state.total.cents % 100L
     val integerFormatted = java.text.NumberFormat.getNumberInstance(
         java.util.Locale.forLanguageTag("es-PE"),
     ).format(integer)
@@ -509,7 +572,7 @@ private fun DonutCenter(state: StatsUiState) {
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
-        if (state.previousTotal > 0.0) {
+        if (state.previousTotal > MoneyAmount.ZERO) {
             Spacer(Modifier.height(2.dp))
             Text(
                 text = stringResource(vsLabelRes, money(state.previousTotal)),
@@ -523,9 +586,9 @@ private fun DonutCenter(state: StatsUiState) {
 // ─── Category bar row ───────────────────────────────────────────────────────
 
 @Composable
-private fun CategoryBarRow(summary: CategorySummary, total: Double) {
+private fun CategoryBarRow(summary: CategorySummary, total: MoneyAmount) {
     val color = parseHexColor(summary.color)
-    val share = if (total > 0.0) (summary.total / total).toFloat() else 0f
+    val share = summary.share(total)
     val animatedShare by animateFloatAsState(
         targetValue = share,
         animationSpec = tween(600, easing = LinearOutSlowInEasing),
@@ -577,7 +640,7 @@ private fun CategoryBarRow(summary: CategorySummary, total: Double) {
                 )
                 Spacer(Modifier.padding(1.dp))
                 Text(
-                    text = "%.2f".format(summary.total),
+                    text = formatAmount(summary.total),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.2).sp,
@@ -643,7 +706,17 @@ private fun WeekdayChart(state: StatsUiState) {
         stringResource(R.string.stats_weekday_sat),
         stringResource(R.string.stats_weekday_sun),
     )
-    val max = (state.weekdayPattern.maxOfOrNull { it.average } ?: 0.0).coerceAtLeast(0.0001)
+    val fullLabels = listOf(
+        stringResource(R.string.stats_weekday_mon_full),
+        stringResource(R.string.stats_weekday_tue_full),
+        stringResource(R.string.stats_weekday_wed_full),
+        stringResource(R.string.stats_weekday_thu_full),
+        stringResource(R.string.stats_weekday_fri_full),
+        stringResource(R.string.stats_weekday_sat_full),
+        stringResource(R.string.stats_weekday_sun_full),
+    )
+    val max = (state.weekdayPattern.maxOfOrNull { it.average } ?: MoneyAmount.ZERO)
+        .coerceAtLeast(MoneyAmount.ofCents(1L))
 
     Column(modifier = Modifier.fillMaxWidth().height(140.dp)) {
         // Chart area
@@ -653,13 +726,22 @@ private fun WeekdayChart(state: StatsUiState) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             state.weekdayPattern.forEachIndexed { i, point ->
-                val isPeak = point.average > 0 && point.average == state.peakWeekday?.average
+                val isPeak = point.average > MoneyAmount.ZERO && point.average == state.peakWeekday?.average
+                val averageDescription = stringResource(
+                    R.string.stats_weekday_bar_a11y,
+                    fullLabels.getOrElse(i) { labels.getOrElse(i) { "" } },
+                    money(point.average),
+                )
                 Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clearAndSetSemantics {
+                            contentDescription = averageDescription
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
-                    if (isPeak && point.average > 0) {
+                    if (isPeak && point.average > MoneyAmount.ZERO) {
                         // Coral dot above the peak day — recurring brand motif
                         Box(
                             modifier = Modifier
@@ -669,13 +751,13 @@ private fun WeekdayChart(state: StatsUiState) {
                         )
                         Spacer(Modifier.height(4.dp))
                     }
-                    val heightFraction = (point.average / max).toFloat() * animatedReveal
+                    val heightFraction = point.average.ratioOf(max) * animatedReveal
                     val barColor = if (isPeak) CoralRamp500.copy(alpha = 0.3f) else TealRamp500.copy(alpha = 0.18f)
                     val barFillColor = if (isPeak) CoralRamp500 else TealRamp500
                     Box(
                         modifier = Modifier
                             .width(4.dp)
-                            .fillMaxHeightFraction(if (point.average > 0) heightFraction.coerceAtLeast(0.05f) else 0.02f)
+                            .fillMaxHeightFraction(if (point.average > MoneyAmount.ZERO) heightFraction.coerceAtLeast(0.05f) else 0.02f)
                             .clip(RoundedCornerShape(2.dp))
                             .background(barFillColor),
                     )
@@ -687,7 +769,7 @@ private fun WeekdayChart(state: StatsUiState) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             labels.forEachIndexed { i, label ->
                 val isPeak = state.weekdayPattern.getOrNull(i)?.let {
-                    it.average > 0 && it.average == state.peakWeekday?.average
+                    it.average > MoneyAmount.ZERO && it.average == state.peakWeekday?.average
                 } == true
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
@@ -708,7 +790,7 @@ private fun Modifier.fillMaxHeightFraction(fraction: Float) =
     this.fillMaxHeight(fraction.coerceIn(0f, 1f))
 
 @Composable
-private fun weeklyPatternCaption(dayOfWeek: Int, avg: Double): AnnotatedString {
+private fun weeklyPatternCaption(dayOfWeek: Int, avg: MoneyAmount): AnnotatedString {
     val fullName = stringResource(
         when (dayOfWeek) {
             1 -> R.string.stats_weekday_mon_full

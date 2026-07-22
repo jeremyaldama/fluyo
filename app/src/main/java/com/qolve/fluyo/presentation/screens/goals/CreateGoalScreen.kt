@@ -3,7 +3,6 @@ package com.qolve.fluyo.presentation.screens.goals
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,10 +48,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
+import com.qolve.fluyo.domain.time.FluyoTime
 import com.qolve.fluyo.presentation.util.currencySymbol
-import java.time.Instant
+import com.qolve.fluyo.presentation.util.datePickerUtcMillisToLocalDate
+import com.qolve.fluyo.presentation.util.LocalDateSelectableDates
+import com.qolve.fluyo.presentation.util.toDatePickerUtcMillis
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -175,17 +176,21 @@ fun CreateGoalScreen(
         }
 
         if (state.showDatePicker) {
-            val initialMillis = state.deadline?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
-                ?: Instant.now().toEpochMilli()
-            val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+            val today = FluyoTime.today()
+            val initialMillis = (state.deadline ?: today).toDatePickerUtcMillis()
+            val selectableDates = remember(today) {
+                LocalDateSelectableDates(today, LocalDate.of(2100, 12, 31))
+            }
+            val pickerState = rememberDatePickerState(
+                initialSelectedDateMillis = initialMillis,
+                selectableDates = selectableDates,
+            )
             DatePickerDialog(
                 onDismissRequest = viewModel::closeDatePicker,
                 confirmButton = {
                     TextButton(onClick = {
                         val ms = pickerState.selectedDateMillis
-                        val picked = ms?.let {
-                            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        }
+                        val picked = ms?.let(::datePickerUtcMillisToLocalDate)
                         viewModel.onDeadlinePicked(picked)
                     }) {
                         Text(stringResource(R.string.action_continue))
@@ -205,9 +210,3 @@ fun CreateGoalScreen(
 
 private val deadlineFmt: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d 'de' MMMM, yyyy", Locale.forLanguageTag("es-PE"))
-
-@Suppress("unused")
-private fun LocalDate.touch() = dayOfMonth
-
-@Suppress("unused")
-private val unusedPadding: PaddingValues = PaddingValues()

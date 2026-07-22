@@ -14,41 +14,48 @@ data class GoalDto(
     val status: String = "active",
     @SerialName("created_at") val createdAt: String,
     @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("deposit_count") val depositCount: Int = 0,
+)
+
+/** Parameters for the idempotent `create_goal` database RPC. */
+@Serializable
+data class GoalCreateRpcParams(
+    @SerialName("p_request_id") val requestId: String,
+    @SerialName("p_name") val name: String,
+    @SerialName("p_target_amount") val targetAmount: Double,
+    @SerialName("p_deadline") val deadline: String?,
 )
 
 @Serializable
-data class GoalInsertDto(
+data class GoalArchiveRpcParams(
+    @SerialName("p_goal_id") val goalId: String,
+)
+
+@Serializable
+data class GoalArchiveRpcResultDto(
+    val archived: Boolean,
+)
+
+/** Parameters for the atomic `deposit_to_goal` database RPC. */
+@Serializable
+data class GoalDepositRpcParams(
+    @SerialName("p_goal_id") val goalId: String,
+    @SerialName("p_amount") val amount: Double,
+    @SerialName("p_request_id") val requestId: String,
+)
+
+/** Goal snapshot returned by `deposit_to_goal`, including the transition result. */
+@Serializable
+data class GoalDepositRpcResultDto(
+    val id: String,
     @SerialName("user_id") val userId: String,
     val name: String,
     @SerialName("target_amount") val targetAmount: Double,
+    @SerialName("current_amount") val currentAmount: Double,
     val deadline: String? = null,
-)
-
-@Serializable
-data class GoalUpdateDto(
-    @SerialName("current_amount") val currentAmount: Double? = null,
-    val status: String? = null,
-    @SerialName("completed_at") val completedAt: String? = null,
-)
-
-@Serializable
-data class GoalDepositDto(
-    val id: String,
-    @SerialName("goal_id") val goalId: String,
-    @SerialName("user_id") val userId: String,
-    val amount: Double,
+    val status: String,
     @SerialName("created_at") val createdAt: String,
-)
-
-@Serializable
-data class GoalDepositInsertDto(
-    @SerialName("goal_id") val goalId: String,
-    @SerialName("user_id") val userId: String,
-    val amount: Double,
-)
-
-/** Minimal projection for counting deposits per goal in [com.qolve.fluyo.data.repository.SupabaseGoalRepository]. */
-@Serializable
-data class GoalDepositRefDto(
-    @SerialName("goal_id") val goalId: String,
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("deposit_count") val depositCount: Int,
+    @SerialName("just_completed") val justCompleted: Boolean,
 )

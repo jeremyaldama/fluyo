@@ -1,5 +1,7 @@
 package com.qolve.fluyo.presentation.screens.profile
 
+import android.content.Intent
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,24 +23,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,26 +52,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.qolve.fluyo.R
+import com.qolve.fluyo.BuildConfig
 import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
+import com.qolve.fluyo.domain.model.MoneyAmount
+import com.qolve.fluyo.domain.model.WhatsAppLink
 import com.qolve.fluyo.presentation.components.BudgetEditDialog
 import com.qolve.fluyo.presentation.components.ExtraIncomeDialog
 import com.qolve.fluyo.presentation.screens.profile.components.NotificationSettingsCard
@@ -83,10 +91,10 @@ import com.qolve.fluyo.presentation.util.money
 import com.qolve.fluyo.presentation.util.levelNameRes
 import com.qolve.fluyo.presentation.util.nameRes
 import com.qolve.fluyo.presentation.util.openFluyoOnWhatsApp
-import android.content.Intent
+import com.qolve.fluyo.presentation.util.isSafeExternalHttpsUrl
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import java.time.ZoneId
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -94,10 +102,10 @@ import java.util.Locale
  * Perfil screen — redesigned per mockup 08.
  *
  * Sections, top-down:
- *   1. Hero — circular avatar with optional coral notif badge, name, "Lima · desde …" subtitle.
+ *   1. Hero — circular avatar with optional coral notification badge, name and membership date.
  *   2. Level card — NIVEL eyebrow + level name + XP + chunky progress bar + 🔥 streak chip.
  *   3. Medallas grid — 4×2 emoji tiles, coral dot on unlocked tiles, count "4 / 8" header.
- *   4. Ajustes — settings rows (budget, phone, notifications expander) + destructive sign-out.
+ *   4. Ajustes — budget, verified WhatsApp, notifications and destructive account actions.
  */
 @Composable
 fun ProfileScreen(
@@ -121,6 +129,12 @@ fun ProfileScreen(
         }
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.whatsAppLaunchEvents.collect { request ->
+            context.openFluyoOnWhatsApp(request.message)
+        }
+    }
+
     if (state.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(strokeWidth = 3.dp)
@@ -129,12 +143,44 @@ fun ProfileScreen(
     }
 
     val user = state.user
+    val standaloneError = state.errorMessage?.takeIf {
+        !state.showBudgetDialog &&
+            !state.showExtraDialog &&
+            !state.showWhatsAppDialog &&
+            !state.showCurrencyDialog &&
+            !state.showDeleteDialog
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (standaloneError != null) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = standaloneError,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    TextButton(onClick = viewModel::refresh) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+            }
+        }
+
         item { ProfileHero(user = user) }
 
         item {
@@ -159,9 +205,13 @@ fun ProfileScreen(
         item {
             AjustesCard(
                 user = user,
+                whatsAppEnabled = BuildConfig.WHATSAPP_LINKING_ENABLED,
+                whatsAppLink = state.whatsAppLink,
+                isLoadingWhatsApp = state.isLoadingWhatsApp,
                 onEditBudget = viewModel::openBudgetDialog,
-                onEditPhone = viewModel::openPhoneDialog,
+                onManageWhatsApp = viewModel::openWhatsAppDialog,
                 onEditCurrency = viewModel::openCurrencyDialog,
+                canEditCurrency = state.canChangeCurrency,
                 onManageCategories = onManageCategories,
                 onExportCsv = viewModel::exportCsv,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
@@ -213,6 +263,7 @@ fun ProfileScreen(
             isSaving = state.isSavingExtra,
             error = state.errorMessage,
             extras = state.monthExtras,
+            deletingExtraIds = state.deletingExtraIds,
             onAmountChange = viewModel::onExtraAmountChange,
             onNoteChange = viewModel::onExtraNoteChange,
             onDelete = viewModel::deleteExtra,
@@ -221,14 +272,18 @@ fun ProfileScreen(
         )
     }
 
-    if (state.showPhoneDialog) {
-        PhoneEditDialog(
-            input = state.phoneInput,
-            isSaving = state.isSavingPhone,
+    if (BuildConfig.WHATSAPP_LINKING_ENABLED && state.showWhatsAppDialog) {
+        WhatsAppLinkDialog(
+            link = state.whatsAppLink,
+            isLoading = state.isLoadingWhatsApp,
+            isCreatingChallenge = state.isCreatingWhatsAppChallenge,
+            isUnlinking = state.isUnlinkingWhatsApp,
+            challengeExpiresAt = state.whatsAppChallengeExpiresAt,
             error = state.errorMessage,
-            onInputChange = viewModel::onPhoneInputChange,
-            onDismiss = viewModel::closePhoneDialog,
-            onConfirm = viewModel::savePhone,
+            onCreateChallenge = viewModel::createWhatsAppChallenge,
+            onRefresh = viewModel::refreshWhatsAppLink,
+            onUnlink = viewModel::unlinkWhatsApp,
+            onDismiss = viewModel::closeWhatsAppDialog,
         )
     }
 
@@ -236,6 +291,8 @@ fun ProfileScreen(
         CurrencyPickerDialog(
             selected = state.currencyInput,
             isSaving = state.isSavingCurrency,
+            canChange = state.canChangeCurrency,
+            error = state.errorMessage,
             onSelect = viewModel::onCurrencySelect,
             onDismiss = viewModel::closeCurrencyDialog,
             onConfirm = viewModel::saveCurrency,
@@ -245,6 +302,7 @@ fun ProfileScreen(
     if (state.showDeleteDialog) {
         DeleteAccountDialog(
             isDeleting = state.isDeleting,
+            error = state.errorMessage,
             onDismiss = viewModel::closeDeleteDialog,
             onConfirm = viewModel::deleteAccount,
         )
@@ -255,6 +313,8 @@ fun ProfileScreen(
 private fun CurrencyPickerDialog(
     selected: String,
     isSaving: Boolean,
+    canChange: Boolean,
+    error: String?,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
@@ -264,15 +324,33 @@ private fun CurrencyPickerDialog(
         title = { Text(stringResource(R.string.profile_currency_dialog_title)) },
         text = {
             Column {
+                Text(
+                    text = stringResource(R.string.profile_currency_dialog_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                if (error != null) {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 com.qolve.fluyo.presentation.util.SUPPORTED_CURRENCIES.forEach { (code, symbol) ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSelect(code) }
+                            .clickable(enabled = canChange) { onSelect(code) }
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(selected = code == selected, onClick = { onSelect(code) })
+                        RadioButton(
+                            selected = code == selected,
+                            onClick = { onSelect(code) },
+                            enabled = canChange,
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = "$code  ·  $symbol",
@@ -283,7 +361,7 @@ private fun CurrencyPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isSaving) {
+            TextButton(onClick = onConfirm, enabled = !isSaving && canChange) {
                 Text(stringResource(R.string.action_save))
             }
         },
@@ -296,13 +374,44 @@ private fun CurrencyPickerDialog(
 @Composable
 private fun DeleteAccountDialog(
     isDeleting: Boolean,
+    error: String?,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val externalDeletionUrl = remember {
+        BuildConfig.ACCOUNT_DELETION_URL.takeIf { raw ->
+            isSafeExternalHttpsUrl(raw)
+        }
+    }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isDeleting) onDismiss() },
         title = { Text(stringResource(R.string.profile_delete_dialog_title)) },
-        text = { Text(stringResource(R.string.profile_delete_dialog_body)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.profile_delete_dialog_body))
+                if (error != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                externalDeletionUrl?.let { url ->
+                    TextButton(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                            }
+                        },
+                        enabled = !isDeleting,
+                    ) {
+                        Text(stringResource(R.string.profile_delete_external))
+                    }
+                }
+            }
+        },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
@@ -313,7 +422,9 @@ private fun DeleteAccountDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss, enabled = !isDeleting) {
+                Text(stringResource(R.string.action_cancel))
+            }
         },
     )
 }
@@ -350,13 +461,7 @@ private fun profileSubtitle(user: User?): String {
     val local = since.atZone(ZoneId.systemDefault())
     val fmt = remember { DateTimeFormatter.ofPattern("MMM yyyy", Locale.forLanguageTag("es-PE")) }
     val asString = local.format(fmt).replaceFirstChar { it.lowercase() }
-    // Two variants: with phone (we know the user opted into WhatsApp, treat as Peru-based),
-    // or just the member-since date. Avoid hardcoding a city we don't have data for.
-    return if (!user.phoneNumber.isNullOrBlank()) {
-        stringResource(R.string.profile_member_since_location, "Lima", asString)
-    } else {
-        stringResource(R.string.profile_member_since, asString)
-    }
+    return stringResource(R.string.profile_member_since, asString)
 }
 
 @Composable
@@ -530,7 +635,7 @@ private fun LevelCard(
                 )
                 Text(
                     text = if (streak > 0) {
-                        stringResource(R.string.profile_level_streak, streak)
+                        pluralStringResource(R.plurals.profile_level_streak, streak, streak)
                     } else {
                         stringResource(R.string.profile_level_streak_none)
                     },
@@ -645,9 +750,13 @@ private fun BadgeTile(type: BadgeType, unlocked: Boolean) {
 @Composable
 private fun AjustesCard(
     user: User?,
+    whatsAppEnabled: Boolean,
+    whatsAppLink: WhatsAppLink?,
+    isLoadingWhatsApp: Boolean,
     onEditBudget: () -> Unit,
-    onEditPhone: () -> Unit,
+    onManageWhatsApp: () -> Unit,
     onEditCurrency: () -> Unit,
+    canEditCurrency: Boolean,
     onManageCategories: () -> Unit,
     onExportCsv: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
@@ -670,7 +779,7 @@ private fun AjustesCard(
                 icon = Icons.Outlined.Savings,
                 title = stringResource(R.string.profile_budget_label),
                 subtitle = stringResource(R.string.profile_budget_row_subtitle),
-                value = money(user?.monthlyBudget ?: 0.0),
+                value = money(user?.monthlyBudget ?: MoneyAmount.ZERO),
                 onClick = onEditBudget,
             )
             ThinDivider()
@@ -678,7 +787,10 @@ private fun AjustesCard(
             SettingsRow(
                 icon = Icons.Outlined.CurrencyExchange,
                 title = stringResource(R.string.profile_currency_label),
-                subtitle = stringResource(R.string.profile_currency_row_subtitle),
+                subtitle = stringResource(
+                    if (canEditCurrency) R.string.profile_currency_row_subtitle
+                    else R.string.profile_currency_row_locked_subtitle,
+                ),
                 value = user?.currency ?: "PEN",
                 onClick = onEditCurrency,
             )
@@ -692,17 +804,27 @@ private fun AjustesCard(
                 onClick = onManageCategories,
             )
             ThinDivider()
-            // Phone — opens the edit dialog. Clearing the field saves null so WhatsApp
-            // routing is detached without forcing the user to dig through code.
-            SettingsRow(
-                icon = Icons.Outlined.Phone,
-                title = stringResource(R.string.profile_phone_label),
-                subtitle = stringResource(R.string.profile_phone_row_subtitle),
-                value = user?.phoneNumber?.takeIf { it.isNotBlank() }
-                    ?: stringResource(R.string.profile_phone_unset),
-                onClick = onEditPhone,
-            )
-            ThinDivider()
+            // WhatsApp sender identity comes exclusively from the backend-owned verified link.
+            if (whatsAppEnabled) {
+                SettingsRow(
+                    icon = Icons.Outlined.Phone,
+                    title = stringResource(R.string.profile_whatsapp_label),
+                    subtitle = stringResource(
+                        when {
+                            isLoadingWhatsApp -> R.string.profile_whatsapp_loading_subtitle
+                            whatsAppLink == null -> R.string.profile_whatsapp_unlinked_subtitle
+                            else -> R.string.profile_whatsapp_verified_subtitle
+                        },
+                    ),
+                    value = when {
+                        isLoadingWhatsApp -> stringResource(R.string.profile_whatsapp_loading)
+                        whatsAppLink != null -> whatsAppLink.maskedPhone
+                        else -> stringResource(R.string.profile_whatsapp_unlinked)
+                    },
+                    onClick = onManageWhatsApp,
+                )
+                ThinDivider()
+            }
             // Notifications expander row
             val statusSubtitle = if (user?.notificationEnabled == false) {
                 stringResource(R.string.profile_notifications_row_subtitle_off)
@@ -834,59 +956,118 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun PhoneEditDialog(
-    input: String,
-    isSaving: Boolean,
+private fun WhatsAppLinkDialog(
+    link: WhatsAppLink?,
+    isLoading: Boolean,
+    isCreatingChallenge: Boolean,
+    isUnlinking: Boolean,
+    challengeExpiresAt: Instant?,
     error: String?,
-    onInputChange: (String) -> Unit,
+    onCreateChallenge: () -> Unit,
+    onRefresh: () -> Unit,
+    onUnlink: () -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
 ) {
-    val ctx = LocalContext.current
-    val prefillText = stringResource(R.string.whatsapp_prefill_text)
+    val isWorking = isLoading || isCreatingChallenge || isUnlinking
+    val expiryLabel = remember(challengeExpiresAt) {
+        challengeExpiresAt
+            ?.atZone(ZoneId.systemDefault())
+            ?.format(DateTimeFormatter.ofPattern("HH:mm"))
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.profile_phone_label)) },
+        title = { Text(stringResource(R.string.profile_whatsapp_label)) },
         text = {
             Column {
-                Text(
-                    text = stringResource(R.string.profile_phone_row_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
-                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // "+51 " hint sits inline with the field — we don't persist a country code
-                    // separately yet, the user types the local number and we store it as-is.
-                    Text(
-                        text = "+51",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Icon(
+                        imageVector = if (link == null) Icons.Outlined.Phone else Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = if (link == null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                     )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = onInputChange,
-                        placeholder = { Text(stringResource(R.string.onboarding_phone_hint)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                // Once the user has a complete-looking number typed, show the WhatsApp
-                // launch shortcut as a hint that they can test the linkage right now.
-                if (input.length >= 9) {
-                    Spacer(Modifier.height(10.dp))
-                    androidx.compose.material3.TextButton(
-                        onClick = { ctx.openFluyoOnWhatsApp(prefillText) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.whatsapp_connect_cta),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            text = stringResource(
+                                if (link == null) {
+                                    R.string.profile_whatsapp_unlinked
+                                } else {
+                                    R.string.whatsapp_verified_title
+                                },
+                            ),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         )
+                        link?.let {
+                            Text(
+                                text = it.maskedPhone,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (isWorking) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.whatsapp_sender_verification_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (expiryLabel != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.whatsapp_challenge_expiry, expiryLabel),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onCreateChallenge,
+                    enabled = !isWorking,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        stringResource(
+                            if (link == null) {
+                                R.string.whatsapp_create_challenge
+                            } else {
+                                R.string.whatsapp_relink
+                            },
+                        ),
+                    )
+                }
+                OutlinedButton(
+                    onClick = onRefresh,
+                    enabled = !isWorking,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.whatsapp_refresh_status))
+                }
+                if (link != null) {
+                    TextButton(
+                        onClick = onUnlink,
+                        enabled = !isWorking,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text(stringResource(R.string.whatsapp_unlink))
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.whatsapp_backend_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                )
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -898,18 +1079,11 @@ private fun PhoneEditDialog(
             }
         },
         confirmButton = {
-            // No min-length validation: clearing the field is a valid way to opt out of WhatsApp.
-            TextButton(onClick = onConfirm, enabled = !isSaving) {
-                Text(stringResource(R.string.action_continue))
-            }
-        },
-        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_back))
+                Text(stringResource(R.string.action_close))
             }
         },
     )
 }
 
 // BudgetEditDialog moved to presentation/components (shared with Home's ring tap).
-

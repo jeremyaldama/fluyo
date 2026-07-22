@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,7 +73,8 @@ fun LevelCard(
             val ceiling = level.nextThreshold
             Text(
                 text = if (ceiling != null) {
-                    stringResource(R.string.profile_points_to_next, (ceiling - totalPoints).coerceAtLeast(0))
+                    val remaining = (ceiling - totalPoints).coerceAtLeast(0)
+                    pluralStringResource(R.plurals.profile_points_to_next, remaining, remaining)
                 } else {
                     stringResource(R.string.profile_max_level)
                 },

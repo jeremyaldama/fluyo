@@ -61,7 +61,10 @@ fun DepositSheet(
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        sheetState = sheetState,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

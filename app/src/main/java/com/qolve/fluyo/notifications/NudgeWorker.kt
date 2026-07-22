@@ -14,26 +14,33 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.qolve.fluyo.MainActivity
 import com.qolve.fluyo.R
-import com.qolve.fluyo.data.badge.BadgeEngine
-import com.qolve.fluyo.data.local.NudgePrefs
+import com.qolve.fluyo.domain.repository.NudgeHistoryRepository
+import com.qolve.fluyo.domain.repository.SessionBoundary
 import com.qolve.fluyo.domain.usecase.ComputeNudgeUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 @HiltWorker
 class NudgeWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val computeNudge: ComputeNudgeUseCase,
-    private val nudgePrefs: NudgePrefs,
-    private val badgeEngine: BadgeEngine,
+    private val nudgeHistory: NudgeHistoryRepository,
+    private val sessionBoundary: SessionBoundary,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        // Month-end badge checks (saver + perfect month) ride along with the daily run (HU-08).
-        runCatching { badgeEngine.checkMonthEndBadges() }
-
-        val nudge = runCatching { computeNudge() }.getOrNull() ?: return Result.success()
+        val decision = try {
+            computeNudge()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
+        } ?: return Result.success()
+        val nudge = decision.content
+        val sessionEpoch = decision.sessionEpoch
+        if (!sessionBoundary.isCurrent(sessionEpoch)) return Result.success()
 
         val canPost = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
@@ -42,6 +49,15 @@ class NudgeWorker @AssistedInject constructor(
             ) == PackageManager.PERMISSION_GRANTED
         } else true
         if (!canPost) return Result.success()
+
+        val claimed = try {
+            nudgeHistory.claimToday(sessionEpoch)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
+        }
+        if (!claimed) return Result.success()
 
         val launchIntent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -54,16 +70,7 @@ class NudgeWorker @AssistedInject constructor(
         )
 
         val notification = NotificationCompat.Builder(applicationContext, FluyoChannels.NUDGES_ID)
-            // Prefer the monochrome ic_stat_nudge drawable once it's been
-            // generated via Image Asset Studio. Falls back to the launcher
-            // icon if the drawable hasn't been added yet (early-build safety).
-            .setSmallIcon(
-                runCatching {
-                    applicationContext.resources.getIdentifier(
-                        "ic_stat_nudge", "drawable", applicationContext.packageName,
-                    )
-                }.getOrNull()?.takeIf { it != 0 } ?: R.mipmap.ic_launcher
-            )
+            .setSmallIcon(R.drawable.ic_stat_name)
             .setContentTitle(nudge.title)
             .setContentText(nudge.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(nudge.body))
@@ -72,14 +79,17 @@ class NudgeWorker @AssistedInject constructor(
             .setContentIntent(pending)
             .build()
 
-        NotificationManagerCompat.from(applicationContext)
-            .notify(NUDGE_NOTIFICATION_ID, notification)
-
-        nudgePrefs.markFiredToday()
+        // Atomic with an identity transition: either this posts first and transition
+        // proceeds to cancel it, or the stale notification is rejected.
+        sessionBoundary.runIfCurrent(sessionEpoch) {
+            NotificationManagerCompat.from(applicationContext)
+                .notify(NUDGE_NOTIFICATION_ID, notification)
+        }
         return Result.success()
     }
 
     companion object {
         const val NUDGE_NOTIFICATION_ID = 1001
+        private const val MAX_RETRIES = 3
     }
 }

@@ -27,6 +27,7 @@ coroutinesPlayServices = "1.9.0"
 activity = "1.9.3"
 workManager = "2.10.0"
 hiltWork = "1.2.0"
+kover = "0.9.9"
 
 [libraries]
 # AndroidX core
@@ -107,3 +108,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

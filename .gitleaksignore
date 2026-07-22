@@ -1,0 +1,4 @@
+# Exact historical finding. Keep this narrow exception only until the credential
+# is rotated and the coordinated history rewrite in SECURITY_INCIDENT_RESPONSE.md
+# is complete. New occurrences, other files and other commits remain blocking.
+200b8bdd8797662378bca9fdefdb4d80d3176967:.claude/settings.local.json:keytool-cli-password:30

@@ -1,5 +1,6 @@
 *.iml
 .gradle
+/.kotlin/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -13,3 +14,29 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Environment and signing configuration belongs in the developer machine or
+# the CI secret store. Keep explicitly sanitized templates reviewable.
+.env
+.env.*
+!.env.example
+keystore.properties
+
+# Generated Android distribution artifacts. Publish these through CI/Play or a
+# GitHub release; do not commit binary outputs to the source repository.
+*.aab
+*.apk
+/app/release/
+
+# Signing keys and certificate containers are local/CI secrets. Public
+# certificates that genuinely belong in the repository must use an explicitly
+# reviewed, narrowly named exception.
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Local AI/MCP configuration. These files may contain credentials and
+# environment-specific access grants; keep only sanitized examples in Git.
+/.claude/settings.local.json
+/.mcp.json

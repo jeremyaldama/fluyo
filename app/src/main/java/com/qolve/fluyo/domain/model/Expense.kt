@@ -5,7 +5,7 @@ import java.time.LocalDate
 
 data class Expense(
     val id: String,
-    val amount: Double,
+    val amount: MoneyAmount,
     val categoryId: String?,
     val description: String?,
     val expenseDate: LocalDate,

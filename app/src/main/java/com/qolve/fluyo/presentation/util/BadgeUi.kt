@@ -5,9 +5,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Diamond
 import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,7 +45,7 @@ fun BadgeType.icon(): ImageVector = when (this) {
     BadgeType.FIRST_GOAL -> Icons.Outlined.Flag
     BadgeType.SAVER_MONTH -> Icons.Outlined.EmojiEvents
     BadgeType.MIL_SOLES -> Icons.Outlined.Diamond
-    BadgeType.NO_YAPE -> Icons.Outlined.PhoneAndroid
+    BadgeType.NO_YAPE -> Icons.Outlined.EditNote
     BadgeType.PERFECT_MONTH -> Icons.Outlined.WorkspacePremium
 }
 
@@ -66,7 +66,7 @@ fun BadgeType.emoji(): String = when (this) {
     BadgeType.FIRST_GOAL -> "🏆"
     BadgeType.STREAK_30 -> "📅"
     BadgeType.MIL_SOLES -> "💎"
-    BadgeType.NO_YAPE -> "💵"
+    BadgeType.NO_YAPE -> "✍️"
     BadgeType.PERFECT_MONTH -> "⭐"
 }
 

@@ -3,8 +3,10 @@ package com.qolve.fluyo.presentation.util
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
+import com.qolve.fluyo.domain.model.MoneyAmount
 import java.text.NumberFormat
 import java.util.Locale
+import java.math.RoundingMode
 
 private val LOCALE_ES_PE: Locale = Locale.forLanguageTag("es-PE")
 
@@ -14,9 +16,9 @@ private val amountFormat: NumberFormat = NumberFormat.getNumberInstance(LOCALE_E
 }
 
 /**
- * Currencies the app can display (HU-11). Default is PEN — the thesis target market —
- * but the user can switch in Profile. The map is the single source of truth for both the
- * picker and symbol rendering. Codes are ISO-4217.
+ * Supported base denominations (HU-11). Default is PEN — the thesis target market.
+ * An empty account may choose one in Profile; once monetary activity exists it is immutable.
+ * Values are never relabelled or converted without an explicit FX model. Codes are ISO-4217.
  */
 val SUPPORTED_CURRENCIES: Map<String, String> = linkedMapOf(
     "PEN" to "S/",
@@ -28,11 +30,19 @@ val SUPPORTED_CURRENCIES: Map<String, String> = linkedMapOf(
 fun currencySymbolFor(code: String): String = SUPPORTED_CURRENCIES[code] ?: "S/"
 
 /** Format a bare amount (no symbol), e.g. "1,250.50" in es-PE grouping. */
-fun formatAmount(amount: Double): String = amountFormat.format(amount)
+fun formatAmount(amount: MoneyAmount): String = amountFormat.format(amount.toBigDecimal())
+
+/** Whole-major-unit display for compact cards, rounded explicitly with bankers' rounding. */
+fun formatWholeAmount(amount: MoneyAmount): String =
+    NumberFormat.getNumberInstance(LOCALE_ES_PE).apply {
+        minimumFractionDigits = 0
+        maximumFractionDigits = 0
+        roundingMode = RoundingMode.HALF_EVEN
+    }.format(amount.toBigDecimal())
 
 /** Format with an explicit currency code, e.g. "S/ 15.50" / "$ 15.50". */
-fun formatMoney(amount: Double, code: String): String =
-    "${currencySymbolFor(code)} ${amountFormat.format(amount)}"
+fun formatMoney(amount: MoneyAmount, code: String): String =
+    "${currencySymbolFor(code)} ${amountFormat.format(amount.toBigDecimal())}"
 
 /**
  * Holds the active currency *symbol* for the composition. Provided once near the nav root
@@ -49,13 +59,14 @@ fun currencySymbol(): String = LocalCurrencySymbol.current
 /** Format an amount in the composition's active currency, e.g. "S/ 15.50". */
 @Composable
 @ReadOnlyComposable
-fun money(amount: Double): String = "${LocalCurrencySymbol.current} ${amountFormat.format(amount)}"
+fun money(amount: MoneyAmount): String =
+    "${LocalCurrencySymbol.current} ${amountFormat.format(amount.toBigDecimal())}"
 
 /**
  * Format as "S/ 15.50" in PEN. Retained for non-composable callers and as the safe default;
  * composables should prefer [money] so the amount honors the user's selected currency.
  */
-fun formatPen(amount: Double): String = "S/ ${amountFormat.format(amount)}"
+fun formatPen(amount: MoneyAmount): String = "S/ ${amountFormat.format(amount.toBigDecimal())}"
 
 /**
  * Sanitizes free text into a money input: digits plus at most one decimal separator

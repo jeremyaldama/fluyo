@@ -21,3 +21,11 @@ data class BudgetExtraInsertDto(
     val amount: Double,
     val note: String? = null,
 )
+
+@Serializable
+data class BudgetExtraCreateRpcParams(
+    @SerialName("p_request_id") val requestId: String,
+    @SerialName("p_amount") val amount: Double,
+    @SerialName("p_note") val note: String? = null,
+    @SerialName("p_month") val month: String,
+)

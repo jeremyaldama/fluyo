@@ -1,24 +1,29 @@
 package com.qolve.fluyo.data.voice
 
+import com.qolve.fluyo.data.parsing.parseLocalizedMoney
+import com.qolve.fluyo.domain.model.MoneyAmount
+
 /**
  * Parses a Spanish speech transcript into the pieces needed to pre-fill an expense
  * (HU-05). Conservative like `YapeParser`: returns null fields rather than guessing,
  * because the user confirms on the manual-entry screen afterwards.
  *
- * Examples it handles: "gasté 15 soles en almuerzo", "20 en taxi", "veinte soles de
- * comida", "S/ 12.50 en café".
+ * Examples it handles: "gasté 15 soles en almuerzo", "20 en taxi" and
+ * "S/ 12.50 en café". Spelled-out numerals are deliberately left for confirmation.
  */
 object VoiceParser {
 
     data class VoiceParsed(
-        val amount: Double?,
+        val amount: MoneyAmount?,
         val categoryHint: String?,
         val description: String?,
     )
 
     // First number in the phrase — integer or decimal, comma or dot. Voice input usually
     // dictates digits ("quince" stays as text and is ignored — we only take numerals).
-    private val amountRegex = Regex("""(\d{1,3}(?:[.,]\d{1,2})?)""")
+    private val amountRegex = Regex(
+        """(?<![\d.,])(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d.,])""",
+    )
 
     // Keyword → canonical default-category name (matches the seed_default_categories list).
     // Word edges use `(?<![\p{L}])…(?![\p{L}])` ("not adjacent to a Unicode letter") so
@@ -47,9 +52,7 @@ object VoiceParser {
 
         val amount = amountRegex.find(lower)
             ?.groupValues?.get(1)
-            ?.replace(',', '.')
-            ?.toDoubleOrNull()
-            ?.takeIf { it > 0.0 }
+            ?.let { parseLocalizedMoney(it) }
 
         val categoryHint = categoryKeywords.firstOrNull { it.first.containsMatchIn(lower) }?.second
 

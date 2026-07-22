@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.theme.FluyoTeal
+import com.qolve.fluyo.presentation.util.openFluyoOnWhatsApp
 
 // Canvas color removed — Scaffold now reads from MaterialTheme.colorScheme.background so
 // dark mode gets the dark canvas, light mode the pale mint.
@@ -58,6 +60,13 @@ fun OnboardingHost(
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.whatsAppLaunchEvents.collect { request ->
+            context.openFluyoOnWhatsApp(request.message)
+        }
+    }
 
     LaunchedEffect(state.finished) {
         if (state.finished) onFinished()
@@ -77,7 +86,7 @@ fun OnboardingHost(
             ) {
                 StepPills(
                     currentStep = state.step,
-                    totalSteps = OnboardingViewModel.LAST_STEP + 1,
+                    totalSteps = OnboardingViewModel.lastStep + 1,
                 )
                 Spacer(Modifier.weight(1f))
                 TextButton(
@@ -99,7 +108,7 @@ fun OnboardingHost(
                 text = stringResource(
                     R.string.onboarding_step_of,
                     state.step + 1,
-                    OnboardingViewModel.LAST_STEP + 1,
+                    OnboardingViewModel.lastStep + 1,
                 ),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
@@ -132,8 +141,11 @@ fun OnboardingHost(
                         )
                         1 -> CategoriesStep()
                         else -> WhatsAppStep(
-                            phone = state.phoneInput,
-                            onPhoneChange = viewModel::onPhoneChange,
+                            link = state.whatsAppLink,
+                            isWorking = state.isLoadingWhatsApp || state.isCreatingWhatsAppChallenge,
+                            challengeExpiresAt = state.whatsAppChallengeExpiresAt,
+                            onConnect = viewModel::createWhatsAppChallenge,
+                            onRefresh = viewModel::refreshWhatsAppLink,
                         )
                     }
                 }
@@ -152,12 +164,12 @@ fun OnboardingHost(
             // Bottom row — back circle (when applicable) + pill CTA.
             BottomBar(
                 showBack = state.step > 0,
-                isLastStep = state.step == OnboardingViewModel.LAST_STEP,
+                isLastStep = state.step == OnboardingViewModel.lastStep,
                 canAdvance = canAdvance(state),
                 isSaving = state.isSaving,
                 onBack = viewModel::back,
                 onAdvance = {
-                    if (state.step == OnboardingViewModel.LAST_STEP) viewModel.finish() else viewModel.next()
+                    if (state.step == OnboardingViewModel.lastStep) viewModel.finish() else viewModel.next()
                 },
             )
         }

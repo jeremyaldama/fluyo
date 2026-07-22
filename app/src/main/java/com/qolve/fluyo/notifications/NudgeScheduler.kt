@@ -6,6 +6,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Duration
 import java.time.LocalDate
@@ -52,6 +53,7 @@ class NudgeScheduler @Inject constructor(
 
     fun cancel() {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        NotificationManagerCompat.from(context).cancel(NudgeWorker.NUDGE_NOTIFICATION_ID)
     }
 
     private fun computeInitialDelay(hourOfDay: Int): Duration {

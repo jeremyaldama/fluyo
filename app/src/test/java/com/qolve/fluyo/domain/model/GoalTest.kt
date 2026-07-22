@@ -9,12 +9,12 @@ import java.time.Instant
 /** Unit tests for the pure domain logic on [Goal]. */
 class GoalTest {
 
-    private fun goal(target: Double, current: Double, status: GoalStatus = GoalStatus.ACTIVE) =
+    private fun goal(target: Long, current: Long, status: GoalStatus = GoalStatus.ACTIVE) =
         Goal(
             id = "g1",
             name = "Audífonos",
-            targetAmount = target,
-            currentAmount = current,
+            targetAmount = MoneyAmount.ofCents(target * 100L),
+            currentAmount = MoneyAmount.ofCents(current * 100L),
             deadline = null,
             status = status,
             createdAt = Instant.EPOCH,
@@ -23,28 +23,28 @@ class GoalTest {
 
     @Test
     fun `progress is the current over target ratio`() {
-        assertEquals(0.25f, goal(target = 200.0, current = 50.0).progress, 0.001f)
+        assertEquals(0.25f, goal(target = 200, current = 50).progress, 0.001f)
     }
 
     @Test
     fun `progress is clamped to 1 when over-funded`() {
-        assertEquals(1f, goal(target = 200.0, current = 300.0).progress, 0.001f)
+        assertEquals(1f, goal(target = 200, current = 300).progress, 0.001f)
     }
 
     @Test
     fun `progress is zero when target is non-positive`() {
-        assertEquals(0f, goal(target = 0.0, current = 50.0).progress, 0.001f)
+        assertEquals(0f, goal(target = 0, current = 50).progress, 0.001f)
     }
 
     @Test
     fun `remaining is target minus current, never negative`() {
-        assertEquals(150.0, goal(target = 200.0, current = 50.0).remaining, 0.001)
-        assertEquals(0.0, goal(target = 200.0, current = 300.0).remaining, 0.001)
+        assertEquals(MoneyAmount.ofCents(15_000L), goal(target = 200, current = 50).remaining)
+        assertEquals(MoneyAmount.ZERO, goal(target = 200, current = 300).remaining)
     }
 
     @Test
     fun `isCompleted reflects the status`() {
-        assertTrue(goal(200.0, 200.0, GoalStatus.COMPLETED).isCompleted)
-        assertFalse(goal(200.0, 50.0, GoalStatus.ACTIVE).isCompleted)
+        assertTrue(goal(200, 200, GoalStatus.COMPLETED).isCompleted)
+        assertFalse(goal(200, 50, GoalStatus.ACTIVE).isCompleted)
     }
 }

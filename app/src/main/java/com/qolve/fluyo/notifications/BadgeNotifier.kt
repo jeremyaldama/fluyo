@@ -12,6 +12,8 @@ import androidx.core.content.ContextCompat
 import com.qolve.fluyo.MainActivity
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BadgeType
+import com.qolve.fluyo.domain.repository.BadgeNotificationGateway
+import com.qolve.fluyo.domain.repository.SessionBoundary
 import com.qolve.fluyo.presentation.util.descriptionRes
 import com.qolve.fluyo.presentation.util.nameRes
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,8 +29,15 @@ import javax.inject.Singleton
 @Singleton
 class BadgeNotifier @Inject constructor(
     @param:ApplicationContext private val context: Context,
-) {
-    fun notify(type: BadgeType) {
+    private val sessionBoundary: SessionBoundary,
+) : BadgeNotificationGateway {
+    override fun notifyBadgeUnlocked(type: BadgeType, expectedSessionEpoch: Long) {
+        sessionBoundary.runIfCurrent(expectedSessionEpoch) {
+            postNotification(type)
+        }
+    }
+
+    private fun postNotification(type: BadgeType) {
         FluyoChannels.ensureCreated(context)
 
         val canPost = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -53,13 +62,7 @@ class BadgeNotifier @Inject constructor(
         val body = context.getString(type.nameRes()) + " · " + context.getString(type.descriptionRes())
 
         val notification = NotificationCompat.Builder(context, FluyoChannels.LOGROS_ID)
-            .setSmallIcon(
-                runCatching {
-                    context.resources.getIdentifier(
-                        "ic_stat_nudge", "drawable", context.packageName,
-                    )
-                }.getOrNull()?.takeIf { it != 0 } ?: R.mipmap.ic_launcher,
-            )
+            .setSmallIcon(R.drawable.ic_stat_name)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

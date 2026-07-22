@@ -26,6 +26,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,12 +126,18 @@ private fun AvatarChip(
     onClick: () -> Unit,
 ) {
     val initials = remember(displayName) { initialsOf(displayName) }
+    val openProfileDescription = stringResource(R.string.home_open_profile)
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(CoralRamp100)
-            .clickable(onClick = onClick),
+            .clickable(
+                onClickLabel = openProfileDescription,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .semantics { contentDescription = openProfileDescription },
         contentAlignment = Alignment.Center,
     ) {
         if (!photoUrl.isNullOrBlank()) {
@@ -142,6 +152,7 @@ private fun AvatarChip(
                 text = initials,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = CoralRamp700,
+                modifier = Modifier.clearAndSetSemantics { },
             )
         }
     }

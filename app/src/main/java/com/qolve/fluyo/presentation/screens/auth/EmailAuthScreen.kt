@@ -71,11 +71,14 @@ fun EmailAuthScreen(
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surface),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.action_back),
+                    )
                 }
             }
 
@@ -108,95 +111,107 @@ fun EmailAuthScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Form fields.
-            if (state.mode == AuthMode.SignUp) {
+            if (state.confirmationEmail == null) {
+                // Form fields.
+                if (state.mode == AuthMode.SignUp) {
+                    OutlinedTextField(
+                        value = state.name,
+                        onValueChange = viewModel::onNameChange,
+                        label = { Text(stringResource(R.string.auth_email_name_label)) },
+                        placeholder = { Text(stringResource(R.string.auth_email_name_hint)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = viewModel::onNameChange,
-                    label = { Text(stringResource(R.string.auth_email_name_label)) },
-                    placeholder = { Text(stringResource(R.string.auth_email_name_hint)) },
+                    value = state.email,
+                    onValueChange = viewModel::onEmailChange,
+                    label = { Text(stringResource(R.string.auth_email_email_label)) },
+                    placeholder = { Text(stringResource(R.string.auth_email_email_hint)) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
-            }
+                OutlinedTextField(
+                    value = state.password,
+                    onValueChange = viewModel::onPasswordChange,
+                    label = { Text(stringResource(R.string.auth_email_password_label)) },
+                    placeholder = { Text(stringResource(R.string.auth_email_password_hint)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            OutlinedTextField(
-                value = state.email,
-                onValueChange = viewModel::onEmailChange,
-                label = { Text(stringResource(R.string.auth_email_email_label)) },
-                placeholder = { Text(stringResource(R.string.auth_email_email_hint)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChange,
-                label = { Text(stringResource(R.string.auth_email_password_label)) },
-                placeholder = { Text(stringResource(R.string.auth_email_password_hint)) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Inline error mapped from typed AuthFormError.
-            state.error?.let { err ->
-                val msg = when (err) {
-                    AuthFormError.InvalidEmail -> stringResource(R.string.auth_email_error_invalid_email)
-                    AuthFormError.ShortPassword -> stringResource(R.string.auth_email_error_short_password)
-                    AuthFormError.MissingName -> stringResource(R.string.auth_email_error_missing_name)
-                    is AuthFormError.Server -> err.message ?: stringResource(R.string.login_error_generic)
+                // Inline error mapped from typed AuthFormError.
+                state.error?.let { err ->
+                    val msg = when (err) {
+                        AuthFormError.InvalidEmail -> stringResource(R.string.auth_email_error_invalid_email)
+                        AuthFormError.ShortPassword -> stringResource(R.string.auth_email_error_short_password)
+                        AuthFormError.MissingName -> stringResource(R.string.auth_email_error_missing_name)
+                        is AuthFormError.Server -> err.message
+                            ?: stringResource(R.string.login_error_generic)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = msg,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = msg,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+            } else {
+                ConfirmationPendingContent(
+                    state = state,
+                    onResend = viewModel::resendConfirmation,
                 )
             }
 
             Spacer(Modifier.weight(1f))
 
-            // Submit
-            val submitRes = if (state.mode == AuthMode.SignIn) {
-                R.string.auth_email_submit_signin
-            } else {
-                R.string.auth_email_submit_signup
-            }
-            Button(
-                onClick = viewModel::submit,
-                enabled = state.canSubmit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(27.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                if (state.isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                    )
+            if (state.confirmationEmail == null) {
+                // Submit
+                val submitRes = if (state.mode == AuthMode.SignIn) {
+                    R.string.auth_email_submit_signin
                 } else {
-                    Text(
-                        text = stringResource(submitRes),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    )
+                    R.string.auth_email_submit_signup
                 }
-            }
+                Button(
+                    onClick = viewModel::submit,
+                    enabled = state.canSubmit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(27.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    if (state.isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(submitRes),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                        )
+                    }
+                }
 
-            Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
+            }
 
             // Mode-switch link
             TextButton(
@@ -218,6 +233,65 @@ fun EmailAuthScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ConfirmationPendingContent(
+    state: EmailAuthUiState,
+    onResend: () -> Unit,
+) {
+    val email = state.confirmationEmail ?: return
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(R.string.auth_email_confirmation_required, email),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onResend,
+            enabled = state.canResendConfirmation,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(27.dp),
+        ) {
+            if (state.isResendingConfirmation) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.auth_email_resending_confirmation))
+            } else {
+                Text(
+                    if (state.resendCooldownSeconds > 0) {
+                        stringResource(
+                            R.string.auth_email_resend_available_in,
+                            state.resendCooldownSeconds,
+                        )
+                    } else {
+                        stringResource(R.string.auth_email_resend_confirmation)
+                    },
+                )
+            }
+        }
+        state.resendFeedback?.let { feedback ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    when (feedback) {
+                        ConfirmationResendFeedback.Sent -> R.string.auth_email_resend_success
+                        ConfirmationResendFeedback.Failed -> R.string.auth_email_resend_error
+                    },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = when (feedback) {
+                    ConfirmationResendFeedback.Sent -> MaterialTheme.colorScheme.primary
+                    ConfirmationResendFeedback.Failed -> MaterialTheme.colorScheme.error
+                },
+            )
         }
     }
 }

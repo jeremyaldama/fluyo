@@ -1,0 +1,262 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret history scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Scan committed history and current files
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+  edge-functions:
+    name: Edge Function checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.5.7
+          cache: true
+
+      - name: Verify formatting
+        working-directory: supabase/functions/delete-account
+        run: deno fmt --check
+
+      - name: Lint Edge Functions
+        working-directory: supabase/functions/delete-account
+        run: deno lint
+
+      - name: Type-check frozen dependency graph
+        working-directory: supabase/functions/delete-account
+        run: deno check --all --frozen --lock=deno.lock .
+
+      - name: Test Edge Functions
+        working-directory: supabase/functions/delete-account
+        run: deno test --frozen --lock=deno.lock
+
+  database:
+    name: PostgreSQL migration contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_DB: fluyo_migration_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fluyo_migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify migration and RPC contracts
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:5432/fluyo_migration_test
+          MIGRATION_TEST_CONFIRM_RESET: fluyo_migration_test
+        run: ./scripts/test-migrations.sh
+
+  instrumented:
+    name: Instrumented tests (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+
+      - name: Install compile SDK
+        run: sdkmanager "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        with:
+          cache-provider: basic
+
+      - name: Execute instrumented security and import tests
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -camera-back none
+          script: ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest
+
+  verify:
+    name: Unit tests, lint and compilation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+
+      - name: Install Android 16 QPR2 SDK
+        run: sdkmanager "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        with:
+          cache-provider: basic
+
+      - name: Verify Android project
+        run: >-
+          ./gradlew --no-daemon --stacktrace --max-workers=2
+          :app:testDebugUnitTest
+          :app:koverXmlReportDebug
+          :app:koverVerifyDebug
+          :app:lintDebug
+          :app:compileDebugAndroidTestKotlin
+          :app:assembleDebug
+
+      # Keep the releaseUnsigned KSP graph separate from debug lint. Running both
+      # variants in one Gradle graph can let AGP lint inspect a generated source
+      # while KSP is still replacing it.
+      - name: Build unsigned release artifact
+        run: >-
+          ./gradlew --no-daemon --stacktrace --max-workers=2
+          :app:bundleReleaseUnsigned
+
+      - name: Prove incomplete release configuration fails closed
+        shell: bash
+        run: |
+          set +e
+          gate_output="$(./gradlew --no-daemon :app:validateReleaseSigning 2>&1)"
+          gate_status=$?
+          set -e
+          if [[ "$gate_status" -eq 0 ]]; then
+            echo "Release validation unexpectedly accepted missing configuration." >&2
+            exit 1
+          fi
+          if [[ "$gate_output" != *"Release distribution configuration is incomplete"* ]]; then
+            echo "Release validation failed for an unexpected reason." >&2
+            echo "$gate_output" >&2
+            exit 1
+          fi
+          echo "Incomplete release configuration was rejected as expected."
+
+      - name: Create an ephemeral CI signing key
+        env:
+          CI_RELEASE_PASSWORD: ci-release-pass
+        run: >-
+          keytool -genkeypair -noprompt
+          -keystore "${RUNNER_TEMP}/fluyo-ci-release.jks"
+          -storepass:env CI_RELEASE_PASSWORD
+          -keypass:env CI_RELEASE_PASSWORD
+          -alias fluyo-ci
+          -dname "CN=Fluyo CI, OU=CI, O=Qolve, C=PE"
+          -keyalg RSA
+          -validity 1
+
+      - name: Prove reserved release destinations fail closed
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/fluyo-ci-release.jks
+          RELEASE_KEYSTORE_PASSWORD: ci-release-pass
+          RELEASE_KEY_ALIAS: fluyo-ci
+          RELEASE_KEY_PASSWORD: ci-release-pass
+          SUPABASE_URL: https://ci-example.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_${{ github.run_id }}_ci_fixture
+          GOOGLE_WEB_CLIENT_ID: 123456789-fluyoci.apps.googleusercontent.com
+          TERMS_URL: https://example.test/terms
+          PRIVACY_URL: https://fluyo-ci.pages.dev/privacy
+          ACCOUNT_DELETION_URL: https://fluyo-ci.pages.dev/delete-account
+          WHATSAPP_LINKING_ENABLED: "false"
+        shell: bash
+        run: |
+          set +e
+          gate_output="$(./gradlew --no-daemon :app:validateReleaseSigning 2>&1)"
+          gate_status=$?
+          set -e
+          if [[ "$gate_status" -eq 0 ]]; then
+            echo "Release validation unexpectedly accepted a reserved destination." >&2
+            exit 1
+          fi
+          if [[ "$gate_output" != *"public, non-reserved hosts"* ]]; then
+            echo "Reserved-destination validation failed for an unexpected reason." >&2
+            echo "$gate_output" >&2
+            exit 1
+          fi
+          echo "Reserved release destination was rejected as expected."
+
+      - name: Prove complete release configuration builds a signed bundle
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/fluyo-ci-release.jks
+          RELEASE_KEYSTORE_PASSWORD: ci-release-pass
+          RELEASE_KEY_ALIAS: fluyo-ci
+          RELEASE_KEY_PASSWORD: ci-release-pass
+          SUPABASE_URL: https://ci-example.supabase.co
+          # Runtime-only fixture; split by the Actions expression so source
+          # scanners do not mistake the deliberately fake value for a credential.
+          SUPABASE_ANON_KEY: sb_publishable_${{ github.run_id }}_ci_fixture
+          GOOGLE_WEB_CLIENT_ID: 123456789-fluyoci.apps.googleusercontent.com
+          # Public-looking fixtures only. The gate intentionally performs no DNS/HTTP I/O.
+          TERMS_URL: https://fluyo-ci.pages.dev/terms
+          PRIVACY_URL: https://fluyo-ci.pages.dev/privacy
+          ACCOUNT_DELETION_URL: https://fluyo-ci.pages.dev/delete-account
+          WHATSAPP_LINKING_ENABLED: "false"
+        run: |
+          ./gradlew --no-daemon --stacktrace --max-workers=2 :app:bundleRelease
+          signature_output="$(
+            jarsigner -verify app/build/outputs/bundle/release/app-release.aab 2>&1
+          )"
+          if [[ "$signature_output" != *"jar verified."* ]]; then
+            echo "$signature_output" >&2
+            exit 1
+          fi

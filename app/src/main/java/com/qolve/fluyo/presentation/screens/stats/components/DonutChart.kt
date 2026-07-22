@@ -31,7 +31,7 @@ fun DonutChart(
     centerValue: String,
     modifier: Modifier = Modifier,
 ) {
-    val totalRaw = slices.sumOf { it.value.toDouble() }.toFloat()
+    val totalRaw = slices.fold(0f) { total, slice -> total + slice.value }
     val animatedProgress by animateFloatAsState(
         targetValue = if (totalRaw > 0f) 1f else 0f,
         animationSpec = tween(700, easing = LinearOutSlowInEasing),

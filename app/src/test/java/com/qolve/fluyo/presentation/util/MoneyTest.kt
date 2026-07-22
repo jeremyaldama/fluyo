@@ -1,5 +1,7 @@
 package com.qolve.fluyo.presentation.util
 
+import com.qolve.fluyo.domain.model.MoneyAmount
+
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -20,21 +22,22 @@ class MoneyTest {
 
     @Test
     fun `formatAmount always shows two decimals`() {
-        assertEquals("5.00", formatAmount(5.0))
-        assertEquals("15.50", formatAmount(15.5))
+        assertEquals("5.00", formatAmount(MoneyAmount.ofCents(500L)))
+        assertEquals("15.50", formatAmount(MoneyAmount.ofCents(1_550L)))
     }
 
     @Test
     fun `formatMoney prefixes the currency symbol`() {
-        assertEquals("S/ 15.50", formatMoney(15.5, "PEN"))
-        assertEquals("$ 15.50", formatMoney(15.5, "USD"))
-        assertEquals("€ 15.50", formatMoney(15.5, "EUR"))
+        val amount = MoneyAmount.ofCents(1_550L)
+        assertEquals("S/ 15.50", formatMoney(amount, "PEN"))
+        assertEquals("$ 15.50", formatMoney(amount, "USD"))
+        assertEquals("€ 15.50", formatMoney(amount, "EUR"))
     }
 
     @Test
     fun `formatPen is the PEN default`() {
-        assertEquals("S/ 0.00", formatPen(0.0))
-        assertEquals("S/ 99.90", formatPen(99.9))
+        assertEquals("S/ 0.00", formatPen(MoneyAmount.ZERO))
+        assertEquals("S/ 99.90", formatPen(MoneyAmount.ofCents(9_990L)))
     }
 
     @Test

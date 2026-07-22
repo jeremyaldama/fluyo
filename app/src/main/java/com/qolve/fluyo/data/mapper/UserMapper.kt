@@ -2,7 +2,9 @@ package com.qolve.fluyo.data.mapper
 
 import com.qolve.fluyo.data.dto.UserDto
 import com.qolve.fluyo.domain.model.NudgeType
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.domain.model.User
+import java.math.RoundingMode
 import java.time.Instant
 
 fun UserDto.toDomain(): User = User(
@@ -10,8 +12,7 @@ fun UserDto.toDomain(): User = User(
     authId = authId,
     email = email,
     displayName = displayName,
-    phoneNumber = phoneNumber,
-    monthlyBudget = monthlyBudget,
+    monthlyBudget = MoneyAmount.fromTransport(monthlyBudget, RoundingMode.HALF_EVEN),
     currency = currency,
     level = level,
     totalPoints = totalPoints,
@@ -19,8 +20,7 @@ fun UserDto.toDomain(): User = User(
     notificationHour = notificationHour.coerceIn(0, 23),
     notificationTypes = notificationTypes
         .mapNotNull { NudgeType.fromWire(it) }
-        .toSet()
-        .ifEmpty { NudgeType.entries.toSet() },
+        .toSet(),
     memberSince = createdAt?.let {
         // Postgres returns "2025-11-04T12:34:56+00" or similar. Instant.parse handles the
         // ISO-8601 form with offset; runCatching guards against any unexpected variants.

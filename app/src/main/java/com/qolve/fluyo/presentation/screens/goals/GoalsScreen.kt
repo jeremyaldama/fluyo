@@ -18,9 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,14 +30,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.width
@@ -45,17 +50,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Goal
+import com.qolve.fluyo.domain.model.sumMoney
 import com.qolve.fluyo.domain.usecase.CreateGoalUseCase.Companion.MAX_ACTIVE_GOALS
 import com.qolve.fluyo.presentation.components.IllustratedEmptyState
-import com.qolve.fluyo.presentation.screens.goals.components.CompletedGoalRow
 import com.qolve.fluyo.presentation.screens.goals.components.ConfettiOverlay
 import com.qolve.fluyo.presentation.screens.goals.components.DepositSheet
 import com.qolve.fluyo.presentation.screens.goals.components.GoalCard
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import com.qolve.fluyo.presentation.theme.FluyoTealLight
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.formatAmount
 
 @Composable
 fun GoalsScreen(
@@ -65,8 +72,14 @@ fun GoalsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var completedCelebrationKey by rememberSaveable { mutableIntStateOf(0) }
+    var showCompletedCelebration by rememberSaveable { mutableStateOf(false) }
     val goalCompletedText = stringResource(R.string.goal_completed_snackbar)
-    val limitReachedText = stringResource(R.string.goals_limit_reached, MAX_ACTIVE_GOALS)
+    val limitReachedText = pluralStringResource(
+        R.plurals.goals_limit_reached,
+        MAX_ACTIVE_GOALS,
+        MAX_ACTIVE_GOALS,
+    )
 
     // HU-07: at the cap, tapping "Nueva meta" surfaces a hint instead of navigating.
     val onCreateGoalGated: () -> Unit = {
@@ -76,6 +89,11 @@ fun GoalsScreen(
             onCreateGoal()
         }
     }
+    val onCompletedGoalClick: () -> Unit = {
+        completedCelebrationKey += 1
+        showCompletedCelebration = true
+        scope.launch { snackbarHostState.showSnackbar(goalCompletedText) }
+    }
 
     LaunchedEffect(state.showConfetti) {
         if (state.showConfetti) {
@@ -83,28 +101,30 @@ fun GoalsScreen(
         }
     }
 
-    LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.consumeError()
-        }
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = onCreateGoalGated,
-                    icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                    text = { Text(stringResource(R.string.goals_create_cta)) },
-                )
+                if (!state.isLoading && (state.errorMessage == null || state.hasLoaded)) {
+                    ExtendedFloatingActionButton(
+                        onClick = onCreateGoalGated,
+                        icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                        text = { Text(stringResource(R.string.goals_create_cta)) },
+                    )
+                }
             },
         ) { inner ->
             GoalsContent(
                 state = state,
                 onCreateGoal = onCreateGoal,
                 onGoalDeposit = viewModel::openDepositSheet,
+                onCompletedGoalClick = onCompletedGoalClick,
+                onRetry = viewModel::refresh,
                 contentPadding = inner,
             )
         }
@@ -113,6 +133,12 @@ fun GoalsScreen(
             ConfettiOverlay(
                 triggerKey = state.showConfetti,
                 onFinished = { viewModel.consumeConfetti() },
+            )
+        }
+        AnimatedVisibility(visible = showCompletedCelebration) {
+            ConfettiOverlay(
+                triggerKey = "completed-$completedCelebrationKey",
+                onFinished = { showCompletedCelebration = false },
             )
         }
     }
@@ -127,7 +153,7 @@ fun GoalsScreen(
             onInputChange = viewModel::onDepositChange,
             onDismiss = viewModel::closeDepositSheet,
             onConfirm = viewModel::deposit,
-            onDelete = viewModel::deleteGoal,
+            onDelete = viewModel::archiveGoal,
         )
     }
 }
@@ -137,6 +163,8 @@ private fun GoalsContent(
     state: GoalsUiState,
     onCreateGoal: () -> Unit,
     onGoalDeposit: (Goal) -> Unit,
+    onCompletedGoalClick: () -> Unit,
+    onRetry: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -158,35 +186,75 @@ private fun GoalsContent(
             }
         }
 
-        // Hero card shows whenever there's any goal at all (active OR completed)
-        if (state.active.isNotEmpty() || state.completed.isNotEmpty()) {
-            item {
-                GoalsHeroCard(active = state.active, completed = state.completed)
+        when {
+            state.isLoading -> item(key = "loading") {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 72.dp),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
             }
-        }
-
-        if (state.active.isNotEmpty()) {
-            items(state.active, key = { it.id }) { goal ->
-                GoalCard(
-                    goal = goal,
-                    onClick = { onGoalDeposit(goal) },
-                    onDeposit = { onGoalDeposit(goal) },
-                )
+            state.errorMessage != null && !state.hasLoaded -> {
+                item(key = "load-error") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = state.errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                }
             }
-        } else if (state.completed.isEmpty()) {
-            // Truly empty — no active and no completed.
-            item { GoalsEmptyState(onCreateGoal = onCreateGoal) }
-        }
+            else -> {
+                state.errorMessage?.let { message ->
+                    item(key = "refresh-error") {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Button(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                }
 
-        // Completed goals show inline with active ones using the same GoalCard
-        // (the card renders its completed state internally — coral border + "¡Logrado!").
-        if (state.completed.isNotEmpty()) {
-            items(state.completed, key = { "done-${it.id}" }) { goal ->
-                GoalCard(
-                    goal = goal,
-                    onClick = { onGoalDeposit(goal) },
-                    onDeposit = { onGoalDeposit(goal) },
-                )
+                // Hero card shows whenever there's any goal at all (active OR completed)
+                if (state.active.isNotEmpty() || state.completed.isNotEmpty()) {
+                    item {
+                        GoalsHeroCard(active = state.active, completed = state.completed)
+                    }
+                }
+
+                if (state.active.isNotEmpty()) {
+                    items(state.active, key = { it.id }) { goal ->
+                        GoalCard(
+                            goal = goal,
+                            onClick = { onGoalDeposit(goal) },
+                            onDeposit = { onGoalDeposit(goal) },
+                        )
+                    }
+                } else if (state.completed.isEmpty()) {
+                    item { GoalsEmptyState(onCreateGoal = onCreateGoal) }
+                }
+
+                // Completed goals show inline with active ones using the same GoalCard.
+                if (state.completed.isNotEmpty()) {
+                    items(state.completed, key = { "done-${it.id}" }) { goal ->
+                        GoalCard(
+                            goal = goal,
+                            onClick = onCompletedGoalClick,
+                            onDeposit = onCompletedGoalClick,
+                        )
+                    }
+                }
             }
         }
     }
@@ -199,11 +267,8 @@ private fun GoalsContent(
  */
 @Composable
 private fun GoalsHeroCard(active: List<Goal>, completed: List<Goal>) {
-    val totalSaved = (active + completed).sumOf { it.currentAmount }
-    val integer = totalSaved.toLong()
-    val integerFormatted = java.text.NumberFormat.getNumberInstance(
-        java.util.Locale.forLanguageTag("es-PE"),
-    ).format(integer)
+    val totalSaved = (active + completed).map { it.currentAmount }.sumMoney()
+    val totalFormatted = formatAmount(totalSaved)
 
     Box(
         modifier = Modifier
@@ -249,20 +314,12 @@ private fun GoalsHeroCard(active: List<Goal>, completed: List<Goal>) {
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = integerFormatted,
+                    text = totalFormatted,
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-1.5).sp,
                     ),
                     color = Color.White,
-                )
-                Text(
-                    text = ".00",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.85f),
-                    ),
-                    modifier = Modifier.padding(top = 14.dp),
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -277,13 +334,26 @@ private fun GoalsHeroCard(active: List<Goal>, completed: List<Goal>) {
 
 @Composable
 private fun heroSubtitle(activeCount: Int, completedCount: Int): String = when {
-    activeCount == 0 && completedCount == 0 -> stringResource(R.string.goals_summary_active_one).let { "" }
+    activeCount == 0 && completedCount == 0 -> ""
     activeCount == 0 && completedCount == 1 -> stringResource(R.string.goals_hero_no_active_completed_one)
-    activeCount == 0 -> stringResource(R.string.goals_hero_no_active_completed_other, completedCount)
+    activeCount == 0 -> pluralStringResource(
+        R.plurals.goals_hero_no_active_completed_other,
+        completedCount,
+        completedCount,
+    )
     completedCount == 0 && activeCount == 1 -> stringResource(R.string.goals_hero_active_only_one)
-    completedCount == 0 -> stringResource(R.string.goals_hero_active_only_other, activeCount)
+    completedCount == 0 -> pluralStringResource(
+        R.plurals.goals_hero_active_only_other,
+        activeCount,
+        activeCount,
+    )
     activeCount == 1 && completedCount == 1 -> stringResource(R.string.goals_hero_active_completed_one_one)
-    else -> stringResource(R.string.goals_hero_active_completed_other, activeCount, completedCount)
+    else -> pluralStringResource(
+        R.plurals.goals_hero_active_completed_other,
+        activeCount,
+        activeCount,
+        completedCount,
+    )
 }
 
 @Composable

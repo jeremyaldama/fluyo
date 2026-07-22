@@ -2,16 +2,16 @@ package com.qolve.fluyo.domain.model
 
 data class MonthlyBreakdown(
     /** EFFECTIVE budget for the month: base + one-off extras ("ingreso extra"). */
-    val monthlyBudget: Double,
-    val totalSpent: Double,
+    val monthlyBudget: MoneyAmount,
+    val totalSpent: MoneyAmount,
     /** This month's extras total — display-only; already included in [monthlyBudget]. */
-    val extraIncome: Double = 0.0,
+    val extraIncome: MoneyAmount = MoneyAmount.ZERO,
 ) {
     /** The user's base budget (what next month starts from). */
-    val baseBudget: Double get() = monthlyBudget - extraIncome
-    val remaining: Double get() = monthlyBudget - totalSpent
+    val baseBudget: MoneyAmount get() = monthlyBudget - extraIncome
+    val remaining: MoneyAmount get() = monthlyBudget - totalSpent
     val percentageUsed: Float
-        get() = if (monthlyBudget <= 0.0) 0f
-        else (totalSpent / monthlyBudget).toFloat().coerceIn(0f, 1f)
-    val isOverBudget: Boolean get() = monthlyBudget > 0.0 && totalSpent > monthlyBudget
+        get() = totalSpent.ratioOf(monthlyBudget).coerceIn(0f, 1f)
+    val isOverBudget: Boolean
+        get() = monthlyBudget > MoneyAmount.ZERO && totalSpent > monthlyBudget
 }

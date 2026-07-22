@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,6 +42,9 @@ data class ManageCategoriesUiState(
     val categories: List<Category> = emptyList(),
     val editor: CategoryEditorState? = null,
     val errorMessage: String? = null,
+    val hasLoaded: Boolean = false,
+    val isLoading: Boolean = true,
+    val loadErrorMessage: String? = null,
 )
 
 @HiltViewModel
@@ -50,13 +54,30 @@ class ManageCategoriesViewModel @Inject constructor(
 
     private val editor = MutableStateFlow<CategoryEditorState?>(null)
     private val error = MutableStateFlow<String?>(null)
+    private val loadState = MutableStateFlow(LoadState())
+    private var refreshJob: Job? = null
+    private val pendingDeletes = mutableSetOf<String>()
+
+    private data class LoadState(
+        val hasLoaded: Boolean = false,
+        val isLoading: Boolean = true,
+        val errorMessage: String? = null,
+    )
 
     val uiState: StateFlow<ManageCategoriesUiState> = combine(
         categoryRepository.observeCategories(),
         editor,
         error,
-    ) { categories, editorState, err ->
-        ManageCategoriesUiState(categories = categories, editor = editorState, errorMessage = err)
+        loadState,
+    ) { categories, editorState, err, load ->
+        ManageCategoriesUiState(
+            categories = categories,
+            editor = editorState,
+            errorMessage = err,
+            hasLoaded = load.hasLoaded,
+            isLoading = load.isLoading && !load.hasLoaded,
+            loadErrorMessage = load.errorMessage,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -64,7 +85,27 @@ class ManageCategoriesViewModel @Inject constructor(
     )
 
     init {
-        viewModelScope.launch { categoryRepository.refresh() }
+        refresh()
+    }
+
+    fun refresh() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            val hadContent = loadState.value.hasLoaded
+            loadState.update { it.copy(isLoading = true, errorMessage = null) }
+            categoryRepository.refresh().fold(
+                onSuccess = {
+                    loadState.value = LoadState(hasLoaded = true, isLoading = false)
+                },
+                onFailure = {
+                    loadState.value = LoadState(
+                        hasLoaded = hadContent,
+                        isLoading = false,
+                        errorMessage = "No se pudieron cargar las categorías",
+                    )
+                },
+            )
+        }
     }
 
     fun openAdd() {
@@ -116,17 +157,21 @@ class ManageCategoriesViewModel @Inject constructor(
                 onSuccess = { editor.value = null },
                 onFailure = { e ->
                     editor.update { it?.copy(isSaving = false) }
-                    error.value = e.localizedMessage ?: "No se pudo guardar la categoría"
+                    error.value = "No se pudo guardar la categoría"
                 },
             )
         }
     }
 
     fun delete(category: Category) {
+        if (!pendingDeletes.add(category.id)) return
         viewModelScope.launch {
-            categoryRepository.deleteCategory(category.id).onFailure { e ->
-                error.value = e.localizedMessage
-                    ?: "No se pudo eliminar la categoría"
+            try {
+                categoryRepository.deleteCategory(category.id).onFailure {
+                    error.value = "No se pudo eliminar la categoría"
+                }
+            } finally {
+                pendingDeletes.remove(category.id)
             }
         }
     }

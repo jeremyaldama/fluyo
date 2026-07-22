@@ -1,13 +1,12 @@
 package com.qolve.fluyo.presentation.screens.goals.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,14 +49,14 @@ fun ConfettiOverlay(
         }
     }
 
-    val progress by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
-        label = "confettiProgress",
-    )
+    val progress = remember(triggerKey) { Animatable(0f) }
 
     LaunchedEffect(triggerKey) {
-        kotlinx.coroutines.delay(durationMillis.toLong())
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
+        )
         onFinished()
     }
 
@@ -65,7 +64,7 @@ fun ConfettiOverlay(
         val cx = size.width / 2f
         val cy = size.height * 0.35f
         val gravity = 1400f
-        val t = progress
+        val t = progress.value
 
         particles.forEach { p ->
             val rad = Math.toRadians(p.angle.toDouble())

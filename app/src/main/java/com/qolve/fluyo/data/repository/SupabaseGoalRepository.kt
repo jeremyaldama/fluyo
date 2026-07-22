@@ -1,32 +1,41 @@
 package com.qolve.fluyo.data.repository
 
 import com.qolve.fluyo.data.SessionScopedCache
-import com.qolve.fluyo.data.dto.GoalDepositInsertDto
-import com.qolve.fluyo.data.dto.GoalDepositRefDto
+import com.qolve.fluyo.data.publishIfCurrent
+import com.qolve.fluyo.data.requireCurrent
+import com.qolve.fluyo.data.dto.GoalDepositRpcParams
+import com.qolve.fluyo.data.dto.GoalDepositRpcResultDto
+import com.qolve.fluyo.data.dto.GoalCreateRpcParams
 import com.qolve.fluyo.data.dto.GoalDto
-import com.qolve.fluyo.data.dto.GoalInsertDto
-import com.qolve.fluyo.data.dto.GoalUpdateDto
+import com.qolve.fluyo.data.dto.GoalArchiveRpcParams
+import com.qolve.fluyo.data.dto.GoalArchiveRpcResultDto
 import com.qolve.fluyo.data.mapper.toDomain
+import com.qolve.fluyo.data.mapper.toOutcome
 import com.qolve.fluyo.domain.model.Goal
-import com.qolve.fluyo.domain.model.GoalStatus
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.GoalDepositOutcome
 import com.qolve.fluyo.domain.repository.GoalRepository
+import com.qolve.fluyo.domain.repository.SessionBoundary
+import com.qolve.fluyo.domain.suspendRunCatching
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 
 @Singleton
 class SupabaseGoalRepository @Inject constructor(
     private val client: SupabaseClient,
     private val authRepository: AuthRepository,
+    private val sessionBoundary: SessionBoundary,
 ) : GoalRepository, SessionScopedCache {
 
     private val activeState = MutableStateFlow<List<Goal>>(emptyList())
@@ -40,91 +49,134 @@ class SupabaseGoalRepository @Inject constructor(
         completedState.value = emptyList()
     }
 
-    override suspend fun refresh(): Result<Unit> = runCatching {
-        val userId = authRepository.currentUserId() ?: return@runCatching
-        val rawGoals = client.postgrest.from("goals")
-            .select {
-                filter { eq("user_id", userId) }
-                order("created_at", Order.DESCENDING)
-            }
-            .decodeList<GoalDto>()
-            .map { it.toDomain() }
-
-        // One extra round-trip to count deposits per goal. Way cheaper than N+1 individual
-        // count queries, and avoids a Postgres view that'd have to live alongside the table.
-        // For users with hundreds of deposits this still returns kilobytes — acceptable until
-        // it isn't, at which point we add a `goals_with_deposit_count` view.
-        val counts = client.postgrest.from("goal_deposits")
-            .select(io.github.jan.supabase.postgrest.query.Columns.list("goal_id")) {
-                filter { eq("user_id", userId) }
-            }
-            .decodeList<GoalDepositRefDto>()
-            .groupingBy { it.goalId }
-            .eachCount()
-
-        val all = rawGoals.map { it.copy(depositCount = counts[it.id] ?: 0) }
-        activeState.value = all.filter { !it.isCompleted }
-        completedState.value = all.filter { it.isCompleted }
+    override suspend fun refresh(): Result<Unit> = suspendRunCatching {
+        val sessionEpoch = sessionBoundary.snapshot()
+        sessionBoundary.requireCurrent(sessionEpoch)
+        val userId = authRepository.currentUserId() ?: return@suspendRunCatching
+        val all = fetchGoals(userId, sessionEpoch)
+        sessionBoundary.publishIfCurrent(sessionEpoch) {
+            activeState.value = all.filter { !it.isCompleted }
+            completedState.value = all.filter { it.isCompleted }
+        }
     }
+
+    private suspend fun fetchGoals(userId: String, sessionEpoch: Long): List<Goal> =
+        collectPostgrestPages { range ->
+            val page = client.postgrest.from("goals_with_deposit_count")
+                .select {
+                    filter { eq("user_id", userId) }
+                    order("created_at", Order.DESCENDING)
+                    order("id", Order.DESCENDING)
+                    range(range)
+                }
+                .decodeList<GoalDto>()
+            sessionBoundary.requireCurrent(sessionEpoch)
+            page
+        }.map { it.toDomain() }
 
     override suspend fun createGoal(
         name: String,
-        target: Double,
+        target: MoneyAmount,
         deadline: LocalDate?,
-    ): Result<Goal> = runCatching {
+        requestId: String,
+    ): Result<Goal> = suspendRunCatching {
+        val sessionEpoch = sessionBoundary.snapshot()
+        sessionBoundary.requireCurrent(sessionEpoch)
         val userId = authRepository.currentUserId() ?: error("No authenticated user")
-        val inserted = client.postgrest.from("goals")
-            .insert(
-                GoalInsertDto(
-                    userId = userId,
-                    name = name.trim(),
-                    targetAmount = target,
-                    deadline = deadline?.toString(),
-                ),
-            ) { select() }
+        require(requestId.isNotBlank()) { "Goal request id must not be blank" }
+        val parameters = GoalCreateRpcParams(
+            requestId = requestId,
+            name = name.trim(),
+            targetAmount = target.toTransportDouble(),
+            deadline = deadline?.toString(),
+        )
+        val inserted = client.postgrest.rpc(
+            function = "create_goal",
+            parameters = Json.encodeToJsonElement(parameters).jsonObject,
+        )
             .decodeSingle<GoalDto>()
             .toDomain()
-        refresh()
+        val all = fetchGoals(userId, sessionEpoch)
+        sessionBoundary.publishIfCurrent(sessionEpoch) {
+            activeState.value = all.filter { !it.isCompleted }
+            completedState.value = all.filter { it.isCompleted }
+        }
         inserted
     }
 
-    override suspend fun deposit(goalId: String, amount: Double): Result<GoalDepositOutcome> = runCatching {
-        require(amount > 0.0) { "Deposit must be positive" }
+    override suspend fun deposit(
+        goalId: String,
+        amount: MoneyAmount,
+        requestId: String,
+    ): Result<GoalDepositOutcome> = suspendRunCatching {
+        val sessionEpoch = sessionBoundary.snapshot()
+        sessionBoundary.requireCurrent(sessionEpoch)
+        require(amount > MoneyAmount.ZERO) { "Deposit must be positive" }
+        require(requestId.isNotBlank()) { "Deposit request id must not be blank" }
         val userId = authRepository.currentUserId() ?: error("No authenticated user")
 
-        client.postgrest.from("goal_deposits").insert(
-            GoalDepositInsertDto(goalId = goalId, userId = userId, amount = amount),
+        // The caller owns the idempotency key so a user retry after an uncertain response
+        // reaches PostgreSQL with the same request id and cannot apply the deposit twice.
+        val parameters = GoalDepositRpcParams(
+            goalId = goalId,
+            amount = amount.toTransportDouble(),
+            requestId = requestId,
         )
+        val updated = client.postgrest.rpc(
+            function = "deposit_to_goal",
+            parameters = Json.encodeToJsonElement(parameters).jsonObject,
+        ).decodeSingle<GoalDepositRpcResultDto>()
+            .toOutcome()
 
-        // Read back the goal, update current_amount and possibly status.
-        val before = client.postgrest.from("goals")
-            .select { filter { eq("id", goalId) } }
-            .decodeSingle<GoalDto>()
-            .toDomain()
+        val all = fetchGoals(userId, sessionEpoch)
+        sessionBoundary.publishIfCurrent(sessionEpoch) {
+            activeState.value = all.filter { !it.isCompleted }
+            completedState.value = all.filter { it.isCompleted }
+        }
+        updated
+    }
 
-        val newAmount = before.currentAmount + amount
-        val nowCompleted = before.status == GoalStatus.ACTIVE && newAmount >= before.targetAmount
+    override suspend fun archiveGoal(goalId: String): Result<Unit> = suspendRunCatching {
+        val sessionEpoch = sessionBoundary.snapshot()
+        sessionBoundary.requireCurrent(sessionEpoch)
+        val userId = authRepository.currentUserId() ?: error("No authenticated user")
+        val outcome = client.postgrest.rpc(
+            function = "archive_goal",
+            parameters = Json.encodeToJsonElement(
+                GoalArchiveRpcParams(goalId = goalId),
+            ).jsonObject,
+        ).decodeSingle<GoalArchiveRpcResultDto>()
+        check(outcome.archived) { "Goal not found or not owned by the authenticated user" }
+        val all = fetchGoals(userId, sessionEpoch)
+        sessionBoundary.publishIfCurrent(sessionEpoch) {
+            activeState.value = all.filter { !it.isCompleted }
+            completedState.value = all.filter { it.isCompleted }
+        }
+    }
 
-        val update = GoalUpdateDto(
-            currentAmount = newAmount,
-            status = if (nowCompleted) GoalStatus.COMPLETED.wire else null,
-            completedAt = if (nowCompleted) Instant.now().toString() else null,
-        )
-
-        val updated = client.postgrest.from("goals")
-            .update(update) {
-                filter { eq("id", goalId) }
-                select()
+    override suspend fun findCreatedByRequestId(requestId: String): Result<Goal?> =
+        suspendRunCatching {
+            val sessionEpoch = sessionBoundary.snapshot()
+            sessionBoundary.requireCurrent(sessionEpoch)
+            val userId = authRepository.currentUserId() ?: error("No authenticated user")
+            require(requestId.isNotBlank()) { "Goal request id must not be blank" }
+            val goal = client.postgrest.from("goals")
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                        eq("client_request_id", requestId)
+                    }
+                }
+                .decodeSingleOrNull<GoalDto>()
+                ?.toDomain()
+            if (goal != null) {
+                val all = fetchGoals(userId, sessionEpoch)
+                sessionBoundary.publishIfCurrent(sessionEpoch) {
+                    activeState.value = all.filter { !it.isCompleted }
+                    completedState.value = all.filter { it.isCompleted }
+                }
             }
-            .decodeSingle<GoalDto>()
-            .toDomain()
-
-        refresh()
-        GoalDepositOutcome(goal = updated, justCompleted = nowCompleted)
-    }
-
-    override suspend fun deleteGoal(goalId: String): Result<Unit> = runCatching {
-        client.postgrest.from("goals").delete { filter { eq("id", goalId) } }
-        refresh()
-    }
+            sessionBoundary.requireCurrent(sessionEpoch)
+            goal
+        }
 }

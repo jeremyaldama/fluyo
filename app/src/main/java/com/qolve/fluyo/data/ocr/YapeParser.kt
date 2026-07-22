@@ -2,6 +2,8 @@ package com.qolve.fluyo.data.ocr
 
 import com.qolve.fluyo.domain.model.DetectedField
 import com.qolve.fluyo.domain.model.ParsedReceipt
+import com.qolve.fluyo.data.parsing.parseLocalizedMoney
+import com.qolve.fluyo.domain.model.MoneyAmount
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -37,17 +39,17 @@ class YapeParser @Inject constructor() {
         )
     }
 
-    private fun extractAmount(rawText: String, lines: List<String>): Double? {
+    private fun extractAmount(rawText: String, lines: List<String>): MoneyAmount? {
         // Strategy: prefer the largest amount on a line that contains "S/" — that's
         // typically the headline total. Fall back to first match anywhere.
-        val penRegex = Regex("""S\s*/\s*\.?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)""", RegexOption.IGNORE_CASE)
+        val penRegex = Regex("""S\s*/\s*\.?\s*(\d+(?:[.,]\d{3})*(?:[.,]\d{1,2})?)""", RegexOption.IGNORE_CASE)
         val bareNumberRegex = Regex("""(\d+[.,]\d{2})""")
 
         val penMatches = penRegex.findAll(rawText).mapNotNull { match ->
             cleanAmount(match.groupValues[1])
         }.toList()
 
-        if (penMatches.isNotEmpty()) return penMatches.max()
+        if (penMatches.isNotEmpty()) return penMatches.maxOrNull()
 
         // Fallback: look for a standalone "12.50" style number near the top of the image.
         val topHalf = lines.take((lines.size / 2).coerceAtLeast(3))
@@ -58,19 +60,9 @@ class YapeParser @Inject constructor() {
         return numericFromTop.maxOrNull()
     }
 
-    private fun cleanAmount(raw: String): Double? {
-        // Normalize: Latin uses both '.' and ',' as decimal separators. Strip thousands
-        // separators, keep the last separator as decimal.
+    private fun cleanAmount(raw: String): MoneyAmount? {
         val onlyDigitsAndSeps = raw.replace(Regex("""[^\d.,]"""), "")
-        val lastSep = onlyDigitsAndSeps.lastIndexOfAny(charArrayOf('.', ','))
-        val normalized = if (lastSep == -1) {
-            onlyDigitsAndSeps
-        } else {
-            val intPart = onlyDigitsAndSeps.substring(0, lastSep).replace(Regex("""[.,]"""), "")
-            val decPart = onlyDigitsAndSeps.substring(lastSep + 1)
-            "$intPart.$decPart"
-        }
-        return normalized.toDoubleOrNull()?.takeIf { it > 0.0 && it < 1_000_000 }
+        return parseLocalizedMoney(onlyDigitsAndSeps)
     }
 
     private fun extractRecipient(lines: List<String>): String? {

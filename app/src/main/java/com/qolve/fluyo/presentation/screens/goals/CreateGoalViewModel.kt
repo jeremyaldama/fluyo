@@ -1,10 +1,16 @@
 package com.qolve.fluyo.presentation.screens.goals
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qolve.fluyo.domain.repository.GoalRepository
+import com.qolve.fluyo.domain.model.MoneyAmount
+import com.qolve.fluyo.domain.time.FluyoTime
 import com.qolve.fluyo.domain.usecase.CreateGoalUseCase
 import com.qolve.fluyo.domain.usecase.CreateGoalUseCase.Companion.MAX_ACTIVE_GOALS
+import com.qolve.fluyo.presentation.util.StableMutationRequestStore
+import com.qolve.fluyo.presentation.util.PendingMutationResolution
+import com.qolve.fluyo.presentation.util.isAllowedGoalDeadline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.math.RoundingMode
 import javax.inject.Inject
 
 data class CreateGoalUiState(
@@ -24,18 +31,28 @@ data class CreateGoalUiState(
     val errorMessage: String? = null,
     val savedOk: Boolean = false,
 ) {
-    val parsedTarget: Double?
-        get() = targetInput.replace(",", ".").toDoubleOrNull()?.takeIf { it > 0.0 }
+    val parsedTarget: MoneyAmount?
+        get() = MoneyAmount.parse(targetInput, RoundingMode.UNNECESSARY)
+            ?.takeIf { it > MoneyAmount.ZERO }
 
     val canSave: Boolean
-        get() = !isSaving && name.trim().isNotEmpty() && parsedTarget != null
+        get() = !isSaving &&
+            name.trim().isNotEmpty() &&
+            parsedTarget != null &&
+            isAllowedGoalDeadline(deadline, FluyoTime.today())
 }
 
 @HiltViewModel
 class CreateGoalViewModel @Inject constructor(
     private val createGoal: CreateGoalUseCase,
     private val goalRepository: GoalRepository,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private val pendingCreateRequest = StableMutationRequestStore(
+        state = savedStateHandle,
+        namespace = "goal_create",
+    )
 
     private val _state = MutableStateFlow(CreateGoalUiState())
     val state: StateFlow<CreateGoalUiState> = _state.asStateFlow()
@@ -64,7 +81,18 @@ class CreateGoalViewModel @Inject constructor(
     }
 
     fun onDeadlinePicked(date: LocalDate?) {
-        _state.update { it.copy(deadline = date, showDatePicker = false) }
+        if (!isAllowedGoalDeadline(date, FluyoTime.today())) {
+            _state.update {
+                it.copy(
+                    showDatePicker = false,
+                    errorMessage = "La fecha límite no puede estar en el pasado",
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(deadline = date, showDatePicker = false, errorMessage = null)
+        }
     }
 
     fun consumeError() {
@@ -73,12 +101,46 @@ class CreateGoalViewModel @Inject constructor(
 
     fun save() {
         val current = _state.value
+        if (current.isSaving || current.savedOk) return
         val target = current.parsedTarget ?: return
+        val normalizedName = current.name.trim()
+        if (
+            normalizedName.isEmpty() ||
+            !isAllowedGoalDeadline(current.deadline, FluyoTime.today())
+        ) return
+        val payload = arrayOf(
+            normalizedName,
+            target.cents.toString(),
+            current.deadline?.toString(),
+        )
         _state.update { it.copy(isSaving = true) }
         viewModelScope.launch {
+            val wasExactRetry = pendingCreateRequest.existing(*payload) != null
+            val resolution = pendingCreateRequest.resolve(
+                *payload,
+                findCommitted = goalRepository::findCreatedByRequestId,
+            ).getOrElse {
+                _state.update {
+                    it.copy(
+                        isSaving = false,
+                        errorMessage = "No se pudo verificar el intento anterior",
+                    )
+                }
+                return@launch
+            }
+            if (resolution is PendingMutationResolution.Committed) {
+                _state.update { it.copy(isSaving = false, savedOk = true) }
+                return@launch
+            }
+            val requestId = (resolution as PendingMutationResolution.Ready).requestId
             // HU-07: enforce the active-goals cap. Checked here (not just in the UI) so the
-            // limit holds even if the screen is reached with the cap already met.
-            if (goalRepository.observeActiveGoals().first().size >= MAX_ACTIVE_GOALS) {
+            // limit holds even if the screen is reached with the cap already met. A pending
+            // idempotent retry must still reach PostgreSQL: its first response may have been
+            // lost after committing, in which case the newly created goal already fills the cap.
+            if (
+                !wasExactRetry &&
+                goalRepository.observeActiveGoals().first().size >= MAX_ACTIVE_GOALS
+            ) {
                 _state.update {
                     it.copy(
                         isSaving = false,
@@ -86,13 +148,17 @@ class CreateGoalViewModel @Inject constructor(
                             "Completa o elimina una para crear otra.",
                     )
                 }
+                pendingCreateRequest.complete(requestId)
                 return@launch
             }
-            val result = createGoal(current.name.trim(), target, current.deadline)
+            val result = createGoal(normalizedName, target, current.deadline, requestId)
             result.fold(
-                onSuccess = { _state.update { it.copy(isSaving = false, savedOk = true) } },
+                onSuccess = {
+                    pendingCreateRequest.complete(requestId)
+                    _state.update { it.copy(isSaving = false, savedOk = true) }
+                },
                 onFailure = { e ->
-                    _state.update { it.copy(isSaving = false, errorMessage = e.localizedMessage ?: "Error") }
+                    _state.update { it.copy(isSaving = false, errorMessage = "No se pudo crear la meta") }
                 },
             )
         }

@@ -14,29 +14,31 @@ class MonthlyBreakdownTest {
 
     @Test
     fun `baseBudget is effective minus extras`() {
-        val b = MonthlyBreakdown(monthlyBudget = 1100.0, totalSpent = 0.0, extraIncome = 200.0)
-        assertEquals(900.0, b.baseBudget, 0.001)
+        val b = MonthlyBreakdown(money(1100), MoneyAmount.ZERO, money(200))
+        assertEquals(money(900), b.baseBudget)
     }
 
     @Test
     fun `percentage and remaining use the effective budget`() {
-        val b = MonthlyBreakdown(monthlyBudget = 1000.0, totalSpent = 500.0, extraIncome = 200.0)
+        val b = MonthlyBreakdown(money(1000), money(500), money(200))
         assertEquals(0.5f, b.percentageUsed, 0.001f)
-        assertEquals(500.0, b.remaining, 0.001)
+        assertEquals(money(500), b.remaining)
     }
 
     @Test
     fun `extras can flip an over-budget month back under`() {
-        val over = MonthlyBreakdown(monthlyBudget = 900.0, totalSpent = 950.0)
+        val over = MonthlyBreakdown(money(900), money(950))
         assertTrue(over.isOverBudget)
         // Same spend, but a S/200 extra raised the effective budget to 1100.
-        val rescued = MonthlyBreakdown(monthlyBudget = 1100.0, totalSpent = 950.0, extraIncome = 200.0)
+        val rescued = MonthlyBreakdown(money(1100), money(950), money(200))
         assertFalse(rescued.isOverBudget)
     }
 
     @Test
     fun `zero budget keeps percentage at zero`() {
-        val b = MonthlyBreakdown(monthlyBudget = 0.0, totalSpent = 50.0)
+        val b = MonthlyBreakdown(MoneyAmount.ZERO, money(50))
         assertEquals(0f, b.percentageUsed, 0.001f)
     }
+
+    private fun money(major: Long) = MoneyAmount.ofCents(Math.multiplyExact(major, 100L))
 }

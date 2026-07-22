@@ -17,3 +17,9 @@ data class NudgeContent(
     val title: String,
     val body: String,
 )
+
+/** A nudge is valid only while the session generation used to compute it is current. */
+data class NudgeDecision(
+    val content: NudgeContent,
+    val sessionEpoch: Long,
+)

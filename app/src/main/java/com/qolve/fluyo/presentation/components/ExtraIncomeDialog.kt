@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,8 +29,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.BudgetExtra
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.money
+import java.math.RoundingMode
 
 /**
  * "Ingreso extra del mes" — adds a one-off amount to the CURRENT month's budget only
@@ -42,14 +46,16 @@ fun ExtraIncomeDialog(
     isSaving: Boolean,
     error: String?,
     extras: List<BudgetExtra>,
+    deletingExtraIds: Set<String>,
     onAmountChange: (String) -> Unit,
     onNoteChange: (String) -> Unit,
     onDelete: (BudgetExtra) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val isDeleting = deletingExtraIds.isNotEmpty()
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving && !isDeleting) onDismiss() },
         title = { Text(stringResource(R.string.extra_income_dialog_title)) },
         text = {
             Column {
@@ -94,6 +100,7 @@ fun ExtraIncomeDialog(
                     Spacer(Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                     extras.forEach { extra ->
+                        val deletingThisExtra = extra.id in deletingExtraIds
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -115,12 +122,22 @@ fun ExtraIncomeDialog(
                                     )
                                 }
                             }
-                            IconButton(onClick = { onDelete(extra) }, enabled = !isSaving) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(R.string.extra_income_delete),
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
+                            IconButton(
+                                onClick = { onDelete(extra) },
+                                enabled = !isSaving && !deletingThisExtra,
+                            ) {
+                                if (deletingThisExtra) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = stringResource(R.string.extra_income_delete),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                             }
                         }
                     }
@@ -130,13 +147,15 @@ fun ExtraIncomeDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                enabled = !isSaving && (amountInput.toDoubleOrNull() ?: 0.0) > 0.0,
+                enabled = !isSaving && !isDeleting &&
+                    MoneyAmount.parse(amountInput, RoundingMode.UNNECESSARY)
+                    ?.let { it > MoneyAmount.ZERO } == true,
             ) {
                 Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isSaving && !isDeleting) {
                 Text(stringResource(R.string.action_back))
             }
         },

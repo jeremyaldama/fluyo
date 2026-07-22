@@ -15,9 +15,11 @@ data class BadgeDto(
 )
 
 @Serializable
-data class BadgeInsertDto(
-    @SerialName("user_id") val userId: String,
-    @SerialName("badge_type") val badgeType: String,
-    val name: String,
-    val description: String? = null,
+data class BadgeUnlockRpcParams(
+    @SerialName("p_badge_type") val badgeType: String,
+)
+
+@Serializable
+data class BadgeUnlockRpcResultDto(
+    val unlocked: Boolean,
 )

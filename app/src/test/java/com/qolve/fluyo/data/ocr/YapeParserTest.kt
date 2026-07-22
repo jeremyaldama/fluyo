@@ -1,5 +1,6 @@
 package com.qolve.fluyo.data.ocr
 
+import com.qolve.fluyo.domain.model.MoneyAmount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -36,7 +37,7 @@ class YapeParserTest {
     @Test
     fun `new layout - extracts amount, recipient, date and note`() {
         val r = parser.parse(newLayoutVoucher)
-        assertEquals(6.0, r.amount!!, 0.001)
+        assertEquals(MoneyAmount.ofCents(600), r.amount)
         assertEquals("Luis Mon", r.recipient)
         assertEquals(LocalDate.of(2026, 6, 27), r.date)
         assertEquals("delicia", r.note)
@@ -53,7 +54,7 @@ class YapeParserTest {
             1 2 3
         """.trimIndent()
         val r = parser.parse(raw)
-        assertEquals(12.5, r.amount!!, 0.001)
+        assertEquals(MoneyAmount.ofCents(1_250), r.amount)
         assertEquals("Maria Lopez", r.recipient)
         assertNull(r.note)
     }
@@ -67,9 +68,29 @@ class YapeParserTest {
             12/05/2026
         """.trimIndent()
         val r = parser.parse(raw)
-        assertEquals(25.5, r.amount!!, 0.001)
+        assertEquals(MoneyAmount.ofCents(2_550), r.amount)
         assertEquals("Juan Perez", r.recipient)
         assertEquals(LocalDate.of(2026, 5, 12), r.date)
+    }
+
+    @Test
+    fun `amount above 999 is not truncated`() {
+        val r = parser.parse("""
+            ¡Yapeaste!
+            S/ 1200.00
+            Maria Lopez
+            3 ene. 2026 | 10:12 a. m.
+        """.trimIndent())
+
+        assertEquals(MoneyAmount.ofCents(120_000), r.amount)
+    }
+
+    @Test
+    fun `three digit suffix is grouping and mixed locale separators preserve cents`() {
+        assertEquals(MoneyAmount.ofCents(100_000), parser.parse("S/ 1,000").amount)
+        assertEquals(MoneyAmount.ofCents(100_000), parser.parse("S/ 1.000").amount)
+        assertEquals(MoneyAmount.ofCents(123_456), parser.parse("S/ 1,234.56").amount)
+        assertEquals(MoneyAmount.ofCents(123_456), parser.parse("S/ 1.234,56").amount)
     }
 
     @Test

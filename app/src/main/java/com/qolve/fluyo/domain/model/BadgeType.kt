@@ -8,10 +8,9 @@ package com.qolve.fluyo.domain.model
  * `wire` is the lowercase snake_case used in Supabase's `badges.badge_type` text column.
  * `points` is the XP awarded when unlocked — totals roll up into `users.total_points`.
  *
- * **New badges (Phase: redesign).** `MIL_SOLES`, `NO_YAPE`, and `PERFECT_MONTH` are
- * declared but don't yet have unlock logic in [com.qolve.fluyo.data.badge.BadgeEngine].
- * They render as locked tiles until that wiring lands. Until then they're aspirational
- * markers that show users what's coming.
+ * [com.qolve.fluyo.domain.usecase.BadgeEngine] selects candidates after relevant writes;
+ * unlock criteria are evaluated authoritatively by the database RPC.
+ * Keep this catalog, the engine rules and `unlock_badge`'s wire-name mapping aligned.
  */
 enum class BadgeType(val wire: String, val points: Int) {
     FIRST_EXPENSE("first_expense", 1),
@@ -20,6 +19,7 @@ enum class BadgeType(val wire: String, val points: Int) {
     FIRST_GOAL("first_goal", 10),
     STREAK_30("streak_30", 20),
     MIL_SOLES("mil_soles", 25),
+    /** Legacy wire name; the criterion is seven tracked days without OCR, not a payment method. */
     NO_YAPE("no_yape", 15),
     PERFECT_MONTH("perfect_month", 50);
 

@@ -19,6 +19,7 @@ import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.domain.model.Expense
 import java.time.LocalDate
+import com.qolve.fluyo.domain.time.FluyoTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -30,8 +31,8 @@ import java.util.Locale
 @Composable
 fun DayHeader(date: LocalDate) {
     val label = when (date) {
-        LocalDate.now() -> stringResource(R.string.home_day_today_caps)
-        LocalDate.now().minusDays(1) -> stringResource(R.string.home_day_yesterday_caps)
+        FluyoTime.today() -> stringResource(R.string.home_day_today_caps)
+        FluyoTime.today().minusDays(1) -> stringResource(R.string.home_day_yesterday_caps)
         else -> date.format(dayHeaderFmt).uppercase(Locale.forLanguageTag("es-PE"))
     }
     Text(

@@ -7,11 +7,14 @@
     <string name="action_back">Atrás</string>
     <string name="action_save">Guardar</string>
     <string name="action_cancel">Cancelar</string>
+    <string name="action_close">Cerrar</string>
 
     <!-- Profile · currency / categories / export / delete (HU-11) -->
     <string name="profile_currency_label">Moneda</string>
-    <string name="profile_currency_row_subtitle">Cómo se muestran tus montos</string>
+    <string name="profile_currency_row_subtitle">Moneda base de todos tus montos</string>
+    <string name="profile_currency_row_locked_subtitle">Fija porque ya existe actividad financiera</string>
     <string name="profile_currency_dialog_title">Elige tu moneda</string>
+    <string name="profile_currency_dialog_body">No se aplican conversiones. Podrás elegirla solo antes de registrar gastos, metas o ingresos extra.</string>
     <string name="profile_categories_label">Categorías</string>
     <string name="profile_categories_row_subtitle">Crea y edita tus categorías</string>
     <string name="profile_categories_title">Mis categorías</string>
@@ -23,28 +26,64 @@
     <string name="profile_delete_dialog_title">¿Eliminar tu cuenta?</string>
     <string name="profile_delete_dialog_body">Esto borrará de forma permanente tus gastos, metas, medallas y categorías. Esta acción no se puede deshacer.</string>
     <string name="profile_delete_confirm">Eliminar</string>
+    <string name="profile_delete_external">Abrir solicitud de eliminación en la web</string>
 
     <!-- Category editor (HU-11) -->
     <string name="category_add">Agregar categoría</string>
+    <string name="categories_empty">Todavía no tienes categorías.</string>
     <string name="category_edit">Editar</string>
     <string name="category_delete">Eliminar</string>
+    <string name="category_delete_confirm_title">¿Eliminar esta categoría?</string>
+    <string name="category_delete_confirm_body">Los gastos existentes se conservarán y quedarán sin categoría. Esta acción no se puede deshacer.</string>
     <string name="category_new_title">Nueva categoría</string>
     <string name="category_edit_title">Editar categoría</string>
     <string name="category_name_label">Nombre</string>
     <string name="category_icon_label">Ícono</string>
     <string name="category_color_label">Color</string>
-    <string name="action_skip">Omitir</string>
-    <string name="action_finish">Finalizar</string>
+    <string name="category_icon_option">Ícono: %1$s</string>
+    <string name="category_color_option">Color: %1$s</string>
+    <string name="category_icon_name_utensils">cubiertos</string>
+    <string name="category_icon_name_fastfood">comida rápida</string>
+    <string name="category_icon_name_bus">autobús</string>
+    <string name="category_icon_name_train">tren</string>
+    <string name="category_icon_name_gamepad">videojuegos</string>
+    <string name="category_icon_name_music">música</string>
+    <string name="category_icon_name_movie">cine</string>
+    <string name="category_icon_name_coffee">café</string>
+    <string name="category_icon_name_drink">bebida</string>
+    <string name="category_icon_name_heart">corazón</string>
+    <string name="category_icon_name_hospital">salud</string>
+    <string name="category_icon_name_book">libro</string>
+    <string name="category_icon_name_groceries">mercado</string>
+    <string name="category_icon_name_shopping">compras</string>
+    <string name="category_icon_name_pet">mascota</string>
+    <string name="category_icon_name_home">casa</string>
+    <string name="category_icon_name_bolt">servicios</string>
+    <string name="category_icon_name_money">dinero</string>
+    <string name="category_icon_name_tag">etiqueta</string>
+    <string name="category_icon_name_other">otro</string>
+    <string name="category_color_name_coral">coral</string>
+    <string name="category_color_name_blue">azul</string>
+    <string name="category_color_name_purple">morado</string>
+    <string name="category_color_name_orange">naranja</string>
+    <string name="category_color_name_red">rojo</string>
+    <string name="category_color_name_turquoise">turquesa</string>
+    <string name="category_color_name_green">verde</string>
+    <string name="category_color_name_violet">violeta</string>
+    <string name="category_color_name_blue_gray">gris azulado</string>
+    <string name="category_color_name_pink">rosa</string>
+    <string name="category_color_name_indigo">índigo</string>
+    <string name="category_color_name_amber">ámbar</string>
+    <string name="category_color_name_other">personalizado</string>
     <string name="action_sign_out">Cerrar sesión</string>
     <string name="action_retry">Reintentar</string>
 
     <!-- Login -->
-    <string name="login_title">Tus gastos, sin esfuerzo</string>
-    <string name="login_subtitle">Registra, organiza y entiende tu dinero — en segundos.</string>
     <string name="login_continue_google">Continuar con Google</string>
     <string name="login_continue_email">O usa correo y contraseña</string>
     <string name="login_tagline">Tus gastos,\nsin esfuerzo.</string>
     <string name="login_legal">Al continuar aceptas los <u>términos</u>\ny la <u>política de privacidad</u>.</string>
+    <string name="login_legal_links_missing_debug">Configura TERMS_URL y PRIVACY_URL para probar estos enlaces.</string>
     <string name="login_error_generic">No pudimos iniciar sesión. Intenta de nuevo.</string>
 
     <!-- Email auth -->
@@ -67,13 +106,19 @@
     <string name="auth_email_error_invalid_email">Correo no válido</string>
     <string name="auth_email_error_short_password">La contraseña debe tener al menos 8 caracteres</string>
     <string name="auth_email_error_missing_name">Ingresa tu nombre</string>
+    <string name="auth_email_confirmation_required">Te enviamos un enlace a %1$s. Confirma tu correo y vuelve a Fluyo para continuar.</string>
+    <string name="auth_email_resend_confirmation">Reenviar correo</string>
+    <string name="auth_email_resending_confirmation">Reenviando…</string>
+    <string name="auth_email_resend_available_in">Reenviar en %1$d s</string>
+    <string name="auth_email_resend_success">Correo reenviado. Revisa también tu carpeta de spam.</string>
+    <string name="auth_email_resend_error">No pudimos reenviar el correo. Revisa tu conexión e inténtalo otra vez.</string>
+    <string name="session_provisioning_error">No pudimos preparar tu cuenta. Revisa tu conexión e inténtalo otra vez.</string>
 
     <!-- Onboarding (new) -->
     <string name="onboarding_step_of">PASO %1$d DE %2$d</string>
     <string name="onboarding_budget_title">Tu presupuesto del mes</string>
     <string name="onboarding_budget_subtitle">Empieza con un monto. Lo puedes cambiar cuando quieras.</string>
     <string name="onboarding_budget_card_label">PRESUPUESTO MENSUAL</string>
-    <string name="onboarding_budget_per_day">≈ %1$s al día</string>
     <string name="onboarding_budget_lima_avg">El promedio de un universitario en Lima es S/ 950</string>
     <string name="onboarding_budget_guidance">¿No sabes cuánto tendrás este mes? Empieza con lo seguro — incluye efectivo y todas tus cuentas — y súmale cuando llegue más.</string>
     <string name="onboarding_budget_chip_600">S/ 600</string>
@@ -96,39 +141,27 @@
     <string name="onboarding_cat_home_hint">luz, agua</string>
 
     <string name="onboarding_whatsapp_title">Casi listos</string>
-    <string name="onboarding_whatsapp_subtitle">Conecta WhatsApp para recordatorios opcionales.</string>
-    <string name="onboarding_whatsapp_card_title">Recordatorios por WhatsApp</string>
-    <string name="onboarding_whatsapp_card_subtitle">Opcional · siempre lo puedes desactivar</string>
-    <string name="onboarding_whatsapp_phone_hint">987 654 321</string>
+    <string name="onboarding_whatsapp_subtitle">Conecta WhatsApp de forma segura o continúa sin hacerlo.</string>
+    <string name="onboarding_whatsapp_card_title">Conectar WhatsApp</string>
+    <string name="onboarding_whatsapp_card_subtitle">Opcional · verificación desde tu mensaje</string>
     <string name="onboarding_yape_title">Reenvía tus capturas de Yape</string>
     <string name="onboarding_yape_body">Nosotros leemos el monto y lo agregamos. Tú solo respondes a la categoría.</string>
     <string name="onboarding_action_start">Empezar</string>
     <string name="action_skip_short">Saltar</string>
 
-    <!-- WhatsApp deep-link CTA (sends user to wa.me/<fluyo bot number>) -->
-    <string name="whatsapp_connect_cta">Abrir Fluyo en WhatsApp</string>
-    <string name="whatsapp_connect_hint">Te abrimos un chat con Fluyo para confirmar la conexión.</string>
-    <string name="whatsapp_prefill_text">Hola Fluyo</string>
+    <!-- Verified WhatsApp sender linkage -->
+    <string name="whatsapp_verified_title">WhatsApp verificado</string>
+    <string name="whatsapp_sender_verification_body">Generaremos un mensaje temporal. El bot vincula el número real del remitente; la app nunca confía en un número escrito.</string>
+    <string name="whatsapp_challenge_expiry">La verificación vence a las %1$s. Envía el mensaje sin modificarlo.</string>
+    <string name="whatsapp_create_challenge">Generar mensaje y abrir WhatsApp</string>
+    <string name="whatsapp_refresh_status">Actualizar estado</string>
+    <string name="whatsapp_backend_hint">La confirmación aparecerá cuando el backend seguro procese tu mensaje. Si aún no cambia, espera unos segundos y actualiza.</string>
+    <string name="whatsapp_relink">Vincular otro número</string>
+    <string name="whatsapp_unlink">Desvincular WhatsApp</string>
+    <string name="whatsapp_unavailable">La conexión con WhatsApp no está disponible.</string>
 
     <!-- Onboarding -->
-    <string name="onboarding_step_budget_title">Tu presupuesto mensual</string>
-    <string name="onboarding_step_budget_subtitle">¿Cuánto planeas gastar este mes? Puedes cambiarlo después.</string>
     <string name="onboarding_budget_hint">0.00</string>
-    <string name="onboarding_currency_prefix">S/</string>
-
-    <string name="onboarding_step_categories_title">Tus categorías</string>
-    <string name="onboarding_step_categories_subtitle">Empezamos con estas. Podrás editarlas más adelante.</string>
-
-    <string name="onboarding_step_tour_title">Cómo registras gastos</string>
-    <string name="onboarding_feature_ocr_title">Escanea</string>
-    <string name="onboarding_feature_ocr_body">Toma una foto de tu recibo o captura de Yape — listo.</string>
-    <string name="onboarding_feature_manual_title">A mano</string>
-    <string name="onboarding_feature_manual_body">Escribe el monto y elige la categoría en menos de 5 segundos.</string>
-    <string name="onboarding_feature_whatsapp_title">WhatsApp</string>
-    <string name="onboarding_feature_whatsapp_body">Mándale un mensaje o nota de voz al bot: \"Gasté 15 en almuerzo\".</string>
-    <string name="onboarding_phone_label">Tu número (opcional, para WhatsApp)</string>
-    <string name="onboarding_phone_hint">987 654 321</string>
-    <string name="onboarding_phone_help">Lo usamos para asociar tus mensajes de WhatsApp con tu cuenta.</string>
 
     <!-- Bottom navigation -->
     <string name="nav_home">Inicio</string>
@@ -138,41 +171,33 @@
 
     <!-- Profile -->
     <string name="profile_default_name">Tu cuenta</string>
-    <string name="profile_subtitle">Tu progreso financiero, de un vistazo.</string>
     <string name="profile_budget_label">Presupuesto mensual</string>
     <string name="profile_budget_dialog_title">Editar presupuesto</string>
-    <string name="profile_badges_header">Insignias</string>
     <string name="profile_level_label">Nivel %1$d</string>
     <string name="profile_points">%1$d pts</string>
-    <string name="profile_points_to_next">Te faltan %1$d puntos para el siguiente nivel</string>
+    <plurals name="profile_points_to_next">
+        <item quantity="one">Te falta %1$d punto para el siguiente nivel</item>
+        <item quantity="other">Te faltan %1$d puntos para el siguiente nivel</item>
+    </plurals>
     <string name="profile_max_level">Has llegado al nivel más alto. 🚀</string>
-    <string name="profile_email_fallback">Sin correo</string>
-    <string name="profile_level_chip">Nivel %1$d · %2$s</string>
-    <string name="profile_stat_points">Puntos</string>
-    <string name="profile_stat_badges">Insignias</string>
-    <string name="profile_stat_badges_value">%1$d/%2$d</string>
-    <string name="profile_stat_streak">Racha</string>
-    <string name="profile_stat_streak_empty">—</string>
-    <string name="profile_progress_caption">%1$d / %2$d pts hacia el siguiente nivel</string>
-    <string name="profile_progress_caption_max">Nivel máximo alcanzado</string>
-    <string name="profile_next_badge_title">Tu próxima meta</string>
-    <string name="profile_next_badge_locked_all">¡Desbloqueaste todas las insignias!</string>
-    <string name="profile_section_settings">Configuración</string>
-    <string name="profile_phone_label">Número de WhatsApp</string>
-    <string name="profile_phone_unset">No configurado</string>
+    <string name="profile_whatsapp_label">WhatsApp</string>
+    <string name="profile_whatsapp_unlinked">Sin vincular</string>
+    <string name="profile_whatsapp_unlinked_subtitle">Verifica el remitente para mensajes y voz</string>
+    <string name="profile_whatsapp_verified_subtitle">Número verificado por el bot</string>
+    <string name="profile_whatsapp_loading">Consultando…</string>
+    <string name="profile_whatsapp_loading_subtitle">Comprobando el enlace seguro</string>
     <string name="profile_notifications_row_label">Notificaciones</string>
-    <string name="profile_notifications_row_off">Apagadas</string>
-    <string name="profile_notifications_row_on">Encendidas · %1$d:00</string>
 
     <!-- Profile (redesigned) -->
     <string name="profile_member_since">Desde %1$s</string>
-    <string name="profile_member_since_location">%1$s · desde %2$s</string>
     <string name="profile_level_eyebrow">NIVEL %1$d</string>
-    <string name="profile_level_xp">%1$d</string>
     <string name="profile_level_xp_suffix">XP</string>
     <string name="profile_level_to_next">%1$d XP para nivel %2$d</string>
     <string name="profile_level_max_caption">Nivel máximo</string>
-    <string name="profile_level_streak">🔥 racha %1$d días</string>
+    <plurals name="profile_level_streak">
+        <item quantity="one">🔥 racha %1$d día</item>
+        <item quantity="other">🔥 racha %1$d días</item>
+    </plurals>
     <string name="profile_level_streak_none">Empieza tu racha hoy</string>
     <string name="profile_medallas_header">Medallas</string>
     <string name="profile_medallas_count">%1$d / %2$d</string>
@@ -193,7 +218,6 @@
     <string name="home_budget_edit_a11y">Editar presupuesto</string>
     <string name="profile_notifications_row_subtitle_on">Te avisamos a las %1$d:00</string>
     <string name="profile_notifications_row_subtitle_off">Toca para activar</string>
-    <string name="profile_phone_row_subtitle">Para mensajes y voz</string>
 
     <!-- Badges -->
     <string name="badge_first_expense">Primer gasto</string>
@@ -204,12 +228,12 @@
     <string name="badge_streak_30_desc">30 días seguidos registrando</string>
     <string name="badge_first_goal">Primera meta</string>
     <string name="badge_first_goal_desc">Completa tu primera meta</string>
-    <string name="badge_saver_month">Bajo el budget</string>
+    <string name="badge_saver_month">Bajo el presupuesto</string>
     <string name="badge_saver_month_desc">Termina el mes bajo presupuesto</string>
-    <string name="badge_mil_soles">Mil soles ahorrados</string>
-    <string name="badge_mil_soles_desc">Acumula S/ 1,000 en tus metas</string>
-    <string name="badge_no_yape">Sin Yape</string>
-    <string name="badge_no_yape_desc">Una semana sin pagar con Yape</string>
+    <string name="badge_mil_soles">Mil ahorrados</string>
+    <string name="badge_mil_soles_desc">Acumula 1,000 en tu moneda base</string>
+    <string name="badge_no_yape">Semana manual</string>
+    <string name="badge_no_yape_desc">Registraste gastos durante 7 días sin usar el escáner</string>
     <string name="badge_perfect_month">Mes perfecto</string>
     <string name="badge_perfect_month_desc">Registra cada día del mes bajo presupuesto</string>
     <string name="badge_unlocked_prefix">¡Nueva insignia!</string>
@@ -223,11 +247,9 @@
 
     <!-- Stats / Insights -->
     <string name="stats_title">Stats</string>
-    <string name="stats_subtitle">Tu dinero, visualizado.</string>
     <string name="stats_period_week">Semana</string>
     <string name="stats_period_month">Mes</string>
     <string name="stats_period_year">Año</string>
-    <string name="stats_total_week">Total semana</string>
     <string name="stats_total_month">TOTAL DEL MES</string>
     <string name="stats_total_year">TOTAL DEL AÑO</string>
     <string name="stats_total_period_week">TOTAL SEMANA</string>
@@ -242,7 +264,6 @@
     <string name="stats_insight_over_caption_month">del mes anterior.</string>
     <string name="stats_insight_over_caption_week">de la semana anterior.</string>
     <string name="stats_insight_over_caption_year">del año anterior.</string>
-    <string name="stats_insight_flat">Similar al período anterior</string>
     <string name="stats_insight_no_baseline">Tu primer período registrado</string>
     <!-- Concentration insight: shown when a single category owns ≥60% of the period total.
          Far more actionable than the old "flat" placeholder. -->
@@ -251,9 +272,18 @@
     <!-- Daily-average fallback for periods where no single category dominates and the
          delta vs the prior period is too small to be interesting. -->
     <string name="stats_insight_avg_day_title">Promedio %1$s al día</string>
-    <string name="stats_insight_avg_day_caption_week">Sobre %1$d días de la semana</string>
-    <string name="stats_insight_avg_day_caption_month">Sobre %1$d días del mes</string>
-    <string name="stats_insight_avg_day_caption_year">Sobre %1$d días del año</string>
+    <plurals name="stats_insight_avg_day_caption_week">
+        <item quantity="one">Sobre %1$d día de la semana</item>
+        <item quantity="other">Sobre %1$d días de la semana</item>
+    </plurals>
+    <plurals name="stats_insight_avg_day_caption_month">
+        <item quantity="one">Sobre %1$d día del mes</item>
+        <item quantity="other">Sobre %1$d días del mes</item>
+    </plurals>
+    <plurals name="stats_insight_avg_day_caption_year">
+        <item quantity="one">Sobre %1$d día del año</item>
+        <item quantity="other">Sobre %1$d días del año</item>
+    </plurals>
     <string name="stats_weekly_pattern_title">Patrón semanal</string>
     <string name="stats_weekly_pattern_caption">Tus <b>%1$s</b> son los más caros — promedio %2$s.</string>
     <string name="stats_weekday_mon">L</string>
@@ -270,60 +300,60 @@
     <string name="stats_weekday_fri_full">viernes</string>
     <string name="stats_weekday_sat_full">sábados</string>
     <string name="stats_weekday_sun_full">domingos</string>
-    <string name="stats_by_category">Por categoría</string>
-    <string name="stats_count_inline">%1$d gasto(s)</string>
-    <string name="stats_previous_total">Período anterior: %1$s</string>
-    <string name="stats_compare_under">Estás %1$s%% por debajo del período anterior 👏</string>
-    <string name="stats_compare_over">Estás %1$s%% por encima del período anterior</string>
-    <string name="stats_compare_flat">Similar al período anterior</string>
-    <string name="stats_compare_no_baseline">Primer período registrado</string>
+    <string name="stats_weekday_bar_a11y">%1$s: promedio %2$s</string>
     <string name="stats_empty_title">Sin movimientos en este período</string>
     <string name="stats_empty_subtitle">Registra un gasto para ver tus stats aquí.</string>
-    <string name="stats_top_category_label">Tu mayor gasto</string>
-    <string name="stats_top_category_share">%1$s%% del total</string>
-    <string name="stats_daily_trend_title">Día a día</string>
-    <string name="stats_daily_trend_peak">Día más alto: %1$s</string>
-    <string name="stats_daily_trend_today">Hoy</string>
 
     <!-- Goals -->
     <string name="goals_title">Mis metas</string>
     <string name="goals_subtitle">Ahorrar es más fácil cuando lo ves crecer.</string>
     <string name="goals_create_cta">Nueva meta</string>
-    <string name="goals_completed_header">Completadas</string>
     <string name="goals_empty_title">Aún no tienes metas</string>
     <string name="goals_empty_subtitle">Crea tu primera meta para empezar a ahorrar con intención.</string>
-    <string name="goal_target_inline">de %1$s</string>
-    <string name="goal_deadline_label">Hasta el %1$s</string>
     <string name="goal_completed_snackbar">¡Meta completada! 🎉</string>
-    <string name="goals_limit_reached">Llegaste al máximo de %1$d metas activas. Completa o elimina una para crear otra.</string>
-    <string name="goals_summary_title">Tu progreso</string>
-    <string name="goals_summary_active_one">Tienes 1 meta activa</string>
-    <string name="goals_summary_active_other">Tienes %1$d metas activas</string>
-    <string name="goals_summary_saved">%1$s de %2$s ahorrado</string>
+    <plurals name="goals_limit_reached">
+        <item quantity="one">Llegaste al máximo de %1$d meta activa. Completa o elimina una para crear otra.</item>
+        <item quantity="other">Llegaste al máximo de %1$d metas activas. Completa o elimina una para crear otra.</item>
+    </plurals>
     <string name="goals_hero_label">AHORRADO EN TOTAL</string>
     <string name="goals_hero_active_completed_one_one">1 meta activa · 1 lograda 🎉</string>
     <string name="goals_hero_active_only_one">1 meta activa</string>
-    <string name="goals_hero_active_only_other">%1$d metas activas</string>
-    <string name="goals_hero_active_completed_other">%1$d metas activas · %2$d lograda(s) 🎉</string>
+    <plurals name="goals_hero_active_only_other">
+        <item quantity="one">%1$d meta activa</item>
+        <item quantity="other">%1$d metas activas</item>
+    </plurals>
+    <plurals name="goals_hero_active_completed_other">
+        <item quantity="one">%1$d meta activa · logros: %2$d 🎉</item>
+        <item quantity="other">%1$d metas activas · logros: %2$d 🎉</item>
+    </plurals>
     <string name="goals_hero_no_active_completed_one">¡Lograste 1 meta!</string>
-    <string name="goals_hero_no_active_completed_other">¡Lograste %1$d metas!</string>
-    <string name="goal_card_months_remaining">%1$d meses</string>
+    <plurals name="goals_hero_no_active_completed_other">
+        <item quantity="one">¡Lograste %1$d meta!</item>
+        <item quantity="other">¡Lograste %1$d metas!</item>
+    </plurals>
+    <plurals name="goal_card_months_remaining">
+        <item quantity="one">%1$d mes</item>
+        <item quantity="other">%1$d meses</item>
+    </plurals>
     <string name="goal_card_one_month_remaining">1 mes</string>
-    <string name="goal_card_weeks_remaining">%1$d semanas</string>
-    <string name="goal_card_days_remaining">%1$d días</string>
+    <plurals name="goal_card_weeks_remaining">
+        <item quantity="one">%1$d semana</item>
+        <item quantity="other">%1$d semanas</item>
+    </plurals>
+    <plurals name="goal_card_days_remaining">
+        <item quantity="one">%1$d día</item>
+        <item quantity="other">%1$d días</item>
+    </plurals>
     <string name="goal_card_one_day_remaining">1 día</string>
     <string name="goal_card_deposits_one">1 depósito</string>
-    <string name="goal_card_deposits_other">%1$d depósitos</string>
+    <plurals name="goal_card_deposits_other">
+        <item quantity="one">%1$d depósito</item>
+        <item quantity="other">%1$d depósitos</item>
+    </plurals>
     <string name="goal_card_no_deposits">Sin depósitos</string>
     <string name="goal_card_completed_chip">¡completado!</string>
     <string name="goal_card_completed_tap">¡Logrado! Toca para celebrar.</string>
-    <string name="goal_days_left_one">Queda 1 día</string>
-    <string name="goal_days_left_other">Quedan %1$d días</string>
-    <string name="goal_pace_hint">~%1$s/día para llegar</string>
-    <string name="goal_overdue">Plazo vencido</string>
-    <string name="goal_complete_chip">¡Lista para celebrar!</string>
     <string name="goal_deposit_cta">Aportar</string>
-    <string name="goal_progress_percent">%1$d%%</string>
 
     <!-- Create goal -->
     <string name="create_goal_title">Nueva meta</string>
@@ -339,26 +369,9 @@
     <string name="deposit_remaining">Te falta %1$s</string>
     <string name="deposit_confirm">Aportar</string>
 
-    <!-- Home -->
-    <string name="home_greeting_morning_named">Buenos días, %1$s</string>
-    <string name="home_greeting_afternoon_named">Buenas tardes, %1$s</string>
-    <string name="home_greeting_evening_named">Buenas noches, %1$s</string>
-    <string name="home_greeting_morning_generic">Buenos días</string>
-    <string name="home_greeting_afternoon_generic">Buenas tardes</string>
-    <string name="home_greeting_evening_generic">Buenas noches</string>
-    <string name="home_greeting_named">¡Hola, %1$s!</string>
-    <string name="home_greeting_generic">¡Hola!</string>
-    <string name="home_greeting_subtitle">Esto es lo que llevas este mes.</string>
-    <string name="home_remaining_label">Te queda</string>
-    <string name="home_registered_label">Has registrado</string>
-    <string name="home_of_budget">de %1$s</string>
-    <string name="home_spent_so_far">Gastado este mes: %1$s</string>
-    <string name="home_over_budget_chip">Pasaste tu plan por %1$s</string>
-    <string name="home_pace_chip">~%1$s/día restante</string>
-    <string name="home_no_budget_chip">Aún no defines un presupuesto</string>
-
     <!-- Home (redesigned) -->
     <string name="home_greeting_eyebrow">Hola,</string>
+    <string name="home_open_profile">Abrir perfil</string>
     <string name="home_balance_label">TE QUEDA</string>
     <string name="home_balance_full_label">TIENES TODO</string>
     <string name="home_balance_full_subtitle">para el mes — disfrútalo.</string>
@@ -369,8 +382,6 @@
     <string name="home_stat_avg">GASTO PROM.</string>
     <string name="home_stat_next_pay">PRÓX. COBRO</string>
     <string name="home_stat_per_day">/día</string>
-    <string name="home_stat_days_short">%1$d d</string>
-    <string name="home_stat_days_placeholder">—</string>
     <string name="home_stat_change_neg">-%1$d%%</string>
     <string name="home_stat_change_pos">+%1$d%%</string>
     <string name="home_movements_title">Movimientos</string>
@@ -401,14 +412,6 @@
     <string name="add_option_voice_short">Voz</string>
     <string name="add_option_voice_hint">“15 soles en el menú”</string>
     <string name="add_option_scan_camera">Usar cámara</string>
-    <string name="home_recent_expenses">Movimientos recientes</string>
-    <string name="home_empty_title">Aún no registras gastos</string>
-    <string name="home_empty_subtitle">Toca el botón \"+\" para empezar.</string>
-
-    <!-- Day headers (recent expenses grouping) -->
-    <string name="day_today">Hoy</string>
-    <string name="day_yesterday">Ayer</string>
-
     <!-- Cross-screen events -->
     <string name="expense_saved_snackbar">Gasto registrado</string>
 
@@ -416,10 +419,10 @@
     <string name="add_sheet_title">Registrar gasto</string>
     <string name="add_option_scan_title">Escanear captura</string>
     <string name="add_option_scan_subtitle">Toma una foto del recibo o Yape</string>
-    <string name="add_option_manual_title">Ingreso manual</string>
-    <string name="add_option_manual_subtitle">Escribe el monto y la categoría</string>
-    <string name="add_option_voice_title">Nota de voz</string>
-    <string name="add_option_voice_subtitle">Dictá tu gasto y listo</string>
+    <string name="voice_disclosure_title">Antes de usar el dictado</string>
+    <string name="voice_disclosure_body">El audio lo procesa la aplicación de reconocimiento instalada en tu dispositivo. Según su proveedor y configuración, podría enviarse a sus servidores. Fluyo solo recibe el texto transcrito para que lo confirmes antes de guardar.</string>
+    <string name="voice_disclosure_continue">Continuar al dictado</string>
+    <string name="voice_recognizer_unavailable">No hay un servicio de dictado disponible en este dispositivo.</string>
     <string name="add_option_coming_soon">Próximamente</string>
 
     <!-- Manual entry -->
@@ -431,17 +434,19 @@
     <string name="expense_delete_action">Eliminar gasto</string>
     <string name="all_expenses_title">Movimientos</string>
     <string name="all_expenses_empty">Aún no registras gastos</string>
-    <string name="all_expenses_count">%1$d movimientos en total</string>
+    <plurals name="all_expenses_count">
+        <item quantity="one">%1$d movimiento en total</item>
+        <item quantity="other">%1$d movimientos en total</item>
+    </plurals>
     <string name="expense_delete_confirm_title">¿Eliminar este gasto?</string>
     <string name="expense_delete_confirm_body">Se restará de tus totales. Esta acción no se puede deshacer.</string>
     <string name="action_delete">Eliminar</string>
     <string name="goal_delete_action">Eliminar meta</string>
     <string name="goal_delete_confirm_title">¿Eliminar esta meta?</string>
-    <string name="goal_delete_confirm_body">Se eliminará junto con el historial de sus depósitos. Esta acción no se puede deshacer.</string>
+    <string name="goal_delete_confirm_body">La meta se archivará y dejará de aparecer. Su historial de depósitos se conservará.</string>
 
     <!-- Expense row -->
     <string name="expense_untitled">Gasto</string>
-    <string name="expense_uncategorized">Sin categoría</string>
 
     <!-- OCR / scan flow -->
     <string name="ocr_title">Confirma el gasto</string>
@@ -449,12 +454,16 @@
     <string name="ocr_processing_subtitle">Reconocimiento en el dispositivo, tus datos no salen del celular.</string>
     <string name="ocr_amount_label">Monto</string>
     <string name="ocr_category_label">Categoría</string>
+    <string name="ocr_categories_loading">Cargando categorías…</string>
     <string name="ocr_recipient_label">Para</string>
     <string name="ocr_recipient_hint">Nombre o comercio</string>
     <string name="ocr_date_label">Fecha</string>
     <string name="ocr_save">Confirmar y guardar</string>
     <string name="ocr_detected_chip">Detectado</string>
-    <string name="ocr_detected_banner">Detectamos %1$d dato(s). Revísalos antes de guardar.</string>
+    <plurals name="ocr_detected_banner">
+        <item quantity="one">Detectamos %1$d dato. Revísalo antes de guardar.</item>
+        <item quantity="other">Detectamos %1$d datos. Revísalos antes de guardar.</item>
+    </plurals>
     <string name="ocr_parse_error">No detectamos el monto. Complétalo a mano abajo.</string>
 
     <!-- Notification settings -->
@@ -479,9 +488,4 @@
     <!-- Default categories (must match Supabase trigger seed) -->
     <string name="cat_food">Comida</string>
     <string name="cat_transport">Transporte</string>
-    <string name="cat_entertainment">Entretenimiento</string>
-    <string name="cat_snacks">Snacks</string>
-    <string name="cat_health">Salud</string>
-    <string name="cat_education">Educación</string>
-    <string name="cat_other">Otros</string>
 </resources>

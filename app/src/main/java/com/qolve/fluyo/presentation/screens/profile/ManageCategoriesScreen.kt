@@ -3,6 +3,7 @@ package com.qolve.fluyo.presentation.screens.profile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +12,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +29,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,16 +44,22 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
 import com.qolve.fluyo.presentation.util.iconForToken
@@ -62,6 +75,13 @@ fun ManageCategoriesScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingDelete by remember { mutableStateOf<Category?>(null) }
+    val initialLoadError = state.loadErrorMessage
+
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -88,17 +108,69 @@ fun ManageCategoriesScreen(
             }
         },
     ) { inner ->
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(inner),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(state.categories, key = { it.id }) { category ->
-                CategoryRow(
-                    category = category,
-                    onEdit = { viewModel.openEdit(category) },
-                    onDelete = { viewModel.delete(category) },
-                )
+        when {
+            state.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(inner),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
+            }
+            initialLoadError != null && !state.hasLoaded -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(inner)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = initialLoadError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Button(
+                        onClick = viewModel::refresh,
+                        modifier = Modifier.padding(top = 16.dp),
+                    ) { Text(stringResource(R.string.action_retry)) }
+                }
+            }
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxWidth().padding(inner),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.loadErrorMessage?.let { message ->
+                    item(key = "load-error") {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Button(onClick = viewModel::refresh) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                }
+                if (state.categories.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            text = stringResource(R.string.categories_empty),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(vertical = 24.dp),
+                        )
+                    }
+                }
+                items(state.categories, key = { it.id }) { category ->
+                    CategoryRow(
+                        category = category,
+                        onEdit = { viewModel.openEdit(category) },
+                        onDelete = { pendingDelete = category },
+                    )
+                }
             }
         }
     }
@@ -111,6 +183,27 @@ fun ManageCategoriesScreen(
             onColor = viewModel::onColorChange,
             onDismiss = viewModel::closeEditor,
             onConfirm = viewModel::save,
+        )
+    }
+
+    pendingDelete?.let { category ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.category_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.category_delete_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDelete = null
+                        viewModel.delete(category)
+                    },
+                ) { Text(stringResource(R.string.action_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
 }
@@ -179,7 +272,7 @@ private fun CategoryEditorDialog(
             )
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = editor.name,
                     onValueChange = onName,
@@ -193,12 +286,20 @@ private fun CategoryEditorDialog(
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     CATEGORY_ICON_TOKENS.forEach { token ->
                         val selected = token == editor.icon
+                        val optionDescription = stringResource(
+                            R.string.category_icon_option,
+                            stringResource(categoryIconNameResource(token)),
+                        )
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (selected) parseHexColor(editor.color).copy(alpha = 0.18f)
@@ -209,10 +310,15 @@ private fun CategoryEditorDialog(
                                     color = if (selected) parseHexColor(editor.color) else Color.Transparent,
                                     shape = CircleShape,
                                 )
-                                .clickable { onIcon(token) },
+                                .selectable(
+                                    selected = selected,
+                                    role = Role.RadioButton,
+                                    onClick = { onIcon(token) },
+                                )
+                                .semantics { contentDescription = optionDescription },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(iconForToken(token), contentDescription = token)
+                            Icon(iconForToken(token), contentDescription = null)
                         }
                     }
                 }
@@ -222,21 +328,41 @@ private fun CategoryEditorDialog(
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     CATEGORY_COLORS.forEach { hex ->
                         val selected = hex == editor.color
+                        val optionDescription = stringResource(
+                            R.string.category_color_option,
+                            stringResource(categoryColorNameResource(hex)),
+                        )
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
-                                .background(parseHexColor(hex))
-                                .border(
-                                    width = if (selected) 3.dp else 0.dp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    shape = CircleShape,
+                                .selectable(
+                                    selected = selected,
+                                    role = Role.RadioButton,
+                                    onClick = { onColor(hex) },
                                 )
-                                .clickable { onColor(hex) },
-                        )
+                                .semantics { contentDescription = optionDescription },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(parseHexColor(hex))
+                                    .border(
+                                        width = if (selected) 3.dp else 0.dp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        shape = CircleShape,
+                                    ),
+                            )
+                        }
                     }
                 }
             }
@@ -252,4 +378,43 @@ private fun CategoryEditorDialog(
             }
         },
     )
+}
+
+private fun categoryIconNameResource(token: String): Int = when (token) {
+    "utensils" -> R.string.category_icon_name_utensils
+    "fastfood" -> R.string.category_icon_name_fastfood
+    "bus" -> R.string.category_icon_name_bus
+    "train" -> R.string.category_icon_name_train
+    "gamepad" -> R.string.category_icon_name_gamepad
+    "music" -> R.string.category_icon_name_music
+    "movie" -> R.string.category_icon_name_movie
+    "coffee" -> R.string.category_icon_name_coffee
+    "drink" -> R.string.category_icon_name_drink
+    "heart" -> R.string.category_icon_name_heart
+    "hospital" -> R.string.category_icon_name_hospital
+    "book" -> R.string.category_icon_name_book
+    "groceries" -> R.string.category_icon_name_groceries
+    "shopping" -> R.string.category_icon_name_shopping
+    "pet" -> R.string.category_icon_name_pet
+    "home" -> R.string.category_icon_name_home
+    "bolt" -> R.string.category_icon_name_bolt
+    "money" -> R.string.category_icon_name_money
+    "tag" -> R.string.category_icon_name_tag
+    else -> R.string.category_icon_name_other
+}
+
+private fun categoryColorNameResource(hex: String): Int = when (hex.uppercase()) {
+    "#FF7043" -> R.string.category_color_name_coral
+    "#42A5F5" -> R.string.category_color_name_blue
+    "#AB47BC" -> R.string.category_color_name_purple
+    "#FFA726" -> R.string.category_color_name_orange
+    "#EF5350" -> R.string.category_color_name_red
+    "#26A69A" -> R.string.category_color_name_turquoise
+    "#66BB6A" -> R.string.category_color_name_green
+    "#7E57C2" -> R.string.category_color_name_violet
+    "#78909C" -> R.string.category_color_name_blue_gray
+    "#EC407A" -> R.string.category_color_name_pink
+    "#5C6BC0" -> R.string.category_color_name_indigo
+    "#FF8F00" -> R.string.category_color_name_amber
+    else -> R.string.category_color_name_other
 }

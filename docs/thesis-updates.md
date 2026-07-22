@@ -4,9 +4,20 @@ subtitle: "Capítulo 5 (R 2.2, R 2.3) + correcciones de stack en Caps. 1, 2 y An
 author: "Jeremy Daniel Aldama Giraldo"
 date: "Mayo 2026"
 lang: es
+status: "Borrador histórico; no representa por sí solo el estado verificable del repositorio"
 ---
 
 # Guía de uso de este documento
+
+> [!WARNING]
+> Este archivo es un borrador de tesis fechado en mayo de 2026 y conserva propuestas,
+> métricas y fragmentos de esquema históricos. **No debe copiarse al manuscrito como
+> evidencia del estado actual.** Para hechos verificables use
+> [`../AUDITORIA_REPOSITORIO.md`](../AUDITORIA_REPOSITORIO.md),
+> [`../SYSTEM_DESIGN.md`](../SYSTEM_DESIGN.md) y las migraciones. En particular, no se
+> ejecutó aquí un E2E instrumentado completo ni una validación contra staging, y la
+> vinculación WhatsApp actual usa challenge de remitente verificado y está desactivada
+> por defecto; `users.phone_number` es legado y no acredita identidad.
 
 Este documento contiene dos bloques independientes:
 
@@ -85,7 +96,7 @@ CREATE TABLE users (
   auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
   display_name TEXT,
-  phone_number TEXT UNIQUE,            -- vincula al canal complementario
+  phone_number TEXT UNIQUE,            -- LEGADO: no prueba identidad ni vincula el canal actual
   monthly_budget DECIMAL(10,2) DEFAULT 0,
   currency TEXT DEFAULT 'PEN',
   level INTEGER DEFAULT 1,
@@ -281,6 +292,11 @@ La siguiente tabla vincula cada Historia de Usuario priorizada como Must o Shoul
 
 ### 5.3.6 Validación funcional
 
+> **Plan histórico, no resultado ejecutado.** Los cuatro puntos siguientes describen la
+> estrategia que proponía este borrador. Los resultados realmente reproducidos y sus
+> límites (JUnit 4, 154 pruebas JVM, instrumentadas sólo compiladas, PostgreSQL local y
+> cobertura medida) están en `AUDITORIA_REPOSITORIO.md`.
+
 La validación declarada en §1.3 se concreta en cuatro tipos de pruebas:
 
 1. **Pruebas unitarias del dominio** con **JUnit 5 + Mockk**. Verifican que `RegisterExpenseUseCase` calcula correctamente el presupuesto restante, que `YapeParser` extrae el monto del 90 % de las capturas Yape de un fixture interno de 30 imágenes y que `ComputeNudgeUseCase` respeta el límite de un nudge diario.
@@ -290,7 +306,7 @@ La validación declarada en §1.3 se concreta en cuatro tipos de pruebas:
 
 ### 5.3.7 Canal complementario en desarrollo
 
-A título informativo y como trabajo en curso, Fluyo expone un **canal complementario de registro vía mensajería** que reaprovecha la API oficial de WhatsApp Business. El usuario asocia su número de teléfono peruano durante el onboarding (paso opcional) y, desde ese momento, puede registrar gastos enviando texto natural ("Gasté 20 soles en taxi") o notas de voz. El procesamiento ocurre en un backend NestJS multi-tenant existente al que se le añadió un plugin Fluyo que escribe en la misma base de datos Supabase usando la `service_role` key (que bypassa RLS solo en esa frontera controlada). Este canal no forma parte del entregable evaluado en esta tesis pero materializa la visión de multi-canalidad descrita en el modelo de Fogg como maximización del eje *Ability*.
+A título informativo y como trabajo en curso, Fluyo diseña un **canal complementario de registro vía mensajería** sobre WhatsApp Business. La app autenticada crea un reto de un solo uso y el backend externo debe confirmarlo desde el remitente E.164 observado en un webhook auténtico; un teléfono escrito en el perfil no sirve como prueba. El código y despliegue de ese backend NestJS no están en este repositorio y no se consideran verificados. Por ello la superficie Android permanece oculta mediante `WHATSAPP_LINKING_ENABLED=false` hasta que firma de Meta, aislamiento multi-tenant, custodia de `service_role`, retención y borrado superen una auditoría independiente.
 
 ---
 
@@ -461,4 +477,6 @@ A continuación se listan los párrafos, criterios y filas de tabla del manuscri
 
 - **Numeración del Capítulo 5.** Las subsecciones de la nueva 5.2 y 5.3 siguen el patrón `5.X.Y`. La sección 5.1 ya redactada usa internamente `2.1.1`, `2.1.2`, etc., lo cual probablemente fue un acarreo desde un borrador previo. Si se desea uniformidad, conviene renumerar 5.1 como `5.1.1`, `5.1.2`, … al integrar este material.
 - **Soporte iOS.** La especificación original mencionaba "Android y/o iOS". El reemplazo aquí propuesto fija explícitamente Android-only en el alcance de la tesis y mueve iOS a Trabajos Futuros (Capítulo 6, pendiente de redacción). Esta decisión se justifica en §5.3.1.
-- **Canal complementario WhatsApp.** No se documenta arquitectónicamente en este push (fuera de alcance acordado). Se menciona en §5.3.7 como trabajo en curso y se sugiere desarrollarlo en una posible extensión post-tesis o en un anexo técnico independiente.
+- **Canal complementario WhatsApp.** El contrato móvil/SQL se documenta como integración
+  desactivada por defecto; el backend e infraestructura externos siguen fuera del alcance
+  verificable de este repositorio y requieren un anexo o auditoría independiente.

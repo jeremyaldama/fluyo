@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.MonthlyBreakdown
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.presentation.theme.AccentAmber
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 import com.qolve.fluyo.presentation.theme.FluyoCoral
@@ -102,7 +103,7 @@ fun BudgetCircle(
                 style = stroke,
             )
             // Progress arc
-            if (breakdown.monthlyBudget > 0.0) {
+            if (breakdown.monthlyBudget > MoneyAmount.ZERO) {
                 drawArc(
                     color = arcColor,
                     startAngle = -90f,
@@ -126,10 +127,10 @@ fun BudgetCircle(
             }
         }
 
-        if (breakdown.monthlyBudget <= 0.0) {
+        if (breakdown.monthlyBudget <= MoneyAmount.ZERO) {
             // No budget yet — show a friendly "set a budget" prompt
             BudgetCenterEmpty()
-        } else if (breakdown.totalSpent <= 0.0) {
+        } else if (breakdown.totalSpent <= MoneyAmount.ZERO) {
             // Budget set, nothing spent yet — celebrate the full balance
             BudgetCenterFull(breakdown)
         } else {
@@ -144,9 +145,9 @@ fun BudgetCircle(
  */
 @Composable
 private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
-    val remaining = breakdown.remaining.coerceAtLeast(0.0)
-    val integer = remaining.toLong()
-    val cents = ((remaining - integer) * 100).toLong().coerceIn(0, 99)
+    val remaining = breakdown.remaining.coerceAtLeast(MoneyAmount.ZERO)
+    val integer = remaining.cents / 100L
+    val cents = remaining.cents % 100L
     val integerFormatted = java.text.NumberFormat.getNumberInstance(
         java.util.Locale.forLanguageTag("es-PE"),
     ).format(integer)
@@ -196,7 +197,7 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
-        if (breakdown.extraIncome > 0.0) {
+        if (breakdown.extraIncome > MoneyAmount.ZERO) {
             Text(
                 text = stringResource(R.string.home_balance_includes_extra, money(breakdown.extraIncome)),
                 style = MaterialTheme.typography.labelSmall,
@@ -212,7 +213,8 @@ private fun BudgetCenterRemaining(breakdown: MonthlyBreakdown) {
  */
 @Composable
 private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
-    val integer = breakdown.monthlyBudget.toLong()
+    val integer = breakdown.monthlyBudget.cents / 100L
+    val cents = breakdown.monthlyBudget.cents % 100L
     val integerFormatted = java.text.NumberFormat.getNumberInstance(
         java.util.Locale.forLanguageTag("es-PE"),
     ).format(integer)
@@ -245,7 +247,7 @@ private fun BudgetCenterFull(breakdown: MonthlyBreakdown) {
                 ),
             )
             Text(
-                text = ".00",
+                text = ".%02d".format(cents),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),

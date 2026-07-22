@@ -4,4 +4,6 @@
     <cache-path name="exports" path="exports/" />
     <!-- Receipt photos captured in-app (TakePicture target), OCR'd on-device. -->
     <cache-path name="captures" path="captures/" />
+    <!-- Validated, bounded copies. Only these URIs may be previewed or passed to OCR. -->
+    <cache-path name="ocr-imports" path="ocr-imports/" />
 </paths>

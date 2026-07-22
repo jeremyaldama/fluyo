@@ -6,9 +6,8 @@ data class CategorySummary(
     val name: String,
     val color: String,
     val icon: String,
-    val total: Double,
+    val total: MoneyAmount,
     val count: Int,
 ) {
-    fun share(allTotal: Double): Float =
-        if (allTotal <= 0.0) 0f else (total / allTotal).toFloat().coerceIn(0f, 1f)
+    fun share(allTotal: MoneyAmount): Float = total.ratioOf(allTotal).coerceIn(0f, 1f)
 }

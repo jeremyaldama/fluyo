@@ -10,7 +10,7 @@ import java.time.YearMonth
  */
 data class BudgetExtra(
     val id: String,
-    val amount: Double,
+    val amount: MoneyAmount,
     val note: String?,
     val month: YearMonth,
     val createdAt: Instant,

@@ -1,6 +1,8 @@
 package com.qolve.fluyo.presentation.events
 
 import android.net.Uri
+import com.qolve.fluyo.data.ColdStartRetainedCache
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,7 +20,7 @@ import javax.inject.Singleton
  * (auth-gating before scan).
  */
 @Singleton
-class SharedImageEvents @Inject constructor() {
+class SharedImageEvents @Inject constructor() : ColdStartRetainedCache {
     private val _events = MutableSharedFlow<Uri>(
         replay = 1, // hold latest so late subscribers (cold-start case) still see it
         extraBufferCapacity = 4,
@@ -30,7 +32,12 @@ class SharedImageEvents @Inject constructor() {
         _events.tryEmit(uri)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun consume() {
         _events.resetReplayCache()
+    }
+
+    override suspend fun clearForSignOut() {
+        consume()
     }
 }

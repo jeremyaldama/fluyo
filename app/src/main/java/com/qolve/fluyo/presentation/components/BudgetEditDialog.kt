@@ -19,8 +19,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.presentation.util.currencySymbol
 import com.qolve.fluyo.presentation.util.money
+import java.math.RoundingMode
 
 /**
  * Base-budget editor, shared by Profile (Ajustes row) and Home (tapping the budget
@@ -35,7 +37,7 @@ fun BudgetEditDialog(
     input: String,
     isSaving: Boolean,
     error: String?,
-    extraIncome: Double,
+    extraIncome: MoneyAmount,
     onInputChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
@@ -67,12 +69,15 @@ fun BudgetEditDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (extraIncome > 0.0) {
+                if (extraIncome > MoneyAmount.ZERO) {
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(
                             R.string.budget_dialog_effective_caption,
-                            money(input.toDoubleOrNull() ?: 0.0),
+                            money(
+                                MoneyAmount.parse(input, RoundingMode.UNNECESSARY)
+                                    ?: MoneyAmount.ZERO,
+                            ),
                             money(extraIncome),
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -94,7 +99,10 @@ fun BudgetEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isSaving && input.toDoubleOrNull() != null) {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isSaving && MoneyAmount.parse(input, RoundingMode.UNNECESSARY) != null,
+            ) {
                 Text(stringResource(R.string.action_continue))
             }
         },

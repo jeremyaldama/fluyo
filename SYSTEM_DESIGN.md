@@ -1,10 +1,10 @@
 # Fluyo — System Design
 
-**Status:** Reflects the system as built through Phase 6 (May 2026).
+**Status:** Audited against the Android app and SQL migrations in this repository (July 2026). External backend and deployed-cloud claims require verification in their own repositories/environments.
 **Authors:** Jeremy Aldama (thesis, PUCP — Computer Science Engineering).
 **Audience:** Thesis committee, future maintainers, anyone onboarding to the codebase.
 
-This document is the source of truth for *what is built*. CLAUDE.md is the source of truth for *what the assistant should do*. If they conflict, this document wins; please update CLAUDE.md to match.
+This document is the source of truth for the components versioned here. CLAUDE.md contains contributor guidance. Descriptions of the external WhatsApp backend are integration context, not proof of its current deployment state.
 
 ---
 
@@ -12,14 +12,16 @@ This document is the source of truth for *what is built*. CLAUDE.md is the sourc
 
 Fluyo is a personal-finance platform aimed at university students in Lima, Peru (ages 18–26) who use Yape/Plin daily and struggle to track expenses because manual registration is tedious. It exposes two surfaces over **the same Supabase Postgres database**:
 
-1. **Android app** (Kotlin + Jetpack Compose) — primary interface. Tracks expenses via OCR of Yape/Plin screenshots, quick manual entry, and (Phase 4+) voice. Includes gamification (badges, levels), savings goals, and local nudge notifications.
-2. **WhatsApp bot** (NestJS plugin) — secondary interface. Users send text or voice notes ("Gasté 20 en taxi", a voice note saying "yapeé 35 al almuerzo") and the bot registers the expense conversationally.
+1. **Android app** (Kotlin + Jetpack Compose) — primary interface. Tracks expenses via OCR of Yape/Plin screenshots, quick manual entry, and Android speech recognition. Includes gamification (badges, levels), savings goals, and local nudge notifications.
+2. **WhatsApp bot** (external NestJS plugin) — secondary interface described by the integration design. Its source and deployment are not present in this checkout and must be audited separately.
 
-The user is the same person across both surfaces, linked by phone number.
+The same user may use both surfaces. A trusted backend must prove control of the WhatsApp sender through the one-time challenge in migration `0006`; a phone typed into the profile is not sufficient proof.
+The Android surface is hidden by default and only exists when `WHATSAPP_LINKING_ENABLED=true`
+and a valid E.164 bot number are supplied at build time after that backend is verified.
 
 ### 1.1 Scope of this document
 
-In scope: deployed components, data model, request flows, security model, cost model, deployment topology, known limitations.
+In scope: versioned components, data model, request flows, security model, integration/deployment context and known limitations.
 Out of scope: thesis methodology (UCD process), user-research artifacts, marketing/copy decisions.
 
 ### 1.2 Goals (in priority order)
@@ -27,12 +29,12 @@ Out of scope: thesis methodology (UCD process), user-research artifacts, marketi
 1. **OCR expense entry in ≤10 seconds.** Headline goal: scan Yape screenshot → confirm → saved.
 2. **Manual expense entry in ≤5 seconds.** Amount → category → save.
 3. **WhatsApp conversational entry** as fallback for when the app isn't open.
-4. **Always-on user data sovereignty.** OCR runs on-device, never uploaded. PEN data protection law (Ley N° 29733) compliant.
+4. **Data minimization.** OCR runs on-device and its source image is not uploaded by the current Android flow. Legal compliance still depends on the policies and operations of the complete deployment.
 5. **Habit reinforcement.** Daily nudge + streaks + badges + savings goals to keep users coming back.
 
 ### 1.3 Non-goals
 
-- Multi-currency support (PEN only).
+- Currency conversion or per-expense multi-currency accounting. The current UI preference changes display formatting only.
 - Bank-account linking / open banking integrations.
 - Premium tier, ads, in-app purchases.
 - Web client beyond the Supabase dashboard.
@@ -83,8 +85,6 @@ flowchart TB
 
   APP <-->|Supabase-kt over HTTPS<br/>RLS-bound queries| Auth
   APP <-->|Postgrest + Storage SDK| PG
-  APP <-->|Photo upload| Storage
-
   WAUser <-->|messages, voice notes| WACAPI
   WACAPI -->|webhook| NestJS
   NestJS -->|REST send| WACAPI
@@ -122,7 +122,7 @@ flowchart TB
 
 ### 3.1 Android client — `app/`
 
-96 Kotlin files at the time of writing. Clean Architecture in 3 layers:
+The single Android application module follows Clean Architecture in 3 layers:
 
 ```
 com.qolve.fluyo/
@@ -158,8 +158,8 @@ com.qolve.fluyo/
 | Component | Choice | Version |
 |---|---|---|
 | Language | Kotlin | 2.2.10 |
-| Build | Gradle KTS + AGP | 9.4.1 / 9.2.1 |
-| Min SDK / Target SDK | 24 / 36 | Android 7 → 15 |
+| Build | Gradle wrapper / AGP, Kotlin DSL | 9.4.1 / 9.2.1 |
+| Min SDK / Target / Compile SDK | 24 / 36 / 36.1 | Android 7 → Android 16 QPR2 |
 | UI | Jetpack Compose + Material 3 | BOM 2026.02.01 |
 | Architecture | Clean + MVVM | n/a |
 | DI | Hilt + KSP | 2.59.2 / 2.2.10-2.0.2 |
@@ -181,22 +181,29 @@ Custom `lightColorScheme` / `darkColorScheme` follow system. **Dynamic color (Ma
 
 ### 3.2 Supabase platform
 
-Project ref: `fxbrxfsyxmzadyonhaoj`. Region: `us-east-1` (sa-east-1 was preferred for Lima proximity but the free tier provisioned us-east).
+The project reference, region and environment credentials are deployment-specific and are intentionally not recorded in this repository. Development, staging and production must use separate projects and secrets.
 
 Services in use:
-- **Auth** — Google provider (primary), email/password (secondary, unused in UI). Web OAuth client ID is shared with the Android Credential Manager flow.
-- **Postgres 16** — all app data. `public.users` is linked to `auth.users` via `auth_id`. RLS on every user-owned table.
-- **Storage** — `receipts` bucket. Currently used as fallback by the Android OCR flow for image_url backreference; primary OCR is on-device.
+- **Auth** — Google and email/password, including email-confirmation callbacks. The Web OAuth client ID is shared with the Android Credential Manager flow.
+- **Postgres** — all app data. `public.users` is linked to `auth.users` via `auth_id`. RLS is enabled on every user-owned table and exercised by the migration test harness.
+- **Storage** — migration `0007` versions a private, size/MIME-limited `receipts` bucket with owner-prefix policies and tombstone-aware write denial. The Android OCR flow neither uploads receipts nor persists its device-local URI.
 - **Postgres triggers** — `seed_default_categories()` auto-seeds 7 categories on each `users` insert via `SECURITY DEFINER` so it bypasses RLS during the trigger.
 
 Migrations live in `supabase/migrations/`:
 - `0001_initial_schema.sql` — all tables + views + the seed trigger
 - `0002_rls_policies.sql` — RLS policies (one per table, separate SELECT/INSERT/UPDATE for `users`; FOR ALL for the others)
 - `0003_security_hardening.sql` — flips views to `security_invoker`, pins trigger function `search_path`, revokes RPC access to the seed trigger
+- `0004_category_ondelete_setnull.sql` — changes the category foreign key to `ON DELETE SET NULL`
+- `0005_budget_extras.sql` — adds extra income plus the current-month budget view/functions
+- `0006_data_integrity_and_secure_operations.sql` — adds ownership/range constraints, atomic goal deposits, server-enforced gamification, Lima month semantics and verified WhatsApp-link primitives
+- `0007_repository_closure.sql` — adds race-safe profile provisioning, idempotent financial-create RPCs, logical goal deletion, versioned private Storage, complete badge/summary behavior and challenge retention
+- `supabase/contract-migrations/0008_write_path_contract.sql` — separately gated contract applied only after legacy clients are retired and historical state is repaired; revokes direct inserts for profiles/expenses/goals/extras/badges/deposits, removes direct goal mutation, narrows expense/profile updates and records file SHA-256 plus verified postconditions in a dedicated private registry. Intentional deletes of expenses/extras remain available under RLS.
 
-### 3.3 WhatsApp backend — `whatsapp-bot-be/`
+The authenticated `delete-account` Edge Function lives under `supabase/functions/`. SQL behavior and RLS contracts run against PostgreSQL 17 in CI; the Edge Function is type-checked with Deno.
 
-**Not Fluyo-specific.** This is a mature, in-production multi-tenant chatbot platform. Fluyo is added as a new plugin alongside the four existing tenants. We did not refactor anything to fit Fluyo.
+### 3.3 External WhatsApp backend
+
+The backend source is **not contained in this repository**. The following section records the expected integration contract and previously supplied deployment context; it must not be treated as independently verified by the Android build or CI.
 
 Stack: NestJS 11 + TypeORM 0.3 + self-hosted Postgres 16 + Redis (ioredis) + AWS S3 + OpenAI 6.x. Deployed on DigitalOcean VPS, containerized (Docker + nginx TLS).
 
@@ -221,7 +228,7 @@ src/plugins/fluyo/
 ├── index.ts
 └── services/
     ├── fluyo-supabase.service.ts            # @supabase/supabase-js client (service-role key)
-    ├── fluyo-user.service.ts                # phone → users.id with PE country-code variants
+    ├── fluyo-user.service.ts                # verified E.164 → whatsapp_links → users.id
     ├── fluyo-expense.service.ts             # register_expense, get_monthly_summary, get_active_goals
     ├── fluyo-voice-transcription.service.ts # OpenAI Audio API wrapper, model: gpt-4o-mini-transcribe
     └── fluyo-voice-transcriber.service.ts   # OnEvent listener for incoming audio
@@ -322,13 +329,13 @@ erDiagram
 ```
 
 **Notable constraints:**
-- `users.phone_number` is `UNIQUE` — that's what links the WhatsApp identity back to the Android-app user.
+- `users.phone_number` is legacy/profile input and is not proof of ownership. Migration `0006` adds `whatsapp_link_challenges` plus the backend-owned `whatsapp_links.phone_e164` mapping used for a verified WhatsApp identity.
 - `expenses.source CHECK ('manual','ocr','voice','whatsapp')` — every expense carries its provenance.
 - `badges UNIQUE(user_id, badge_type)` — server-side idempotency for the unlock engine.
 - No `date_trunc(...)` indexes — Postgres rejects them as non-IMMUTABLE on a `date` column. The composite `(user_id, expense_date DESC)` index covers month-range queries fine.
 
 **Views:**
-- `current_month_budget(user_id, monthly_budget, total_spent, remaining)` — used by Android Home and the WhatsApp `get_monthly_summary` tool. Computed live, `security_invoker = on` so RLS applies.
+- `current_month_budget(user_id, monthly_budget, total_spent, remaining, extra_income)` — used by Android Home and the WhatsApp `get_monthly_summary` tool. Computed live, `security_invoker = on` so RLS applies. Persisted movements remain `numeric(10,2)` (maximum `99,999,999.99` each), while these four aggregate/derived money columns use unconstrained PostgreSQL `numeric`; otherwise two individually valid maximum rows can overflow the view. Names, order and JSON-number transport remain compatible with the existing Android DTO.
 - `monthly_category_summary` — used by Stats; same security stance.
 
 ---
@@ -354,13 +361,12 @@ sequenceDiagram
   CM-->>App: NativeSignInResult.Success
   App->>SA: signInWithIdToken(idToken)
   SA-->>App: session + user.id
-  App->>DB: select users where auth_id = uid
-  DB-->>App: not found
-  App->>DB: insert users(auth_id, email, display_name)
+  App->>DB: RPC ensure_user_profile()
+  DB->>DB: INSERT ... ON CONFLICT(auth_id)<br/>then return the caller's profile
   Note over DB: trigger on_user_created<br/>seeds 7 default categories<br/>(SECURITY DEFINER bypasses RLS)
-  DB-->>App: inserted user row
-  App->>App: OnboardingHost: budget + tour + phone(optional)
-  App->>DB: update users set monthly_budget, phone_number
+  DB-->>App: existing or newly inserted profile
+  App->>App: OnboardingHost: budget + tour
+  App->>DB: narrow UPDATE users.monthly_budget
   App->>App: OnboardingPrefs.setCompleted(true)
   Note over App: RootViewModel observes auth+prefs<br/>and routes to MAIN bottom-nav
 ```
@@ -380,16 +386,16 @@ sequenceDiagram
 
   U->>App: + → "Escanear captura"
   App->>PP: PickVisualMediaRequest(ImageOnly)
-  PP-->>App: content URI
-  App->>App: navigate to scan_confirm/{uri}
-  App->>VM: init with URI
-  VM->>ML: process(InputImage.fromFilePath(uri))
+  PP-->>App: external content URI
+  App->>App: validate MIME/magic/dimensions/size<br/>and copy to private FileProvider URI
+  App->>VM: init with owned private URI
+  VM->>ML: process(InputImage.fromFilePath(privateUri))
   ML-->>VM: recognized text
   VM->>YP: parse(rawText)
   YP-->>VM: ParsedReceipt(amount?, recipient?, date?, detected)
   Note over VM: show "Detectado" chips on auto-filled fields
   U->>VM: confirm / edit / save
-  VM->>DB: insert expense(source='ocr', image_url=uri)
+  VM->>DB: RPC create_expense(stableRequestId,<br/>source='ocr', image_url=null)
   DB-->>VM: saved row
   VM-->>App: pop back to Home with snackbar
 ```
@@ -420,11 +426,11 @@ sequenceDiagram
   AI->>FP: openai.chat with FLUYO_TOOLS
   Note over FP: model emits register_expense<br/>(amount=15, category=Comida)
   FP->>Fus: findByPhone(contact.phoneNumber)
-  Fus->>Sup: select users where phone_number in (variants)
+  Fus->>Sup: resolve verified whatsapp_links.phone_e164
   Sup-->>Fus: user row
   Fus-->>FP: FluyoUserRow
   FP->>Fex: registerExpense(userId, 15, Comida, almuerzo)
-  Fex->>Sup: resolve category by name → insert expense(source='whatsapp')
+  Fex->>Sup: resolve category → insert expense(source='whatsapp',<br/>client_request_id=stableWebhookMessageId)
   Fex->>Sup: read current_month_budget
   Sup-->>Fex: remaining = 285.50
   Fex-->>FP: RegisterExpenseResult
@@ -433,7 +439,9 @@ sequenceDiagram
   WA->>U: reply
 ```
 
-Phone resolution tries several variants (`51999888777`, `+51999888777`, `999888777`) so users who saved their number in any format during Android onboarding still match.
+Phone resolution canonicalizes the authenticated webhook sender once to E.164 and
+requires an exact active `whatsapp_links.phone_e164` match. Free-form onboarding phone
+values and country-code guessing are not identity evidence.
 
 ### 5.4 WhatsApp voice note expense (Phase 4.2)
 
@@ -485,13 +493,13 @@ sequenceDiagram
 
   U->>VM: tap goal → DepositSheet → enter amount → confirm
   VM->>Goal: deposit(goalId, amount)
-  Goal->>DB: insert goal_deposits
-  Goal->>DB: read goal, update current_amount,<br/>status='completed' if amount >= target
-  DB-->>Goal: updated goal row
+  Goal->>DB: RPC deposit_to_goal(goalId, amount, requestId)
+  DB->>DB: lock goal + append immutable ledger<br/>+ update balance/status atomically
+  DB-->>Goal: stable goal/deposit snapshot
   Goal-->>VM: GoalDepositOutcome(goal, justCompleted)
   alt justCompleted
     VM->>BE: checkAfterGoalCompleted()
-    BE->>DB: insert badge first_goal (idempotent via UNIQUE)
+    BE->>DB: RPC unlock_badge(first_goal)
     BE-->>VM: AppEvent.BadgeUnlocked
     VM->>UI: show ConfettiOverlay + snackbar "¡Meta completada!"
   end
@@ -548,7 +556,7 @@ All four are user-toggleable in Profile → Notificaciones.
 ### 6.1 Authentication
 
 - **Android:** Supabase Auth via Credential Manager One Tap. Token is stored in supabase-kt's session manager (encrypted by Android KeyStore-backed prefs).
-- **Backend:** the existing platform has its own JWT auth for admin endpoints (unrelated to Fluyo end users). The Fluyo plugin authenticates *to Supabase* as the service role; end users never present a token to the WhatsApp bot — they're identified by their WhatsApp phone number cross-referenced against `users.phone_number`.
+- **Backend:** the existing platform has its own JWT auth for admin endpoints (unrelated to Fluyo end users). The Fluyo plugin authenticates *to Supabase* as the service role. End users do not present a Supabase JWT to WhatsApp; the trusted webhook must resolve the normalized sender against a verified `whatsapp_links` row.
 
 ### 6.2 Authorization — Row Level Security
 
@@ -570,25 +578,28 @@ The Android app connects with the **anon key + the user's JWT**, so RLS enforces
 
 The Fluyo NestJS plugin uses the **service-role key**, which bypasses RLS. This is necessary because:
 - The bot has no way to obtain the user's Supabase JWT (the user is a WhatsApp identity, not a Supabase session).
-- The bot must write expenses on behalf of users who have already opted in to WhatsApp by saving their phone number on the Android side.
+- The bot must write expenses on behalf of users whose one-time challenge was confirmed from the authentic WhatsApp sender.
 
 **Mitigations:**
 - The service-role key is read from `FLUYO_SUPABASE_SERVICE_ROLE_KEY` env var only on the VPS; never committed (`.env.example` ships only placeholder).
 - The plugin enforces "tenant must be Fluyo" before doing anything: a different tenant's webhook cannot route to Fluyo's tools.
 - The plugin resolves users by their *own* WhatsApp number; it never accepts a target user ID from the model.
-- If the phone has no matching `users.phone_number`, the plugin returns an `unlinked: true` payload and refuses to write.
+- If the normalized sender has no matching verified `whatsapp_links.phone_e164`, the plugin must refuse the write and guide the user through the challenge flow.
+- Every privileged financial insert includes a stable, non-null `client_request_id`
+  derived from the immutable webhook message ID. `service_role` bypasses RLS, not the
+  constraints in contract `0008`; retries must find/return the existing movement.
 
 ### 6.4 OCR and on-device data
 
-ML Kit Text Recognition runs entirely on-device — the photo and OCR text never leave the phone. The receipt URI optionally written to `expenses.image_url` is a *content URI on the user's device*, not a public URL. (Receipt copies could be uploaded to the Supabase `receipts` bucket in a future iteration; for now they are not.)
+ML Kit Text Recognition runs entirely on-device. The Android flow saves only the confirmed structured expense, always sends `image_url = null`, removes owned captures after use and scrubs shared URIs from the Activity intent. Receipt copies are not uploaded by this application.
 
 ### 6.5 Voice transcription path
 
-Voice notes travel: phone → WhatsApp Cloud API (Meta) → our DigitalOcean backend → OpenAI's Audio API → transcript text → Supabase. The audio binary is **not** stored long-term on our infrastructure: it transits the backend's memory, gets sent to OpenAI, and is discarded. (The original audio is still cached in WhatsApp's media and our S3 media bucket per existing tenant behavior — see "known limitations".)
+The intended external path for WhatsApp voice notes is: phone → WhatsApp Cloud API (Meta) → external backend → transcription provider → transcript text → Supabase. That backend is outside this repository, so its actual retention, deletion and storage behavior is not asserted here and must be audited independently. In-app voice uses the installed Android speech-recognition provider and shows a disclosure before launch.
 
 ### 6.6 Compliance — Ley N° 29733 (PE)
 
-Personal-data points collected: email, display name (from Google), phone number (optional), expense history. All stored in Supabase with RLS. Users can sign out (clears local session). Account deletion requires a manual request today — Phase 7 should add a self-serve delete that cascades via `ON DELETE CASCADE`.
+Personal-data points collected by this app are email, display name, financial records and—only after a one-time sender challenge—the verified WhatsApp E.164 identity. Free-form phone entry was removed. Sign-out clears session-scoped state; self-service deletion calls the authenticated `delete-account` Edge Function and purges account-scoped local preferences. Production compliance still depends on deploying that function and an external cleanup endpoint that blocks new writes before draining media.
 
 ---
 
@@ -630,8 +641,8 @@ Self-hosting Whisper.cpp on the VPS would zero the $75 line at the cost of laten
 
 | Component | Where it runs | How it's deployed |
 |---|---|---|
-| Android APK | User device | Manual sideload today; Play Store internal track planned. Signing: debug keystore for dev; release keystore TBD before Play upload. |
-| Supabase project | Supabase cloud, `fxbrxfsyxmzadyonhaoj` | Manual via dashboard + SQL editor; migrations in `supabase/migrations/`. |
+| Android APK/AAB | User device / Play | Debug is signed with the debug key and leaves legal URLs empty. Distribution tasks fail closed unless signing credentials and real HTTPS terms/privacy/account-deletion URLs are supplied; `bundleReleaseUnsigned` is an explicit local-inspection variant and must not be published. Play App Signing setup remains external. |
+| Supabase project | Environment-specific Supabase cloud project | Reviewed `supabase db push` for `0001..0007`; apply contract `0008` with the confirmed registry script only after its rollout gate. Deploy/type-check `delete-account` separately and record each environment change. |
 | NestJS backend | DigitalOcean droplet | Docker compose + nginx (TLS via Let's Encrypt). Re-deploy via `deploy.sh`. Shared with 4 other tenants. |
 | WhatsApp Cloud API | Meta-hosted | Webhook configured in Meta Business Manager pointing at `https://<vps>/webhook`. Tenant resolution by `phone_number_id`. |
 | OpenAI | OpenAI cloud | API calls only, no infra. |
@@ -642,16 +653,19 @@ Self-hosting Whisper.cpp on the VPS would zero the $75 line at the cost of laten
 
 | # | Limitation | Severity | Path forward |
 |---|---|---|---|
-| L1 | Voice notes are gated server-side per Fluyo tenant; the OCR confirm flow does not yet support voice from inside the app. The "Voz" FAB option is a stub. | low | Phase 4.3: integrate the same `gpt-4o-mini-transcribe` for in-app voice → manual entry. |
-| L2 | Account deletion is manual; no self-serve path. | medium (compliance) | Phase 7: "Eliminar mi cuenta" in Profile → Edge Function that hard-deletes via cascade. |
+| L1 | In-app voice uses the device's `RecognizerIntent`; availability, network processing and transcription behavior depend on the installed speech-recognition provider. The app discloses this boundary and handles an unavailable recognizer, but device coverage remains external. | medium (privacy/UX) | Validate behavior and wording across supported recognizers/devices. |
+| L2 | Self-service deletion code exists, but production deployment, external write tombstoning/media cleanup and public deletion/legal URLs are not verifiable from this repository. | high (compliance/operations) | Deploy and exercise the full failure/success contract in staging, then production. |
 | L3 | Nudges are local-only; the bot cannot trigger them. | low | Add an FCM token table + Edge Function if needed. Defer until usage data justifies it. |
-| L4 | Receipt images are referenced by device-local URIs only; if the user reinstalls, image previews break. | low | Optional upload to the Supabase `receipts` bucket on save (RLS-bound by user folder prefix). |
-| L5 | The category set is fixed to the 7 seeded defaults; users can't add custom ones. | medium (UX) | Phase 2b extension: category CRUD on Profile. |
+| L4 | Receipt images are intentionally not retained, so the product has no historical receipt preview. | low (product trade-off) | Add an explicit consent, retention and RLS design before introducing uploads. |
+| L5 | Database invariants and RLS have an automated PostgreSQL 17 contract harness, but they must also be validated against each hosted environment after rollout. | low (operations) | Run the smoke checklist against staging and record migration versions. |
 | L6 | RLS prevents the same user accessing data across Android sessions on multiple devices simultaneously? No — RLS is per-JWT, multi-device works fine. *(Not actually a limitation, noted to forestall confusion.)* | n/a | n/a |
-| L7 | The release keystore + Play Store metadata isn't set up. | blocker for launch | Set up upload keystore, add Play App Signing, register release SHA-1 with the Google OAuth Android client, prepare store listing. |
-| L8 | No automated tests beyond build verification. CLAUDE.md Phase 7 calls for unit + UI tests + 5–10 user usability sessions. | medium (thesis rigor) | Domain layer is pure Kotlin and trivial to unit-test; presentation layer can be Compose UI tests. |
+| L7 | Release tasks now require complete signing credentials, but the upload keystore and Play metadata still have to be provisioned outside Git. | blocker for launch | Set up Play App Signing, protect CI secrets, register release SHA-1 and prepare the store listing. |
+| L8 | CI executes focused security/import instrumentation tests on an API 35 emulator, but it still lacks complete end-to-end Compose journeys and a physical-device matrix. | medium (test depth) | Add critical user journeys and device/API coverage in managed devices or Test Lab. |
 | L9 | No analytics or crash reporting wired up. | medium | Crashlytics or Sentry post-Play. |
 | L10 | The "important-while-foreground" job-info warning (Android 14+) is benign WorkManager noise; the work still runs. | none | Ignore. |
+| L11 | The WhatsApp/NestJS implementation and infrastructure are outside this repository, so its service-role handling, phone binding and media retention cannot be verified here. | high (assurance) | Link an immutable backend revision or include it as a separately audited project. |
+| L12 | `FLAG_SECURE` protects financial/authentication screens and Recents previews, so normal user screenshots and screen recordings are intentionally unavailable. | product trade-off | Reassess only with an explicit privacy/product decision; debug through logs/tests rather than real-data captures. |
+| L13 | Email confirmation still returns through a custom `fluyo://` scheme, which another Android app could claim. Callback URIs are strictly validated, scrubbed and never logged, but origin ownership cannot be proven without a domain. | medium (auth hardening) | Provision an HTTPS domain, publish `assetlinks.json`, register a verified App Link and update the exact Supabase redirect allow-list. |
 
 ---
 

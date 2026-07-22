@@ -19,8 +19,10 @@ object UserLevelCatalog {
         UserLevel(1, "novato", 0, 20),
         UserLevel(2, "aprendiz", 20, 50),
         UserLevel(3, "organizado", 50, 100),
-        UserLevel(4, "experto", 100, 200),
-        UserLevel(5, "maestro", 200, null),
+        UserLevel(4, "experto", 100, 140),
+        // The complete badge catalogue awards at most 141 points. Keeping level 5
+        // above that ceiling made the final level unreachable.
+        UserLevel(5, "maestro", 140, null),
     )
 
     fun levelFor(totalPoints: Int): UserLevel =

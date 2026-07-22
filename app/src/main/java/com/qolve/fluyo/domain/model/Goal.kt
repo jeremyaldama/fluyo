@@ -6,8 +6,8 @@ import java.time.LocalDate
 data class Goal(
     val id: String,
     val name: String,
-    val targetAmount: Double,
-    val currentAmount: Double,
+    val targetAmount: MoneyAmount,
+    val currentAmount: MoneyAmount,
     val deadline: LocalDate?,
     val status: GoalStatus,
     val createdAt: Instant,
@@ -20,10 +20,10 @@ data class Goal(
     val depositCount: Int = 0,
 ) {
     val progress: Float
-        get() = if (targetAmount <= 0.0) 0f
-        else (currentAmount / targetAmount).toFloat().coerceIn(0f, 1f)
+        get() = currentAmount.ratioOf(targetAmount).coerceIn(0f, 1f)
 
-    val remaining: Double get() = (targetAmount - currentAmount).coerceAtLeast(0.0)
+    val remaining: MoneyAmount
+        get() = (targetAmount - currentAmount).let { if (it < MoneyAmount.ZERO) MoneyAmount.ZERO else it }
 
     val isCompleted: Boolean get() = status == GoalStatus.COMPLETED
 }
@@ -31,6 +31,6 @@ data class Goal(
 data class GoalDeposit(
     val id: String,
     val goalId: String,
-    val amount: Double,
+    val amount: MoneyAmount,
     val createdAt: Instant,
 )

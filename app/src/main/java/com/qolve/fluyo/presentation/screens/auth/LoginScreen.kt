@@ -1,5 +1,7 @@
 package com.qolve.fluyo.presentation.screens.auth
 
+import android.content.Intent
+import androidx.core.net.toUri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -34,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -49,10 +53,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.qolve.fluyo.R
+import com.qolve.fluyo.BuildConfig
 import com.qolve.fluyo.presentation.theme.FluyoCoral
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import com.qolve.fluyo.presentation.theme.FluyoTealLight
 import com.qolve.fluyo.presentation.theme.FluyoTheme
+import com.qolve.fluyo.presentation.util.isSafeExternalHttpsUrl
 import io.github.jan.supabase.compose.auth.ComposeAuth
 import io.github.jan.supabase.compose.auth.composable.NativeSignInResult
 import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
@@ -65,22 +71,27 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val googleAction = composeAuth.rememberSignInWithGoogle(
-        onResult = { result ->
-            when (result) {
-                is NativeSignInResult.Success -> viewModel.onSignInSucceeded()
-                is NativeSignInResult.ClosedByUser -> viewModel.reset()
-                is NativeSignInResult.NetworkError -> viewModel.onSignInFailed(result.message)
-                is NativeSignInResult.Error -> viewModel.onSignInFailed(result.message)
-            }
-        },
-    )
+    val googleAction = if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) {
+        composeAuth.rememberSignInWithGoogle(
+            onResult = { result ->
+                when (result) {
+                    is NativeSignInResult.Success -> viewModel.onSignInSucceeded()
+                    is NativeSignInResult.ClosedByUser -> viewModel.reset()
+                    is NativeSignInResult.NetworkError -> viewModel.onSignInFailed(result.message)
+                    is NativeSignInResult.Error -> viewModel.onSignInFailed(result.message)
+                }
+            },
+        )
+    } else {
+        null
+    }
 
     LoginContent(
         uiState = uiState,
+        googleEnabled = googleAction != null,
         onGoogleClick = {
             viewModel.onSignInStarted()
-            googleAction.startFlow()
+            googleAction?.startFlow()
         },
         onUseEmailPassword = onUseEmailPassword,
     )
@@ -93,6 +104,7 @@ fun LoginScreen(
 @Composable
 private fun LoginContent(
     uiState: LoginUiState,
+    googleEnabled: Boolean,
     onGoogleClick: () -> Unit,
     onUseEmailPassword: () -> Unit,
 ) {
@@ -160,57 +172,55 @@ private fun LoginContent(
                         )
                     }
 
-                    Button(
-                        onClick = onGoogleClick,
-                        enabled = uiState !is LoginUiState.Loading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        contentPadding = PaddingValues(horizontal = 24.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = FluyoTeal,
-                            contentColor = Color.White,
-                        ),
-                    ) {
-                        if (uiState is LoginUiState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            // Google mark — minimal disc with white "G" so we don't have to ship a vector.
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center,
-                            ) {
+                    if (googleEnabled) {
+                        Button(
+                            onClick = onGoogleClick,
+                            enabled = uiState !is LoginUiState.Loading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            contentPadding = PaddingValues(horizontal = 24.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = FluyoTeal,
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            if (uiState is LoginUiState.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                // Google mark — minimal disc with white "G" so we don't have to ship a vector.
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = "G",
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = FluyoTeal,
+                                        ),
+                                    )
+                                }
+                                Spacer(Modifier.width(10.dp))
                                 Text(
-                                    text = "G",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = FluyoTeal,
-                                    ),
+                                    text = stringResource(R.string.login_continue_google),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                 )
                             }
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = stringResource(R.string.login_continue_google),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            )
                         }
+
+                        Spacer(Modifier.height(14.dp))
                     }
 
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        text = legalAnnotated(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+                    LegalConsent()
 
                     Spacer(Modifier.height(8.dp))
                     TextButton(
@@ -241,6 +251,7 @@ private fun legalAnnotated(): AnnotatedString {
     return buildAnnotatedString {
         // Simple <u>...</u> replacement — sufficient for two static markers in this string.
         var i = 0
+        var linkIndex = 0
         while (i < raw.length) {
             val openIdx = raw.indexOf("<u>", i)
             if (openIdx == -1) {
@@ -253,13 +264,57 @@ private fun legalAnnotated(): AnnotatedString {
                 append(raw.substring(openIdx))
                 break
             }
+            val tag = if (linkIndex++ == 0) TERMS_TAG else PRIVACY_TAG
+            pushStringAnnotation(tag = tag, annotation = tag)
             withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) {
                 append(raw.substring(openIdx + 3, closeIdx))
             }
+            pop()
             i = closeIdx + 4
         }
     }
 }
+
+@Suppress("DEPRECATION")
+@Composable
+private fun LegalConsent() {
+    val context = LocalContext.current
+    val annotated = legalAnnotated()
+    val termsUrl = BuildConfig.TERMS_URL.takeIf(::isSafeExternalHttpsUrl)
+    val privacyUrl = BuildConfig.PRIVACY_URL.takeIf(::isSafeExternalHttpsUrl)
+
+    ClickableText(
+        text = annotated,
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        ),
+        onClick = { offset ->
+            val tag = annotated.getStringAnnotations(offset, offset).firstOrNull()?.tag
+            val url = when (tag) {
+                TERMS_TAG -> termsUrl
+                PRIVACY_TAG -> privacyUrl
+                else -> null
+            }
+            url?.let {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, it.toUri())) }
+            }
+        },
+    )
+
+    if (BuildConfig.DEBUG && (termsUrl == null || privacyUrl == null)) {
+        Text(
+            text = stringResource(R.string.login_legal_links_missing_debug),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+private const val TERMS_TAG = "terms"
+private const val PRIVACY_TAG = "privacy"
 
 /**
  * The square "F." logo card from the mockup — teal rounded square, white "F" letter, coral dot
@@ -369,6 +424,7 @@ private fun LoginPreview() {
     FluyoTheme {
         LoginContent(
             uiState = LoginUiState.Idle,
+            googleEnabled = true,
             onGoogleClick = {},
             onUseEmailPassword = {},
         )

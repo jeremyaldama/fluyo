@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.formatWholeAmount
 import com.qolve.fluyo.presentation.theme.AccentLime
 import com.qolve.fluyo.presentation.theme.AccentRose
 // Direct neutral ramp refs removed in favor of colorScheme.* for dark-mode flip.
@@ -45,9 +47,9 @@ import com.qolve.fluyo.presentation.theme.TealRamp500
  */
 @Composable
 fun StatsStrip(
-    weekSpend: Double,
+    weekSpend: MoneyAmount,
     weekDeltaPct: Float?,
-    dailyAvg: Double,
+    dailyAvg: MoneyAmount,
     daysUntilNextPay: Int?,
     modifier: Modifier = Modifier,
 ) {
@@ -59,7 +61,7 @@ fun StatsStrip(
             label = stringResource(R.string.home_stat_week),
             modifier = Modifier.weight(1f),
         ) {
-            BigMoney(weekSpend.toLong())
+            BigMoney(weekSpend)
             if (weekDeltaPct != null) {
                 DeltaChip(deltaPct = weekDeltaPct)
             }
@@ -68,7 +70,7 @@ fun StatsStrip(
             label = stringResource(R.string.home_stat_avg),
             modifier = Modifier.weight(1f),
         ) {
-            BigMoney(dailyAvg.toLong())
+            BigMoney(dailyAvg)
             Text(
                 text = stringResource(R.string.home_stat_per_day),
                 style = MaterialTheme.typography.labelSmall,
@@ -136,10 +138,8 @@ private fun StatCard(
 
 /** "S/" prefix + integer amount. Used in both ESTA SEMANA and PROMEDIO. */
 @Composable
-private fun BigMoney(value: Long) {
-    val formatted = java.text.NumberFormat.getNumberInstance(
-        java.util.Locale.forLanguageTag("es-PE"),
-    ).format(value)
+private fun BigMoney(value: MoneyAmount) {
+    val formatted = formatWholeAmount(value)
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
             text = currencySymbol(),

@@ -2,10 +2,15 @@ package com.qolve.fluyo.di
 
 import com.qolve.fluyo.data.SessionScopedCache
 import com.qolve.fluyo.data.local.OnboardingPrefs
+import com.qolve.fluyo.data.local.NudgePrefs
+import com.qolve.fluyo.data.local.SensitiveCacheCleaner
 import com.qolve.fluyo.data.repository.SupabaseBadgeRepository
 import com.qolve.fluyo.data.repository.SupabaseCategoryRepository
 import com.qolve.fluyo.data.repository.SupabaseExpenseRepository
 import com.qolve.fluyo.data.repository.SupabaseGoalRepository
+import com.qolve.fluyo.presentation.util.CurrencyState
+import com.qolve.fluyo.presentation.events.AppEvents
+import com.qolve.fluyo.presentation.events.SharedImageEvents
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -34,6 +39,26 @@ abstract class SessionCacheModule {
     @Binds
     @IntoSet
     abstract fun bindOnboardingPrefs(impl: OnboardingPrefs): SessionScopedCache
+
+    @Binds
+    @IntoSet
+    abstract fun bindNudgePrefs(impl: NudgePrefs): SessionScopedCache
+
+    @Binds
+    @IntoSet
+    abstract fun bindCurrencyState(impl: CurrencyState): SessionScopedCache
+
+    @Binds
+    @IntoSet
+    abstract fun bindSensitiveCacheCleaner(impl: SensitiveCacheCleaner): SessionScopedCache
+
+    @Binds
+    @IntoSet
+    abstract fun bindAppEvents(impl: AppEvents): SessionScopedCache
+
+    @Binds
+    @IntoSet
+    abstract fun bindSharedImageEvents(impl: SharedImageEvents): SessionScopedCache
 
     @Binds
     @IntoSet

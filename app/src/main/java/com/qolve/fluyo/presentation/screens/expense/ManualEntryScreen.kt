@@ -62,13 +62,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.qolve.fluyo.R
 import com.qolve.fluyo.domain.model.Category
+import com.qolve.fluyo.domain.time.FluyoTime
+import com.qolve.fluyo.presentation.util.LocalDateSelectableDates
+import com.qolve.fluyo.presentation.util.MIN_EXPENSE_DATE
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.datePickerUtcMillisToLocalDate
 import com.qolve.fluyo.presentation.util.iconForToken
 import com.qolve.fluyo.presentation.util.parseHexColor
-import java.time.Instant
-import java.time.ZoneId
+import com.qolve.fluyo.presentation.util.toDatePickerUtcMillis
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -84,6 +88,11 @@ fun ManualEntryScreen(
     val amountFocus = remember { FocusRequester() }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResume()
+        onPauseOrDispose { }
+    }
 
     LaunchedEffect(state.isEditing) {
         // On edit the user usually tweaks one field — don't force the keyboard open.
@@ -118,7 +127,7 @@ fun ManualEntryScreen(
                     }
                 },
                 actions = {
-                    if (state.isEditing) {
+                    if (state.isEditing && state.isEditReady) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
                                 Icons.Outlined.Delete,
@@ -132,6 +141,36 @@ fun ManualEntryScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
+        when {
+            state.isEditing && state.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
+            }
+            state.isEditing && !state.isEditReady -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = state.loadErrorMessage ?: "No se pudo cargar el gasto",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Button(
+                        onClick = viewModel::retryEditLoad,
+                        modifier = Modifier.padding(top = 16.dp),
+                    ) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+            }
+            else -> {
         // imePadding keeps the Guardar button visible above the numeric keyboard, which
         // opens on entry (amount auto-focus) — core to the ≤5 s manual flow. Horizontal
         // padding is applied per-child (not on the Column) so the category carousel can
@@ -208,19 +247,25 @@ fun ManualEntryScreen(
             }
             Spacer(Modifier.height(16.dp))
         }
+            }
+        }
 
         if (showDatePicker) {
-            val initialMillis = state.date
-                .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+            val initialMillis = state.date.toDatePickerUtcMillis()
+            val today = FluyoTime.today()
+            val selectableDates = remember(today) {
+                LocalDateSelectableDates(MIN_EXPENSE_DATE, today)
+            }
+            val pickerState = rememberDatePickerState(
+                initialSelectedDateMillis = initialMillis,
+                selectableDates = selectableDates,
+            )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
                     TextButton(onClick = {
                         pickerState.selectedDateMillis?.let { ms ->
-                            viewModel.onDateChange(
-                                Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate(),
-                            )
+                            viewModel.onDateChange(datePickerUtcMillisToLocalDate(ms))
                         }
                         showDatePicker = false
                     }) { Text(stringResource(R.string.action_save)) }

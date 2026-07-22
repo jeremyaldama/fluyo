@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,11 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.presentation.util.formatAmount
 import com.qolve.fluyo.domain.model.Goal
 import com.qolve.fluyo.presentation.theme.CoralRamp500
 // Neutral ramp imports removed in favor of MaterialTheme.colorScheme.* — see ProfileScreen.
 import com.qolve.fluyo.presentation.theme.TealRamp500
 import java.time.LocalDate
+import com.qolve.fluyo.domain.time.FluyoTime
 import java.time.temporal.ChronoUnit
 
 /**
@@ -75,7 +78,7 @@ fun GoalCard(
         label = "goalProgress",
     )
 
-    val today = remember { LocalDate.now() }
+    val today = remember { FluyoTime.today() }
     val isCompleted = goal.isCompleted
     val cardBorder = if (isCompleted) BorderStroke(2.dp, CoralRamp500) else null
 
@@ -120,7 +123,7 @@ fun GoalCard(
                         )
                         Spacer(Modifier.width(2.dp))
                         Text(
-                            text = "%.0f".format(goal.currentAmount),
+                            text = formatAmount(goal.currentAmount),
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-0.5).sp,
@@ -129,7 +132,7 @@ fun GoalCard(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "de ${currencySymbol()} %.0f".format(goal.targetAmount),
+                            text = "de ${currencySymbol()} ${formatAmount(goal.targetAmount)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.padding(bottom = 4.dp),
@@ -255,11 +258,14 @@ private fun topRightLabel(goal: Goal, today: LocalDate): String {
     return when {
         daysLeft >= 60 -> {
             val months = daysLeft / 30
-            stringResource(R.string.goal_card_months_remaining, months)
+            pluralStringResource(R.plurals.goal_card_months_remaining, months, months)
         }
         daysLeft >= 30 -> stringResource(R.string.goal_card_one_month_remaining)
-        daysLeft >= 14 -> stringResource(R.string.goal_card_weeks_remaining, daysLeft / 7)
-        daysLeft > 1 -> stringResource(R.string.goal_card_days_remaining, daysLeft)
+        daysLeft >= 14 -> {
+            val weeks = daysLeft / 7
+            pluralStringResource(R.plurals.goal_card_weeks_remaining, weeks, weeks)
+        }
+        daysLeft > 1 -> pluralStringResource(R.plurals.goal_card_days_remaining, daysLeft, daysLeft)
         else -> stringResource(R.string.goal_card_one_day_remaining)
     }
 }
@@ -268,7 +274,7 @@ private fun topRightLabel(goal: Goal, today: LocalDate): String {
 private fun depositCountLabel(count: Int): String = when {
     count == 0 -> stringResource(R.string.goal_card_no_deposits)
     count == 1 -> stringResource(R.string.goal_card_deposits_one)
-    else -> stringResource(R.string.goal_card_deposits_other, count)
+    else -> pluralStringResource(R.plurals.goal_card_deposits_other, count, count)
 }
 
 /**
@@ -303,7 +309,7 @@ fun CompletedGoalRow(goal: Goal, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${currencySymbol()} %.0f".format(goal.targetAmount),
+                text = "${currencySymbol()} ${formatAmount(goal.targetAmount)}",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -317,4 +323,3 @@ fun CompletedGoalRow(goal: Goal, modifier: Modifier = Modifier) {
         }
     }
 }
-

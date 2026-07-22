@@ -1,5 +1,6 @@
 package com.qolve.fluyo.presentation.navigation
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -10,12 +11,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.qolve.fluyo.data.voice.VoiceParser
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -27,10 +33,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -60,6 +69,7 @@ import com.qolve.fluyo.presentation.screens.onboarding.OnboardingHost
 import com.qolve.fluyo.presentation.screens.profile.ProfileScreen
 import com.qolve.fluyo.presentation.screens.scan.OcrConfirmScreen
 import com.qolve.fluyo.presentation.screens.stats.StatsScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun FluyoNavHost(
@@ -95,7 +105,12 @@ fun FluyoNavHost(
         navController = rootNav,
         startDestination = Routes.SPLASH,
     ) {
-        composable(Routes.SPLASH) { SplashRoute() }
+        composable(Routes.SPLASH) {
+            SplashRoute(
+                error = state.sessionError,
+                onRetry = rootViewModel::retryProvisioning,
+            )
+        }
         composable(Routes.LOGIN) {
             LoginScreen(
                 composeAuth = rootViewModel.composeAuth,
@@ -175,13 +190,35 @@ fun FluyoNavHost(
 }
 
 @Composable
-private fun SplashRoute() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+private fun SplashRoute(error: String?, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (error == null) {
+            CircularProgressIndicator()
+        } else {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.session_provisioning_error),
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Button(onClick = onRetry) {
+                    Text(stringResource(R.string.action_retry))
+                }
+            }
+        }
     }
 }
 
 @Composable
+@SuppressLint("InlinedApi") // POST_NOTIFICATIONS launcher exists only inside the API 33 guard.
 private fun MainShell(
     appEvents: AppEvents,
     onOpenManualEntry: () -> Unit,
@@ -197,10 +234,14 @@ private fun MainShell(
     val currentRoute = backStack?.destination?.route ?: Routes.HOME
 
     var sheetOpen by remember { mutableStateOf(false) }
+    var showVoiceDisclosure by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val mainShellScope = rememberCoroutineScope()
     val savedMessage = stringResource(R.string.expense_saved_snackbar)
     val badgePrefix = stringResource(R.string.badge_unlocked_prefix)
     val voicePrompt = stringResource(R.string.add_option_voice_hint)
+    val voiceUnavailable = stringResource(R.string.voice_recognizer_unavailable)
+    val addExpenseDescription = stringResource(R.string.add_sheet_title)
     // Precomputed badge names (stringResource can't be called from the event collector).
     val badgeNames = BadgeType.entries.associateWith { stringResource(it.nameRes()) }
 
@@ -235,10 +276,16 @@ private fun MainShell(
     val takePicture = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
     ) { success ->
-        if (success) pendingCaptureUri?.let { onOpenScan(Uri.parse(it)) }
+        val captured = pendingCaptureUri?.let(Uri::parse)
+        if (success) {
+            captured?.let(onOpenScan)
+        } else {
+            captured?.let { runCatching { context.contentResolver.delete(it, null, null) } }
+        }
         pendingCaptureUri = null
     }
     val launchCamera: () -> Unit = {
+        var createdUri: Uri? = null
         runCatching {
             val dir = java.io.File(context.cacheDir, "captures").apply { mkdirs() }
             val file = java.io.File.createTempFile("receipt-", ".jpg", dir)
@@ -247,8 +294,14 @@ private fun MainShell(
                 "${context.packageName}.fileprovider",
                 file,
             )
+            createdUri = uri
             pendingCaptureUri = uri.toString()
             takePicture.launch(uri)
+        }.onFailure {
+            createdUri?.let { uri ->
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
+            pendingCaptureUri = null
         }
     }
 
@@ -265,7 +318,7 @@ private fun MainShell(
                 .orEmpty()
             val parsed = VoiceParser.parse(transcript)
             val amount = parsed.amount?.let {
-                if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
+                it.toBigDecimal().stripTrailingZeros().toPlainString()
             }.orEmpty()
             onOpenVoiceEntry(amount, parsed.description.orEmpty())
         }
@@ -280,6 +333,9 @@ private fun MainShell(
             putExtra(RecognizerIntent.EXTRA_PROMPT, voicePrompt)
         }
         runCatching { speechLauncher.launch(intent) }
+            .onFailure {
+                mainShellScope.launch { snackbarHostState.showSnackbar(voiceUnavailable) }
+            }
     }
 
     // Ask once for POST_NOTIFICATIONS on Android 13+. The system enforces
@@ -305,6 +361,9 @@ private fun MainShell(
                 androidx.compose.foundation.layout.Box {
                     FloatingActionButton(
                         onClick = { sheetOpen = true },
+                        modifier = Modifier.semantics {
+                            contentDescription = addExpenseDescription
+                        },
                         containerColor = com.qolve.fluyo.presentation.theme.TealRamp500,
                         contentColor = androidx.compose.ui.graphics.Color.White,
                     ) {
@@ -369,7 +428,30 @@ private fun MainShell(
             },
             onVoice = {
                 sheetOpen = false
-                launchSpeech()
+                showVoiceDisclosure = true
+            },
+        )
+    }
+
+    if (showVoiceDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showVoiceDisclosure = false },
+            title = { Text(stringResource(R.string.voice_disclosure_title)) },
+            text = { Text(stringResource(R.string.voice_disclosure_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showVoiceDisclosure = false
+                        launchSpeech()
+                    },
+                ) {
+                    Text(stringResource(R.string.voice_disclosure_continue))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVoiceDisclosure = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }

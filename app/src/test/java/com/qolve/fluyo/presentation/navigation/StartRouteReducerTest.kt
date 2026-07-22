@@ -1,6 +1,5 @@
 package com.qolve.fluyo.presentation.navigation
 
-import com.qolve.fluyo.domain.model.AuthState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -17,18 +16,18 @@ class StartRouteReducerTest {
 
     @Test
     fun `unknown with no previous route stays null (cold start splash)`() {
-        assertNull(StartRouteReducer.reduce(previous = null, auth = AuthState.Unknown, onboardingDone = false))
+        assertNull(StartRouteReducer.reduce(previous = null, session = RootSessionState.Unknown, onboardingDone = false))
     }
 
     @Test
     fun `unknown keeps the previous route (background-foreground session cycle)`() {
         assertEquals(
             Routes.MAIN,
-            StartRouteReducer.reduce(previous = Routes.MAIN, auth = AuthState.Unknown, onboardingDone = true),
+            StartRouteReducer.reduce(previous = Routes.MAIN, session = RootSessionState.Unknown, onboardingDone = true),
         )
         assertEquals(
             Routes.LOGIN,
-            StartRouteReducer.reduce(previous = Routes.LOGIN, auth = AuthState.Unknown, onboardingDone = false),
+            StartRouteReducer.reduce(previous = Routes.LOGIN, session = RootSessionState.Unknown, onboardingDone = false),
         )
     }
 
@@ -36,14 +35,34 @@ class StartRouteReducerTest {
     fun `signed out always routes to login`() {
         assertEquals(
             Routes.LOGIN,
-            StartRouteReducer.reduce(previous = Routes.MAIN, auth = AuthState.SignedOut, onboardingDone = true),
+            StartRouteReducer.reduce(previous = Routes.MAIN, session = RootSessionState.SignedOut, onboardingDone = true),
         )
     }
 
     @Test
     fun `signed in routes to main when onboarded, onboarding otherwise`() {
-        val signedIn = AuthState.SignedIn("auth-1")
-        assertEquals(Routes.MAIN, StartRouteReducer.reduce(previous = null, auth = signedIn, onboardingDone = true))
-        assertEquals(Routes.ONBOARDING, StartRouteReducer.reduce(previous = null, auth = signedIn, onboardingDone = false))
+        val ready = RootSessionState.Ready("auth-1")
+        assertEquals(Routes.MAIN, StartRouteReducer.reduce(previous = null, session = ready, onboardingDone = true))
+        assertEquals(Routes.ONBOARDING, StartRouteReducer.reduce(previous = null, session = ready, onboardingDone = false))
+    }
+
+    @Test
+    fun `signed in identity remains on splash until provisioning succeeds`() {
+        assertEquals(
+            Routes.SPLASH,
+            StartRouteReducer.reduce(
+                previous = Routes.MAIN,
+                session = RootSessionState.Provisioning("auth-2"),
+                onboardingDone = true,
+            ),
+        )
+        assertEquals(
+            Routes.SPLASH,
+            StartRouteReducer.reduce(
+                previous = Routes.MAIN,
+                session = RootSessionState.Failed("auth-2", "offline"),
+                onboardingDone = true,
+            ),
+        )
     }
 }

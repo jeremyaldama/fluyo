@@ -42,6 +42,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
+import com.qolve.fluyo.BuildConfig
 import com.qolve.fluyo.presentation.theme.BrandDot
 import com.qolve.fluyo.presentation.theme.CoralRamp100
 import com.qolve.fluyo.presentation.theme.CoralRamp500
@@ -129,7 +130,7 @@ fun AddExpenseSheet(
                 )
             }
 
-            YapeTipCard()
+            if (BuildConfig.WHATSAPP_LINKING_ENABLED) YapeTipCard()
         }
     }
 }
@@ -314,4 +315,3 @@ private fun parseHtmlBoldTip(raw: String): AnnotatedString = buildAnnotatedStrin
         i = closeIdx + 4
     }
 }
-

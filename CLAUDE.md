@@ -24,7 +24,8 @@ All commands run from the repo root via the Gradle wrapper (`./gradlew`). The si
 ```bash
 # Build
 ./gradlew :app:assembleDebug          # debug APK → app/build/outputs/apk/debug/
-./gradlew :app:bundleRelease          # release AAB (needs RELEASE_KEYSTORE_* in local.properties)
+./gradlew :app:bundleRelease          # signed AAB; RELEASE_KEYSTORE_* via local/Gradle/env
+./gradlew :app:bundleReleaseUnsigned  # unsigned local-inspection AAB; never publish
 ./gradlew clean                       # wipe build outputs
 
 # Install / run on a connected device or emulator
@@ -36,6 +37,7 @@ adb shell am start -n com.qolve.fluyo/.MainActivity
 
 # Tests
 ./gradlew :app:testDebugUnitTest      # JVM unit tests (src/test) — JUnit + Mockk + coroutines-test
+./gradlew :app:compileDebugAndroidTestKotlin # compile instrumented tests without a device
 ./gradlew :app:connectedDebugAndroidTest   # instrumented/Compose tests (src/androidTest, needs device)
 
 # Run a single unit test class or method
@@ -43,7 +45,7 @@ adb shell am start -n com.qolve.fluyo/.MainActivity
 ./gradlew :app:testDebugUnitTest --tests "com.qolve.fluyo.SomeClass.someMethod"
 ```
 
-> Unit tests use **JUnit 4 + MockK + coroutines-test** (`runTest`). `src/test` covers the pure-Kotlin logic: `VoiceParserTest`, `MoneyTest`, `GoalTest` (domain math), `CreateGoalUseCaseTest` (fake-repo delegation), and `StartRouteReducerTest` (auth→route mapping). `src/androidTest` still holds only the generated `ExampleInstrumentedTest`; Compose UI tests (Phase 7) are not written yet. A `scripts/smoke-test.sh` installs the debug APK on a running emulator, launches `MainActivity`, screenshots it, and fails on a missing foreground activity or a logcat crash.
+> Unit tests use **JUnit 4 + MockK + coroutines-test** (`runTest`). `src/test` covers pure-Kotlin/domain logic. `src/androidTest` contains focused security/import instrumentation tests but no complete end-to-end Compose flow yet. GitHub Actions executes them on an API 35 emulator in addition to JVM tests, lint and builds. `scripts/smoke-test.sh` validates process survival, foreground activity and startup logcat for a connected local target.
 
 ## Local Configuration
 
@@ -53,7 +55,13 @@ adb shell am start -n com.qolve.fluyo/.MainActivity
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_ANON_KEY=<anon_key>
 GOOGLE_WEB_CLIENT_ID=<oauth_web_client_id>   # for Credential Manager / Google One Tap
-# Release signing (optional; only needed for bundleRelease):
+WHATSAPP_LINKING_ENABLED=false               # fail-closed until the webhook backend is verified
+WHATSAPP_BOT_NUMBER=                         # E.164 digits, required only when enabled
+# Public HTTPS destinations (required for a distributable release; empty in debug):
+TERMS_URL=https://<host>/terms
+PRIVACY_URL=https://<host>/privacy
+ACCOUNT_DELETION_URL=https://<host>/account-deletion
+# Release signing (required for distribution release tasks):
 RELEASE_KEYSTORE_PATH=...
 RELEASE_KEYSTORE_PASSWORD=...
 RELEASE_KEY_ALIAS=...
@@ -64,8 +72,8 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 
 ## Database / Supabase
 
-- Schema lives as ordered SQL migrations in `supabase/migrations/` (`0001_initial_schema.sql`, `0002_rls_policies.sql`, `0003_security_hardening.sql`, `0004_category_ondelete_setnull.sql` — makes `expenses.category_id` FK `ON DELETE SET NULL`) — these, not the snippets in this doc, are the source of truth for the live schema.
-- The Supabase MCP server is configured in `.mcp.json` (project ref `fxbrxfsyxmzadyonhaoj`); use the `mcp__supabase__*` tools to inspect tables, apply migrations, and check advisors before/after schema changes.
+- Schema lives as ordered SQL migrations in `supabase/migrations/` (`0001_initial_schema.sql` through `0007_repository_closure.sql`) — these, not the snippets in this doc, are the source of truth. The breaking contract phase is intentionally separate at `supabase/contract-migrations/0008_write_path_contract.sql`; apply it through `scripts/apply-contract-migrations.sh` only after RPC-capable clients are deployed, legacy writers are retired and historical request/state fields are repaired.
+- Local Supabase MCP access is intentionally untracked. Copy `.mcp.json.example` to `.mcp.json`, replace the placeholder with a **non-production** project and keep `read_only=true` for inspection. Apply reviewed migrations through the Supabase CLI/CI process documented in `docs/SUPABASE_SETUP.md`; never grant an agent implicit production write access.
 
 ---
 
@@ -112,7 +120,8 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 
 1. User opens app → Supabase Auth session
 2. Scans Yape receipt (ML Kit OCR on-device) → extracts amount, recipient, date
-3. App writes expense directly to Supabase PostgreSQL via Supabase Kotlin SDK
+3. App calls `create_expense` with a stable request UUID; the RPC owns the insert and
+   Android sends `image_url = null`
 4. Budget recalculates locally, UI updates
 
 **WhatsApp user registers expense:**
@@ -121,10 +130,12 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 2. WhatsApp Cloud API delivers webhook to NestJS backend (DigitalOcean)
 3. If voice: NestJS sends audio to Whisper API → gets transcription
 4. NestJS parses text (extract amount, category, description)
-5. NestJS writes expense to same Supabase PostgreSQL (via connection string)
+5. NestJS writes to the same PostgreSQL as a privileged external writer, always with
+   a stable non-null `client_request_id` derived from the webhook message ID; retries
+   must resolve the existing movement
 6. NestJS replies via WhatsApp: "✅ Registré S/ 20.00 en Transporte"
 
-**User linking:** WhatsApp users are linked to their Android account via phone number. When a user signs up on Android, they optionally provide their phone number. The NestJS backend matches incoming WhatsApp messages by phone number to find the corresponding user_id in Supabase.
+**User linking:** a profile phone number is not trusted identity proof. Migration `0006` provides one-time challenges; the external backend must confirm the token using the E.164 sender from a verified webhook and then resolve future messages through `whatsapp_links`.
 
 ---
 
@@ -135,7 +146,7 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 | Component    | Technology                       | Notes                                                          |
 | ------------ | -------------------------------- | -------------------------------------------------------------- |
 | Language     | Kotlin 2.2.10                    | All code in Kotlin                                             |
-| Min SDK      | 24 (Android 7.0)                 | Target SDK / compileSdk: 36 (Android 15)                       |
+| Min SDK      | 24 (Android 7.0)                 | targetSdk 36 / compileSdk 36.1 (Android 16 QPR2)               |
 | UI           | Jetpack Compose (BOM 2026.02.01) | Material 3, declarative, dynamic color disabled for brand      |
 | Architecture | Clean Architecture + MVVM        | Domain layer has ZERO Android dependencies                     |
 | Navigation   | Jetpack Navigation Compose       | Bottom nav with 4 tabs                                         |
@@ -144,14 +155,17 @@ Dependency versions are centralized in `gradle/libs.versions.toml` (version cata
 | Backend      | Supabase Kotlin SDK (supabase-kt)| Auth, Postgrest, Storage; Ktor OkHttp transport                |
 | Auth         | Credential Manager + Google ID   | Modern One Tap flow; supabase-kt Compose Auth integration      |
 | OCR          | Google ML Kit Text Recognition   | On-device, no server upload                                    |
-| Charts       | Vico                             | Donut chart for categories (chosen for Compose-native API)     |
+| Charts       | Compose Canvas (custom)          | Donut, budget circle and confetti without a chart dependency   |
 | Testing      | JUnit 4 + Espresso + Mockk       | Domain unit tests (src/test); Compose/UI tests pending         |
 | Build        | Gradle 9.4.1 (Kotlin DSL) + AGP 9.2.1 | Version catalog (`gradle/libs.versions.toml`)             |
 | App ID       | `com.qolve.fluyo`                | Namespace + applicationId                                       |
 
-### WhatsApp Backend (existing — `whatsapp-bot-be`)
+### WhatsApp Backend (external; not versioned in this repository)
 
-**This is a mature, in-production, multi-tenant WhatsApp Business API platform.** It currently serves Tecnigas (auto-repair), MIT/PUCP (university), Qolve Consulting (leads), and PrestaIA (lending). Fluyo will be added as a **new tenant + plugin** (`src/plugins/fluyo/`), it does NOT replace existing tenants.
+The integration design assumes an existing multi-tenant WhatsApp Business API platform.
+That platform, its current tenants and its production state are outside this checkout and
+must not be treated as verified from this document. Fluyo is designed as a **new tenant +
+plugin** (`src/plugins/fluyo/`), not as a replacement for other tenants.
 
 | Component         | Technology                          | Notes                                                                       |
 | ----------------- | ----------------------------------- | --------------------------------------------------------------------------- |
@@ -185,8 +199,8 @@ src/common/
 | ------------------------ | ------------------------------------------------------------- |
 | Supabase Auth            | Android app authentication (Google, Email/Password)           |
 | PostgreSQL               | Single database for all data (expenses, goals, badges, users) |
-| Supabase Storage         | Receipt images (temporary, for OCR fallback)                  |
-| Supabase Edge Functions  | Badge calculation, nudge scheduling                           |
+| Supabase Storage         | Optional external receipt/media integration; Android does not upload OCR captures |
+| Supabase Edge Functions  | Authenticated account deletion gateway                        |
 | Supabase Realtime        | Optional: live sync between Android and WhatsApp entries      |
 | Row Level Security (RLS) | Each user can only access their own data                      |
 
@@ -200,8 +214,8 @@ src/common/
 -- Users can only access own data
 CREATE POLICY "Users access own expenses"
 ON expenses FOR ALL
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+USING (user_id IN (SELECT id FROM public.users WHERE auth_id = auth.uid()))
+WITH CHECK (user_id IN (SELECT id FROM public.users WHERE auth_id = auth.uid()));
 
 -- NestJS uses service_role key which bypasses RLS
 -- This allows writing on behalf of WhatsApp users
@@ -218,7 +232,7 @@ CREATE TABLE users (
   auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
   display_name TEXT,
-  phone_number TEXT UNIQUE,          -- Links WhatsApp to Android account
+  phone_number TEXT UNIQUE,          -- Legacy only; mobile writes revoked by contract 0008
   monthly_budget DECIMAL(10,2) DEFAULT 0,
   currency TEXT DEFAULT 'PEN',
   level INTEGER DEFAULT 1,
@@ -473,7 +487,7 @@ Create → deposit → progress bar animates → confetti on completion
 
 ### Flow 5: Auth + Onboarding
 
-Google Sign-In → 3-step onboarding (budget, categories, tour) → optional phone link for WhatsApp
+Google Sign-In → onboarding (budget, categories, and—only when feature-enabled—a verified WhatsApp sender challenge)
 
 ### Flow 6: Stats
 
@@ -485,17 +499,24 @@ Donut chart by category → monthly comparison (positive tone) → week/month fi
 
 ### Badges
 
-| Type          | Name              | Condition               | Points |
-| ------------- | ----------------- | ----------------------- | ------ |
-| first_expense | Primer Registro   | 1 expense               | 1      |
-| streak_7      | Racha Semanal     | 7 days tracking         | 5      |
-| streak_30     | Racha Mensual     | 30 days                 | 20     |
-| first_goal    | Primera Meta      | 1 goal completed        | 10     |
-| saver_month   | Ahorrista del Mes | Under budget full month | 15     |
+| Type          | Name              | Authoritative database condition | Points |
+| ------------- | ----------------- | -------------------------------- | ------ |
+| first_expense | Primer Registro   | At least one expense | 1 |
+| streak_7      | Racha Semanal     | An expense on every Lima date from today − 6 through today | 5 |
+| streak_30     | Racha Mensual     | An expense on every Lima date from today − 29 through today | 20 |
+| first_goal    | Primera Meta      | At least one completed goal, including a logically archived one | 10 |
+| saver_month   | Ahorrista del Mes | Most recently closed Lima month has ≥1 tracked day and spend ≤ base budget + that month's extras | 15 |
+| mil_soles     | Mil ahorrados     | Sum of balances across active, completed and archived goals is ≥1,000 base-currency units | 25 |
+| no_yape       | Semana manual     | Seven complete tracking days through today with no `source='ocr'` entry (legacy wire name) | 15 |
+| perfect_month | Mes perfecto      | Every day of the most recently closed Lima month is tracked and total spend is within its effective budget | 50 |
+
+`badge_criterion_met()` is the source of truth shared by the anti-forgery trigger and
+`unlock_badge()`. A recognized but unmet RPC candidate returns `unlocked=false`; an
+unknown wire value is rejected and direct forged badge inserts remain fail-closed.
 
 ### Levels
 
-1=Novato(0pts) → 2=Aprendiz(20) → 3=Organizado(50) → 4=Experto(100) → 5=Maestro Financiero(200)
+1=Novato(0pts) → 2=Aprendiz(20) → 3=Organizado(50) → 4=Experto(100) → 5=Maestro Financiero(140)
 
 ### Nudges (max 1/day, 8 PM default)
 
@@ -531,12 +552,12 @@ src/plugins/fluyo/
 │   ├── expense.service.ts          # writeExpense(userId, amount, category, source, description)
 │   ├── expense-parser.service.ts   # natural language → {amount, category}; used as OpenAI tool
 │   ├── voice-transcription.service.ts  # WhatsApp audio media → Whisper text
-│   └── user-link.service.ts        # phone_number → users.id in Supabase
+│   └── user-link.service.ts        # verified E.164 sender → whatsapp_links → users.id
 └── tools/
     └── register-expense.tool.ts    # OpenAI function-calling schema + handler
 ```
 
-User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifies the Fluyo tenant; the plugin then looks up `users.phone_number` in Supabase. If unmatched, the bot replies with onboarding instructions (download the Android app, register, link phone).
+User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifies the tenant; the plugin must normalize the authenticated webhook sender and look up `whatsapp_links.phone_e164`. If unmatched, it refuses financial writes and guides the user through the one-time challenge.
 
 ---
 
@@ -564,7 +585,7 @@ User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifie
 
 10. Add `src/plugins/fluyo/` plugin in `whatsapp-bot-be`; install `@supabase/supabase-js`; wire `FluyoSupabaseService` with service-role key.
 11. `register_expense` OpenAI tool (parses "Gasté X en Y"); add `VoiceTranscriptionService` calling OpenAI Whisper for audio media.
-12. Phone number linking — match incoming `contact.phone_number` against Supabase `users.phone_number`; reply with onboarding link if unmatched.
+12. Verified phone linking — confirm an app-created one-time challenge from the authenticated WhatsApp sender, persist canonical E.164 in `whatsapp_links`, and reject unmatched senders.
 
 ### Phase 5: Goals & Gamification
 
@@ -590,9 +611,9 @@ User linking: when a Fluyo WhatsApp message arrives, `tenant_resolver` identifie
 - All UI text in Spanish (Latin American), use strings.xml
 - Currency: user-selectable (default PEN). Symbol/formatting via `presentation/util/Money.kt` (`money()` / `currencySymbol()` read `LocalCurrencySymbol`, seeded from `User.currency`). Display: "S/ 15.50"
 - OCR on-device only (ML Kit). No financial data to external APIs.
-- Compliant with Ley N° 29733 (Peruvian data protection)
+- Designed for data minimization and RLS isolation; legal compliance also requires deployment-level policies, retention and deletion controls
 - No ads, no premium. Thesis prototype.
-- Min Android 7.0 (API 24); target Android 15 (API 36)
+- Min Android 7.0 (API 24); target Android 16 (API 36), compile Android 16 QPR2 (36.1)
 - Fluyo backend plugin uses Supabase service_role key (bypasses RLS). Existing backend tenants stay on the self-hosted Postgres.
 
 ## Code Conventions

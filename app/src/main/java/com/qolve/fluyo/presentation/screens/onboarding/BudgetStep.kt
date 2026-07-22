@@ -34,9 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qolve.fluyo.R
 import com.qolve.fluyo.presentation.util.currencySymbol
+import com.qolve.fluyo.domain.model.MoneyAmount
 import com.qolve.fluyo.presentation.theme.FluyoTeal
 import java.text.NumberFormat
 import java.util.Locale
+import java.math.RoundingMode
 
 /**
  * Onboarding step 1 — pick monthly budget.
@@ -96,16 +98,17 @@ fun BudgetStep(
 
 @Composable
 private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
-    val parsed = value.replace(",", ".").toDoubleOrNull() ?: 0.0
-    val integerPart = parsed.toLong()
-    val perDay = parsed / 30.0
+    val parsed = MoneyAmount.parse(value, RoundingMode.UNNECESSARY) ?: MoneyAmount.ZERO
+    val integerPart = parsed.cents / 100L
+    val perDay = parsed.dividedBy(30L, RoundingMode.HALF_EVEN)
     val integerFormatted = remember(integerPart) {
         NumberFormat.getNumberInstance(Locale.forLanguageTag("es-PE")).format(integerPart)
     }
     val perDayFormatted = remember(perDay) {
         "S/ " + NumberFormat.getNumberInstance(Locale.forLanguageTag("es-PE")).apply {
             maximumFractionDigits = 0
-        }.format(perDay)
+            roundingMode = RoundingMode.HALF_EVEN
+        }.format(perDay.toBigDecimal())
     }
 
     Card(
@@ -190,7 +193,9 @@ private fun AmountCard(value: String, onValueChange: (String) -> Unit) {
 
 @Composable
 private fun QuickChips(value: String, onPick: (String) -> Unit) {
-    val selected = value.replace(",", ".").toDoubleOrNull()?.toLong()
+    val selected = MoneyAmount.parse(value, RoundingMode.UNNECESSARY)
+        ?.takeIf { it.cents % 100L == 0L }
+        ?.let { it.cents / 100L }
     val choices = listOf(
         ChipChoice(600L, R.string.onboarding_budget_chip_600),
         ChipChoice(900L, R.string.onboarding_budget_chip_900),
