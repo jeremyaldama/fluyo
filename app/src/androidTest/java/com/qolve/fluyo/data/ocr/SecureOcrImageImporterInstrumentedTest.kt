@@ -52,7 +52,7 @@ class SecureOcrImageImporterInstrumentedTest {
     }
 
     @Test
-    fun nonContentUriIsRejectedWithoutCreatingAnImport() = runBlocking {
+    fun nonContentUriIsRejectedWithoutCreatingAnImport(): Unit = runBlocking {
         val source = File(context.cacheDir, "not-content.jpg").apply { writeBytes(byteArrayOf(1)) }
 
         val result = importer.import(Uri.fromFile(source))

@@ -43,7 +43,7 @@ secreto o servicio externo haya sido desplegado en producción.
 | BUILD-01 | **Resuelto** | Se retiró la ruta JDK específica de una máquina; CI configura JDK 21 y SDK explícitos. |
 | BUILD-02 | **Resuelto** | Tareas release fallan si faltan firma/backend o si las URLs legales no son HTTPS públicas y no reservadas; `releaseUnsigned` es una variante local explícita y verificable con R8, ofuscación y resource shrinking. La publicación/alcanzabilidad se valida fuera del build. |
 | CI-01 | **Resuelto en configuración** | CI cubre JVM, Kover, lint, instrumentación focalizada en emulador API 35, APK/AAB minificado, gates negativo/positivo de release, PostgreSQL/RLS, Deno congelado y Gitleaks. Lint/debug y KSP/release se ejecutan en grafos separados para evitar la carrera entre variantes observada en AGP. El secreto histórico está exceptuado sólo por fingerprint hasta completar SEC-01. |
-| TEST-01 | **Mejorado y medido** | **154 pruebas JVM** pasan; Kover mide **18.4965%** de líneas y exige piso de **18%**. Se añadieron pruebas de dinero, fechas, sesión/epoch, navegación, CSV, archivos sensibles, paginación, idempotencia incierta, depósitos recuperables, reenvío de email, errores UI, parsers, WhatsApp y contratos DB; CI ejecuta instrumentación focalizada. Aún faltan journeys Compose E2E y matriz de dispositivos. |
+| TEST-01 | **Mejorado y medido** | **154 pruebas JVM** y **11/11 pruebas instrumentadas** pasan; Kover mide **18.4965%** de líneas y exige piso de **18%**. Se añadieron pruebas de dinero, fechas, sesión/epoch, navegación, CSV, archivos sensibles, paginación, idempotencia incierta, depósitos recuperables, reenvío de email, errores UI, parsers, WhatsApp y contratos DB. Aún faltan journeys Compose E2E y matriz de dispositivos. |
 | LINT-01 | **Controlado, deuda visible** | Se eliminaron 97 recursos muertos, PNG redundantes y 15 problemas de pluralización. Lint queda con `warningsAsErrors=true`, cero incidencias nuevas y baseline de 37 avisos exclusivamente de actualización de SDK/dependencias. Dependabot los mantiene visibles; no se presentan como “corregidos”. |
 | BUILD-03 | **Resuelto** | El AAB versionado fue retirado y APK/AAB/keystores/outputs se ignoran. |
 | DX-01 | **Resuelto** | Smoke script descubre SDK/dispositivo, usa timeouts, valida foreground/FATAL y guarda evidencia. |
@@ -69,6 +69,22 @@ secreto o servicio externo haya sido desplegado en producción.
 - Fechas OCR son editables, pero sólo dentro del rango financiero permitido; valores OCR fuera
   de rango pierden el indicador de “detectado” y nunca llegan al RPC.
 
+### Revalidación post-remediación — 22 de julio de 2026
+
+La primera ejecución real de la suite instrumentada descubrió un defecto que la compilación
+de `androidTest` no podía detectar: Kotlin infería `Boolean` como retorno de
+`nonContentUriIsRejectedWithoutCreatingAnImport()`, mientras JUnit 4 exige un método `void`.
+Se fijó explícitamente el retorno `Unit` en
+[`SecureOcrImageImporterInstrumentedTest.kt`](app/src/androidTest/java/com/qolve/fluyo/data/ocr/SecureOcrImageImporterInstrumentedTest.kt).
+Después de recompilar y reinstalar las APK, la suite completa pasó dos veces con **11/11**
+casos. No fue necesario cambiar código productivo.
+
+La reconstrucción forzada con `--offline` también expuso que el baseline de Lint no es
+hermético: sus 37 avisos de versiones contienen el número de la versión más reciente y no
+coinciden cuando el caché local tiene metadatos más antiguos. `lintDebug` en el modo normal
+usado por CI pasa con cero incidencias nuevas. Se conserva esta limitación como deuda de
+reproducibilidad; no se alteró la política de actualizaciones basándose en un caché obsoleto.
+
 ### Verificación final reproducida sobre el árbol remediado
 
 | Verificación | Resultado |
@@ -76,19 +92,21 @@ secreto o servicio externo haya sido desplegado en producción.
 | JVM | **154/154** pruebas; 0 fallos, 0 errores, 0 omitidas, 40 suites. |
 | Cobertura | **18.4965%** de líneas de producto (1,897 cubiertas / 10,256); `koverVerifyDebug` pasa con piso 18%. Es un control de no-regresión, no cobertura suficiente para producción. |
 | Lint | `lintDebug` pasa con cero incidencias nuevas; quedan **37** avisos versionados: 20 `GradleDependency`, 14 `NewerVersionAvailable`, 2 `AndroidGradlePluginVersion` y 1 `OldTargetApi`. |
-| Android build | Pasan en un grafo `testDebugUnitTest`, Kover, `lintDebug`, `compileDebugAndroidTestKotlin` y `assembleDebug`; separados pasan `bundleReleaseUnsigned` y `bundleRelease` con JKS efímero, R8, resource shrinking y lint vital. El AAB firmado contiene el certificado efímero esperado. |
+| Android build | Desde `clean` se regeneraron código/recursos y pasaron `testDebugUnitTest`, Kover, `lintDebug`, `assembleDebug` y `assembleDebugAndroidTest`. Separados pasan `bundleReleaseUnsigned` y `bundleRelease` con JKS efímero, R8, resource shrinking y lint vital. El AAB firmado contiene el certificado efímero esperado. |
+| Android instrumentado | Emulador Google APIs x86_64, API 35: **11/11** pruebas, 0 fallos, 0 errores y 0 omitidas. Cubren sesión cifrada, borrado fail-closed, importación OCR segura, parser de voz/ICU y contexto de aplicación. |
+| Smoke Android | La APK reconstruida se instala y abre `MainActivity`; conserva el mismo PID, queda en primer plano y no registra `FATAL EXCEPTION` ni ANR. La captura es negra por el `FLAG_SECURE` deliberado. |
 | Gate de distribución | Rechaza configuración ausente, `.test`, IPv4 privada y `::1`; acepta hostname público e IPv6 público/self-hosted. No hace DNS/HTTP ni afirma que el destino esté publicado. |
 | PostgreSQL 17 | Fresh DB y upgrade `0001..0005 → fixture legacy → 0006..0007 → reparación`: contrato `0008` por SHA-256, deriva, fechas, constraints, Storage/tombstone, ocho badges/RPC, paginación snapshot, retención WhatsApp indexada, categorías, RLS/ACL A↔B, agregados y carrera moneda/primer movimiento: **pasan**. |
 | Edge Function | Deno 2.5.7: formato (4 archivos), lint (3), `check --all --frozen` y **12/12** tests: **pasa**. Lockfile v5 congelado. |
-| Secretos | Gitleaks v8.30.1 escanea **40 commits** y fuentes actuales sin hallazgos no exceptuados. Existe una sola excepción por fingerprint para SEC-01; la regla custom sigue bloqueando nuevas passwords `keytool`. |
-| Estáticos | `git diff --check`, `bash -n`, parseo YAML y **12/12 XML/resources**: **pasan**; cero conflictos y cero secretos vigentes reconocibles en el árbol. |
-| Estado Git | Entrega deliberadamente sin commit: **119 modificados, 11 eliminados y 97 nuevos** (`--untracked-files=all`); cero staged y cero conflictos. Revisar el alcance antes de preparar/commitear. |
+| Secretos | Gitleaks v8.30.1 escanea **41 commits** y las 301 fuentes versionadas/no ignoradas actuales sin hallazgos no exceptuados. Existe una sola excepción por fingerprint para SEC-01; la regla custom sigue bloqueando nuevas passwords `keytool`. |
+| Estáticos | `git diff --check`, `bash -n` (4 scripts) y parseo de YAML (2), JSON (3), TOML (2) y XML (23): **pasan**; cero conflictos y cero secretos vigentes reconocibles en el árbol. |
+| Estado Git | La remediación está en `a59ec6057d335cbbb4fc55b77060cc67833c925a`; `main` está un commit delante de `origin/main`. La revalidación deja sólo **2 archivos modificados sin staging**: esta evidencia y la firma `Unit` del test instrumentado; cero conflictos. |
 
-En esta reproducción local no se ejecutaron pruebas Android en un dispositivo/emulador,
-un despliegue Supabase, el backend externo de WhatsApp ni un release con credenciales
+En esta reproducción local sí se ejecutaron pruebas Android y smoke en un emulador API 35.
+No se desplegó Supabase, el backend externo de WhatsApp ni un release con credenciales
 reales. Sí se produjo localmente un release firmado con credenciales efímeras; el workflow
-repite esa ruta y ejecuta instrumentación focalizada. Esto todavía no equivale a journeys
-Compose E2E ni a validar Play/producción. La huella
+repite esa ruta. Esto todavía no equivale a journeys Compose E2E, una matriz de dispositivos,
+integraciones remotas ni validar Play/producción. La huella
 histórica SEC-01 permanece explícitamente exceptuada hasta que la rotación y purga permitan
 retirar [`.gitleaksignore`](.gitleaksignore).
 
@@ -118,6 +136,9 @@ retirar [`.gitleaksignore`](.gitleaksignore).
 - SDK y varias dependencias tienen versiones posteriores. Se conservaron en el baseline
   porque una actualización mayor exige migración y pruebas reales; Dependabot abre revisiones
   semanales en vez de mezclar ese riesgo con la remediación de seguridad.
+- El baseline de avisos de versión de Lint depende de metadatos remotos y puede fallar en un
+  build forzado con `--offline` si el caché conoce versiones distintas. Para builds offline
+  herméticos conviene sacar esos detectores del baseline y delegar su seguimiento a Dependabot.
 - La protección global `FLAG_SECURE` prioriza privacidad e impide screenshots/recording en la
   app; es un trade-off de producto documentado, no un fallo accidental.
 
