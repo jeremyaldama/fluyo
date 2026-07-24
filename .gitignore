@@ -13,3 +13,21 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Environment and signing configuration belongs in the developer machine or
+# the CI secret store. Keep explicitly sanitized templates reviewable.
+.env
+.env.*
+!.env.example
+keystore.properties
+
+# Signing keys and certificate containers are local/CI secrets. Public
+# certificates that genuinely belong in the repository must use an explicitly
+# reviewed, narrowly named exception.
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Local assistant settings can contain commands and credentials.
+/.claude/settings.local.json

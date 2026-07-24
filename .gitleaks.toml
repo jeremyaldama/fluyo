@@ -1,0 +1,18 @@
+title = "Fluyo secret scanning rules"
+
+[extend]
+useDefault = true
+
+# Gitleaks' default rules do not flag passwords passed to keytool. Those values
+# are credentials even when their names are not API-token shaped.
+[[rules]]
+id = "keytool-cli-password"
+description = "Password passed directly to keytool on the command line"
+regex = '''(?i)(?:-storepass|-keypass)(?:=|[ \t])+["']?([^\s"'\\,)]+)'''
+secretGroup = 1
+keywords = ["-storepass", "-keypass"]
+
+[[rules.allowlists]]
+description = "Android's documented default debug-keystore password is public"
+regexTarget = "secret"
+regexes = ['''^android$''']
