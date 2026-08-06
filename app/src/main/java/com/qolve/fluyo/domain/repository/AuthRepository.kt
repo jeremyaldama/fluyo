@@ -7,6 +7,13 @@ import kotlinx.coroutines.flow.Flow
 interface AuthRepository {
     val authState: Flow<AuthState>
 
+    /**
+     * Current Supabase access token (JWT), or null if not signed in. Used to start
+     * the Gmail OAuth flow server-side (`gmail-connect` Edge Function needs it to know
+     * which user is linking the mailbox). Never logged or sent anywhere except Supabase.
+     */
+    suspend fun currentAccessToken(): String?
+
     /** Sign in with email + password. Caller should follow up with [ensureUserRow] on success. */
     suspend fun signInWithEmail(email: String, password: String): Result<Unit>
 

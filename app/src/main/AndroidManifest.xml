@@ -58,6 +58,19 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+
+            <!--
+              Gmail OAuth callback: after the user consents in the browser, the
+              gmail-connect Edge Function redirects back here with ?success=1.
+              MainActivity receives it via onNewIntent and refreshes the profile
+              to show the linked Gmail address.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.qolve.fluyo" android:host="gmail-callback" />
+            </intent-filter>
         </activity>
 
         <!-- Shares exported CSV files from cacheDir via a content:// URI (HU-11). -->

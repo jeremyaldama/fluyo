@@ -10,6 +10,7 @@ import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
 import com.qolve.fluyo.domain.repository.BudgetExtraRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
+import com.qolve.fluyo.domain.repository.EmailGrantRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.domain.repository.GoalRepository
 import dagger.Binds
@@ -45,4 +46,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBudgetExtraRepository(impl: SupabaseBudgetExtraRepository): BudgetExtraRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindEmailGrantRepository(impl: SupabaseEmailGrantRepository): EmailGrantRepository
 }

@@ -4,7 +4,8 @@ enum class ExpenseSource(val wire: String) {
     MANUAL("manual"),
     OCR("ocr"),
     VOICE("voice"),
-    WHATSAPP("whatsapp");
+    WHATSAPP("whatsapp"),
+    EMAIL("email");
 
     companion object {
         fun fromWire(value: String): ExpenseSource =

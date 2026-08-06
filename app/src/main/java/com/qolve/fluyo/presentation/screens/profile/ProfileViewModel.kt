@@ -2,6 +2,7 @@ package com.qolve.fluyo.presentation.screens.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qolve.fluyo.BuildConfig
 import com.qolve.fluyo.domain.model.Badge
 import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.model.BudgetExtra
@@ -14,6 +15,7 @@ import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
 import com.qolve.fluyo.domain.repository.BudgetExtraRepository
 import com.qolve.fluyo.domain.repository.CategoryRepository
+import com.qolve.fluyo.domain.repository.EmailGrantRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.notifications.NudgeOneShot
 import com.qolve.fluyo.notifications.NudgeScheduler
@@ -64,6 +66,8 @@ data class ProfileUiState(
     val showDeleteDialog: Boolean = false,
     val isDeleting: Boolean = false,
     val errorMessage: String? = null,
+    /** Linked Gmail address for receipt auto-import, or null if not linked. */
+    val linkedGmail: String? = null,
 ) {
     val currency: String get() = user?.currency ?: "PEN"
     val monthExtrasTotal: Double get() = monthExtras.sumOf { it.amount }
@@ -79,6 +83,7 @@ class ProfileViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
     private val budgetExtraRepository: BudgetExtraRepository,
+    private val emailGrantRepository: EmailGrantRepository,
     private val nudgeScheduler: NudgeScheduler,
     private val nudgeOneShot: NudgeOneShot,
     private val currencyState: CurrencyState,
@@ -87,6 +92,7 @@ class ProfileViewModel @Inject constructor(
 
     private val userState = MutableStateFlow<User?>(null)
     private val streakState = MutableStateFlow(0)
+    private val linkedGmailState = MutableStateFlow<String?>(null)
     private val sheet = MutableStateFlow(SheetState())
 
     /** One-shot CSV export results — the screen collects this and fires the share sheet. */
@@ -98,7 +104,8 @@ class ProfileViewModel @Inject constructor(
         badgeRepository.observeBadges(),
         streakState,
         sheet,
-    ) { user, badges, streak, s ->
+        linkedGmailState,
+    ) { user, badges, streak, s, linkedGmail ->
         ProfileUiState(
             isLoading = user == null,
             user = user,
@@ -121,6 +128,7 @@ class ProfileViewModel @Inject constructor(
             showDeleteDialog = s.showDelete,
             isDeleting = s.deleting,
             errorMessage = s.error,
+            linkedGmail = linkedGmail,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -139,6 +147,26 @@ class ProfileViewModel @Inject constructor(
             // Streak fetch is independent from the user load; failure leaves streak at 0
             // and the UI shows the "Empieza tu racha hoy" empty-state caption.
             streakState.value = runCatching { expenseRepository.currentStreak() }.getOrDefault(0)
+            // Gmail grant read is best-effort: if it fails the row just shows "No vinculado".
+            linkedGmailState.value = runCatching { emailGrantRepository.linkedEmail() }.getOrNull()
+        }
+    }
+
+    /**
+     * Starts the Gmail OAuth flow by opening the `gmail-connect` Edge Function in
+     * a browser. The function redirects to Google's consent screen, then back to
+     * the app via deep link (`com.qolve.fluyo://gmail-callback`). The JWT is needed
+     * so the server knows which user is linking the mailbox.
+     *
+     * @param startBrowser called with the URL to open; injected so the screen owns the
+     *   Android Intent (the ViewModel has no Context). On return, the app is re-entered
+     *   via deep link and [refresh] picks up the new grant.
+     */
+    fun linkGmail(startBrowser: (url: String) -> Unit) {
+        viewModelScope.launch {
+            val token = authRepository.currentAccessToken() ?: return@launch
+            val url = "${BuildConfig.SUPABASE_URL}/functions/v1/gmail-connect?token=$token"
+            startBrowser(url)
         }
     }
 

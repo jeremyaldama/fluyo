@@ -195,6 +195,12 @@
     <string name="profile_notifications_row_subtitle_off">Toca para activar</string>
     <string name="profile_phone_row_subtitle">Para mensajes y voz</string>
 
+    <!-- Gmail receipt auto-import (boletas → expenses automatically) -->
+    <string name="profile_gmail_label">Importar boletas (Gmail)</string>
+    <string name="profile_gmail_row_subtitle">Registro automático de pagos</string>
+    <string name="profile_gmail_linked">Vinculado: %1$s</string>
+    <string name="profile_gmail_not_linked">No vinculado</string>
+
     <!-- Badges -->
     <string name="badge_first_expense">Primer gasto</string>
     <string name="badge_first_expense_desc">Registra tu primer gasto</string>
@@ -386,6 +392,7 @@
     <string name="expense_source_ocr">Yape</string>
     <string name="expense_source_voice">voz</string>
     <string name="expense_source_whatsapp">WhatsApp</string>
+    <string name="expense_source_email">correo</string>
 
     <!-- Relative time -->
     <string name="rel_time_now">ahora</string>

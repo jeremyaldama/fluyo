@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Phone
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.qolve.fluyo.R
@@ -107,6 +109,13 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val shareCsvSubject = stringResource(R.string.profile_export_share_title)
+
+    // Refresh on resume so the linked-Gmail row updates after the OAuth round-trip
+    // (browser → consent → deep link back to the app).
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
 
     // Fire the system share sheet whenever a CSV export completes (HU-11).
     LaunchedEffect(Unit) {
@@ -163,6 +172,15 @@ fun ProfileScreen(
                 onEditPhone = viewModel::openPhoneDialog,
                 onEditCurrency = viewModel::openCurrencyDialog,
                 onManageCategories = onManageCategories,
+                onLinkGmail = {
+                    viewModel.linkGmail { url ->
+                        // Open the OAuth flow in the user's browser (Custom Tab would also
+                        // work, but a plain ACTION_VIEW Intent is simplest and survives the
+                        // redirect round-trip through Google + back to our deep link).
+                        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                },
+                linkedGmail = state.linkedGmail,
                 onExportCsv = viewModel::exportCsv,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
                 onHourChange = viewModel::setNotificationHour,
@@ -649,6 +667,8 @@ private fun AjustesCard(
     onEditPhone: () -> Unit,
     onEditCurrency: () -> Unit,
     onManageCategories: () -> Unit,
+    onLinkGmail: () -> Unit,
+    linkedGmail: String?,
     onExportCsv: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
     onHourChange: (Int) -> Unit,
@@ -701,6 +721,18 @@ private fun AjustesCard(
                 value = user?.phoneNumber?.takeIf { it.isNotBlank() }
                     ?: stringResource(R.string.profile_phone_unset),
                 onClick = onEditPhone,
+            )
+            ThinDivider()
+            // Gmail receipt auto-import — opens the OAuth flow in a browser, which
+            // redirects back to the app via deep link once the user consents.
+            SettingsRow(
+                icon = Icons.Outlined.Email,
+                title = stringResource(R.string.profile_gmail_label),
+                subtitle = stringResource(R.string.profile_gmail_row_subtitle),
+                value = linkedGmail?.takeIf { it.isNotBlank() }
+                    ?.let { stringResource(R.string.profile_gmail_linked, it) }
+                    ?: stringResource(R.string.profile_gmail_not_linked),
+                onClick = onLinkGmail,
             )
             ThinDivider()
             // Notifications expander row

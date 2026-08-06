@@ -74,6 +74,7 @@ fun ExpenseRow(
             ExpenseSource.OCR -> stringResource(R.string.expense_source_ocr)
             ExpenseSource.VOICE -> stringResource(R.string.expense_source_voice)
             ExpenseSource.WHATSAPP -> stringResource(R.string.expense_source_whatsapp)
+            ExpenseSource.EMAIL -> stringResource(R.string.expense_source_email)
         }
         val relative = relativeTimeFrom(expense.createdAt)
         val subtitleText = "$sourceLabel · $relative"
