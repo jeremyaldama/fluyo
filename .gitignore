@@ -31,3 +31,6 @@ keystore.properties
 
 # Local assistant settings can contain commands and credentials.
 /.claude/settings.local.json
+
+# Local assistant workspace metadata (not project code).
+.zcode/
