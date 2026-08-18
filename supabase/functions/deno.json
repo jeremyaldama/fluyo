@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "fmt": {
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "semiColons": true
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "lock": {
+    "path": "deno.lock",
+    "frozen": true
+  },
+  "tasks": {
+    "check": "deno check gmail-connect/index.ts gmail-webhook/index.ts gmail-renew/index.ts",
+    "test": "deno test --allow-env _shared/",
+    "verify": "deno fmt --check && deno lint && deno task check && deno task test"
+  }
+}

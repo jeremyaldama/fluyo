@@ -10,6 +10,7 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.compose.auth.ComposeAuth
 import io.github.jan.supabase.compose.auth.googleNativeLogin
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
 import javax.inject.Singleton
@@ -26,6 +27,7 @@ object SupabaseModule {
     ) {
         install(Auth)
         install(Postgrest)
+        install(Functions)
         install(Storage)
         install(ComposeAuth) {
             // Only initialize Google login if clientId is provided

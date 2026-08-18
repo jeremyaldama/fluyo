@@ -1,8 +1,8 @@
 package com.qolve.fluyo.presentation.screens.profile
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.qolve.fluyo.BuildConfig
 import com.qolve.fluyo.domain.model.Badge
 import com.qolve.fluyo.domain.model.BadgeType
 import com.qolve.fluyo.domain.model.BudgetExtra
@@ -10,7 +10,6 @@ import com.qolve.fluyo.domain.model.NudgeType
 import com.qolve.fluyo.domain.model.User
 import com.qolve.fluyo.domain.model.UserLevel
 import com.qolve.fluyo.domain.model.UserLevelCatalog
-import android.net.Uri
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository
 import com.qolve.fluyo.domain.repository.BudgetExtraRepository
@@ -19,12 +18,19 @@ import com.qolve.fluyo.domain.repository.EmailGrantRepository
 import com.qolve.fluyo.domain.repository.ExpenseRepository
 import com.qolve.fluyo.notifications.NudgeOneShot
 import com.qolve.fluyo.notifications.NudgeScheduler
+import com.qolve.fluyo.presentation.events.GmailOAuthCallback
+import com.qolve.fluyo.presentation.events.GmailOAuthCallbackParser
+import com.qolve.fluyo.presentation.events.GmailOAuthEvents
 import com.qolve.fluyo.presentation.util.CsvExporter
 import com.qolve.fluyo.presentation.util.CurrencyState
 import com.qolve.fluyo.presentation.util.SUPPORTED_CURRENCIES
 import com.qolve.fluyo.presentation.util.sanitizeDecimalInput
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +41,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
@@ -66,8 +73,7 @@ data class ProfileUiState(
     val showDeleteDialog: Boolean = false,
     val isDeleting: Boolean = false,
     val errorMessage: String? = null,
-    /** Linked Gmail address for receipt auto-import, or null if not linked. */
-    val linkedGmail: String? = null,
+    val emailLinkState: EmailLinkState = EmailLinkState.Loading,
 ) {
     val currency: String get() = user?.currency ?: "PEN"
     val monthExtrasTotal: Double get() = monthExtras.sumOf { it.amount }
@@ -84,6 +90,7 @@ class ProfileViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val budgetExtraRepository: BudgetExtraRepository,
     private val emailGrantRepository: EmailGrantRepository,
+    private val gmailOAuthEvents: GmailOAuthEvents,
     private val nudgeScheduler: NudgeScheduler,
     private val nudgeOneShot: NudgeOneShot,
     private val currencyState: CurrencyState,
@@ -92,7 +99,10 @@ class ProfileViewModel @Inject constructor(
 
     private val userState = MutableStateFlow<User?>(null)
     private val streakState = MutableStateFlow(0)
-    private val linkedGmailState = MutableStateFlow<String?>(null)
+    private val emailLinkState = MutableStateFlow<EmailLinkState>(EmailLinkState.Loading)
+    private var emailRefreshJob: Job? = null
+    private var emailCompletionJob: Job? = null
+    private var consumedGmailOAuthState: String? = null
     private val sheet = MutableStateFlow(SheetState())
 
     /** One-shot CSV export results — the screen collects this and fires the share sheet. */
@@ -104,8 +114,8 @@ class ProfileViewModel @Inject constructor(
         badgeRepository.observeBadges(),
         streakState,
         sheet,
-        linkedGmailState,
-    ) { user, badges, streak, s, linkedGmail ->
+        emailLinkState,
+    ) { user, badges, streak, s, gmailState ->
         ProfileUiState(
             isLoading = user == null,
             user = user,
@@ -128,7 +138,7 @@ class ProfileViewModel @Inject constructor(
             showDeleteDialog = s.showDelete,
             isDeleting = s.deleting,
             errorMessage = s.error,
-            linkedGmail = linkedGmail,
+            emailLinkState = gmailState,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -137,37 +147,185 @@ class ProfileViewModel @Inject constructor(
     )
 
     init {
+        viewModelScope.launch {
+            gmailOAuthEvents.events.collect { callback ->
+                gmailOAuthEvents.consume()
+                handleGmailOAuthCallback(callback)
+            }
+        }
         refresh()
     }
 
     fun refresh() {
+        if (emailCompletionJob?.isActive != true && emailRefreshJob?.isActive != true) {
+            refreshEmailGrant()
+        }
         viewModelScope.launch {
             badgeRepository.refresh()
             userState.value = authRepository.currentUser().getOrNull()
             // Streak fetch is independent from the user load; failure leaves streak at 0
             // and the UI shows the "Empieza tu racha hoy" empty-state caption.
             streakState.value = runCatching { expenseRepository.currentStreak() }.getOrDefault(0)
-            // Gmail grant read is best-effort: if it fails the row just shows "No vinculado".
-            linkedGmailState.value = runCatching { emailGrantRepository.linkedEmail() }.getOrNull()
         }
     }
 
     /**
-     * Starts the Gmail OAuth flow by opening the `gmail-connect` Edge Function in
-     * a browser. The function redirects to Google's consent screen, then back to
-     * the app via deep link (`com.qolve.fluyo://gmail-callback`). The JWT is needed
-     * so the server knows which user is linking the mailbox.
-     *
-     * @param startBrowser called with the URL to open; injected so the screen owns the
-     *   Android Intent (the ViewModel has no Context). On return, the app is re-entered
-     *   via deep link and [refresh] picks up the new grant.
+     * Starts OAuth through an authenticated Edge Function call. The Supabase Functions
+     * client supplies the session in the Authorization header; it is never put in a URL.
      */
     fun linkGmail(startBrowser: (url: String) -> Unit) {
+        if (emailCompletionJob?.isActive == true ||
+            emailLinkState.value is EmailLinkState.Authorizing ||
+            emailLinkState.value is EmailLinkState.Disconnecting
+        ) return
+
+        val previousEmail = emailLinkState.value.emailOrNull()
+        emailRefreshJob?.cancel()
+        emailLinkState.value = EmailLinkState.Authorizing(previousEmail)
         viewModelScope.launch {
-            val token = authRepository.currentAccessToken() ?: return@launch
-            val url = "${BuildConfig.SUPABASE_URL}/functions/v1/gmail-connect?token=$token"
-            startBrowser(url)
+            emailGrantRepository.createAuthorizationUrl(GmailOAuthCallbackParser.REDIRECT_URI).fold(
+                onSuccess = { url ->
+                    if (!GmailAuthorizationUrlValidator.isAllowed(url)) {
+                        emailLinkState.value = EmailLinkState.Failed(
+                            EmailLinkFailure.INVALID_AUTHORIZATION_URL,
+                            previousEmail,
+                        )
+                        return@fold
+                    }
+                    runCatching { startBrowser(url) }.fold(
+                        onSuccess = { /* callback or resume refresh resolves final state */ },
+                        onFailure = {
+                            emailLinkState.value = EmailLinkState.Failed(
+                                EmailLinkFailure.BROWSER_UNAVAILABLE,
+                                previousEmail,
+                            )
+                        },
+                    )
+                },
+                onFailure = {
+                    currentCoroutineContext().ensureActive()
+                    emailLinkState.value = EmailLinkState.Failed(
+                        EmailLinkFailure.START_FAILED,
+                        previousEmail,
+                    )
+                },
+            )
         }
+    }
+
+    fun disconnectGmail() {
+        if (emailCompletionJob?.isActive == true ||
+            emailLinkState.value is EmailLinkState.Disconnecting
+        ) return
+        val email = emailLinkState.value.emailOrNull() ?: return
+        emailRefreshJob?.cancel()
+        emailLinkState.value = EmailLinkState.Disconnecting(email)
+        viewModelScope.launch {
+            emailGrantRepository.disconnect().fold(
+                onSuccess = { emailLinkState.value = EmailLinkState.Disconnected },
+                onFailure = {
+                    currentCoroutineContext().ensureActive()
+                    emailLinkState.value = EmailLinkState.Failed(
+                        EmailLinkFailure.DISCONNECT_FAILED,
+                        email,
+                    )
+                },
+            )
+        }
+    }
+
+    fun retryGmailStatus() {
+        if (emailCompletionJob?.isActive == true) return
+        refreshEmailGrant(showLoading = true)
+    }
+
+    private fun refreshEmailGrant(
+        showLoading: Boolean = emailLinkState.value is EmailLinkState.Loading,
+        missingFailure: EmailLinkFailure? = null,
+    ) {
+        val previousEmail = emailLinkState.value.emailOrNull()
+        emailRefreshJob?.cancel()
+        if (showLoading) emailLinkState.value = EmailLinkState.Loading
+        emailRefreshJob = viewModelScope.launch {
+            emailGrantRepository.linkedGrant().fold(
+                onSuccess = { grant ->
+                    currentCoroutineContext().ensureActive()
+                    emailLinkState.value = if (missingFailure != null) {
+                        EmailLinkStateResolver.resolveAfterCompletion(
+                            grant = grant,
+                            now = Instant.now(),
+                            missingFailure = missingFailure,
+                            previousEmail = previousEmail,
+                        )
+                    } else {
+                        EmailLinkStateResolver.resolve(grant, Instant.now())
+                    }
+                },
+                onFailure = {
+                    currentCoroutineContext().ensureActive()
+                    emailLinkState.value = EmailLinkState.Failed(
+                        EmailLinkFailure.LOAD_FAILED,
+                        previousEmail,
+                    )
+                },
+            )
+        }
+    }
+
+    private fun handleGmailOAuthCallback(callback: GmailOAuthCallback) {
+        if (emailCompletionJob?.isActive == true) return
+        when (callback) {
+            is GmailOAuthCallback.Complete -> completeGmailAuthorization(callback)
+            GmailOAuthCallback.Success -> refreshEmailGrant(
+                showLoading = true,
+                missingFailure = EmailLinkFailure.OAUTH_FAILED,
+            )
+            is GmailOAuthCallback.Error -> {
+                emailRefreshJob?.cancel()
+                emailLinkState.value = EmailLinkState.Failed(
+                    reason = EmailLinkFailureMapper.fromCallback(callback.reason),
+                    previousEmail = emailLinkState.value.emailOrNull(),
+                )
+            }
+        }
+    }
+
+    private fun completeGmailAuthorization(callback: GmailOAuthCallback.Complete) {
+        // Activity recreation or duplicate query parameters must never exchange the same
+        // one-time authorization code twice. The state is opaque and unique per initiation.
+        if (emailCompletionJob?.isActive == true || consumedGmailOAuthState == callback.state) return
+        consumedGmailOAuthState = callback.state
+        val previousEmail = emailLinkState.value.emailOrNull()
+        emailRefreshJob?.cancel()
+        emailLinkState.value = EmailLinkState.Authorizing(previousEmail)
+        emailCompletionJob = viewModelScope.launch {
+            val missingFailure = emailGrantRepository.completeAuthorization(
+                authorizationCode = callback.authorizationCode,
+                state = callback.state,
+            ).fold(
+                onSuccess = { EmailLinkFailure.OAUTH_FAILED },
+                onFailure = { error ->
+                    currentCoroutineContext().ensureActive()
+                    EmailLinkFailureMapper.fromCompletion(error)
+                },
+            )
+            currentCoroutineContext().ensureActive()
+            // A timeout can happen after Edge already stored the grant. Always resolve from
+            // metadata before showing a completion failure, and never replay the auth code.
+            refreshEmailGrant(
+                showLoading = false,
+                missingFailure = missingFailure,
+            )
+        }
+    }
+
+    private fun EmailLinkState.emailOrNull(): String? = when (this) {
+        is EmailLinkState.Linked -> email
+        is EmailLinkState.NeedsAttention -> email
+        is EmailLinkState.Disconnecting -> email
+        is EmailLinkState.Authorizing -> previousEmail
+        is EmailLinkState.Failed -> previousEmail
+        else -> null
     }
 
     fun openBudgetDialog() {
@@ -378,8 +536,15 @@ class ProfileViewModel @Inject constructor(
     fun deleteAccount() {
         sheet.update { it.copy(deleting = true, error = null) }
         viewModelScope.launch {
+            emailRefreshJob?.cancel()
+            emailCompletionJob?.cancelAndJoin()
+            // Delete the Gmail grant/Vault credential while the Supabase session still exists.
+            // This is best-effort: a service failure must not prevent account deletion.
             // On success the auth state flips to SignedOut and RootViewModel routes to login.
-            authRepository.deleteAccount().onFailure { e ->
+            AccountDeletionCoordinator.delete(
+                disconnectGmail = { emailGrantRepository.disconnect() },
+                deleteAccount = { authRepository.deleteAccount() },
+            ).onFailure { e ->
                 sheet.update { it.copy(deleting = false, error = e.localizedMessage ?: "Error") }
             }
         }

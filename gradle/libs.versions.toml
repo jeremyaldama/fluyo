@@ -63,6 +63,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 # Supabase + Ktor transport
 supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
 supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+supabase-functions = { group = "io.github.jan-tennert.supabase", name = "functions-kt" }
 supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
 supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
 supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }

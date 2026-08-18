@@ -27,14 +27,26 @@ The migrations live at `supabase/migrations/`:
 
 - `0001_initial_schema.sql` — tables, indexes, views, default-category trigger.
 - `0002_rls_policies.sql` — RLS on all user-owned tables.
+- `0003_security_hardening.sql` — hardened functions, grants and constraints.
+- `0004_category_ondelete_setnull.sql` — safe category deletion for existing expenses.
+- `0005_budget_extras.sql` — budget configuration fields.
+- `0006_add_email_source.sql` — Gmail expense source and grant table.
+- `0007_harden_email_ingestion.sql` — Vault RPCs, watch metadata, dedupe and atomic Gmail ingestion.
 
 ### Option A — Supabase Dashboard SQL editor
 
 1. Project → **SQL Editor → New query**.
-2. Paste `0001_initial_schema.sql`, run.
-3. New query, paste `0002_rls_policies.sql`, run.
-4. Verify under **Database → Tables**: `users`, `categories`, `expenses`,
+2. Run every migration from `0001` through `0007`, in filename order, using a
+   new query for each file.
+3. Verify under **Database → Tables**: `users`, `categories`, `expenses`,
    `goals`, `badges`, `goal_deposits` all exist with RLS enabled.
+
+For normal environments prefer the CLI option below: it records migration
+history and avoids accidentally skipping a file.
+
+If you use SQL Editor, do not switch later to `supabase db push` until the
+remote migration history has been reconciled with `supabase migration repair`;
+otherwise the CLI may try to execute already-applied files again.
 
 ### Option B — Supabase CLI
 
@@ -44,6 +56,9 @@ supabase login
 supabase link --project-ref <YOUR_PROJECT_REF>
 supabase db push
 ```
+
+The Gmail infrastructure and function deployment are separate steps; follow
+`docs/GMAIL_PUSH_SETUP.md` after the schema is current.
 
 ## 4. Enable auth providers
 

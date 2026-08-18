@@ -21,6 +21,12 @@ local.properties
 !.env.example
 keystore.properties
 
+# Supabase CLI link/branch state can contain project references or connection
+# material and is always machine-local.
+/supabase/.temp/
+/supabase/.branches/
+/.supabase/
+
 # Signing keys and certificate containers are local/CI secrets. Public
 # certificates that genuinely belong in the repository must use an explicitly
 # reviewed, narrowly named exception.

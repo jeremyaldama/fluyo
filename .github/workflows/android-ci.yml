@@ -32,6 +32,25 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
+  edge-functions:
+    name: Edge function format, lint, types and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.5"
+          cache: true
+
+      - name: Verify Supabase Edge Functions
+        working-directory: supabase/functions
+        run: deno task verify
+
   verify:
     name: Unit tests, lint and compilation
     runs-on: ubuntu-latest

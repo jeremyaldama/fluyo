@@ -1,178 +1,311 @@
-# Gmail receipt auto-import — setup guide
+# Importación automática desde Gmail — guía de despliegue
 
-This feature registers expenses automatically when a payment receipt (Yape, bank
-notification, etc.) lands in the user's Gmail inbox. It uses **Gmail push
-notifications via Google Cloud Pub/Sub** → a **Supabase Edge Function** that
-reads the email, parses the amount, and inserts the expense.
+Fluyo puede registrar un gasto cuando llega a Gmail una notificación de pago
+compatible. El recorrido es:
 
-This document covers the one-time infrastructure setup. The code is already in
-the repo:
+1. Android inicia OAuth con una sesión Supabase autenticada.
+2. `gmail-connect` usa PKCE y un `state` cifrado; el JWT nunca viaja en la URL.
+3. El callback público devuelve a Android únicamente el authorization code de
+   un uso y el `state` cifrado. Android los confirma mediante un POST autenticado
+   y Edge exige que esa sesión Fluyo sea la misma que inició el flujo antes de
+   intercambiar el código o guardar el grant.
+4. Gmail publica cambios del buzón en Google Cloud Pub/Sub.
+5. Pub/Sub llama a `gmail-webhook` con un token OIDC verificable.
+6. El webhook exige remitente permitido + DMARC alineado, deduplica por mensaje
+   e inserta el gasto en una transacción que comprueba que el vínculo siga activo.
+7. `gmail-renew` renueva diariamente el `watch`, que Gmail hace expirar.
 
-- `supabase/migrations/0006_add_email_source.sql` — DB schema (`expenses.source = 'email'`, `email_grants` table).
-- `supabase/functions/gmail-webhook/` — receives Pub/Sub push, fetches + parses mail, inserts expenses.
-- `supabase/functions/gmail-connect/` — OAuth flow (user links their Gmail).
-- `supabase/functions/_shared/` — shared parser, DB client, Gmail API client.
+Esta guía configura infraestructura externa. No coloques credenciales reales en
+el repositorio ni en capturas/logs.
 
----
+## 1. Requisitos
 
-## Prerequisites
+- Proyecto Supabase vinculado con la CLI.
+- Proyecto Google Cloud con facturación/permisos suficientes.
+- Supabase CLI y Google Cloud CLI, o acceso equivalente a sus consolas.
+- Android configurado según `docs/GOOGLE_OAUTH_SETUP.md`.
 
-- A Supabase project with the Fluyo migrations applied (0001–0006).
-- A Google Cloud project (can be the same one that holds your OAuth Web Client
-  for sign-in, or a new one).
-- The Supabase CLI installed (`npm i -g supabase`) to deploy Edge Functions.
+La configuración versionada usa el esquema privado
+`com.qolve.fluyo://gmail-callback`. Para una prueba interna es suficiente; antes
+de distribuir públicamente, sustituirlo por un Android App Link HTTPS verificado
+en un dominio controlado por Fluyo y publicar su `assetlinks.json`, para que otra
+app instalada no pueda reclamar el callback.
 
----
+Los archivos relevantes son:
 
-## 1. Google Cloud setup
+- `supabase/migrations/0006_add_email_source.sql`
+- `supabase/migrations/0007_harden_email_ingestion.sql`
+- `supabase/functions/gmail-connect/`
+- `supabase/functions/gmail-webhook/`
+- `supabase/functions/gmail-renew/`
+- `supabase/functions/.env.example`
+- `supabase/config.toml`
 
-### 1.1 Enable the Gmail API
+## 2. Google Cloud
 
-1. Go to **Google Cloud Console** → select your project.
-2. **APIs & Services → Library** → search **Gmail API** → **Enable**.
+### 2.1 Habilitar APIs
 
-### 1.2 Create OAuth credentials for Gmail (separate from sign-in)
+En **APIs & Services → Library**, habilita:
 
-The `GOOGLE_WEB_CLIENT_ID` already in `local.properties` is for **Supabase
-Auth sign-in**. The email feature needs a *different* OAuth client with the
-`gmail.readonly` scope.
+- Gmail API
+- Cloud Pub/Sub API
 
-1. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
-2. Application type: **Web application**.
-3. Authorized redirect URI:
-   `https://<your-supabase-project>.functions.supabase.co/functions/v1/gmail-connect`
-   (replace `<your-supabase-project>` — for this project, `fxbrxfsyxmzadyonhaoj`).
-4. Note the **Client ID** and **Client Secret**.
+### 2.2 Crear el cliente OAuth de Gmail
 
-### 1.3 Configure the OAuth consent screen
+Usa un cliente OAuth de tipo **Web application** dedicado a la importación de
+correo. No reutilices el cliente Android ni el cliente de inicio de sesión de
+Supabase.
 
-`gmail.readonly` is a **restricted scope**. For development:
+Configura como URI de redirección autorizada, exactamente:
 
-1. **APIs & Services → OAuth consent screen**.
-2. Set it to **Testing** (not Production — production requires Google's
-   verification process, which can take weeks).
-3. Add your test users' Gmail addresses under **Test users**.
-4. Add the scope `https://www.googleapis.com/auth/gmail.readonly`.
+```text
+https://<PROJECT_REF>.supabase.co/functions/v1/gmail-connect
+```
 
-> **For public production launch**, you must submit the app for Google's OAuth
-> verification. Budget 2–6 weeks and a security assessment. This is the single
-> biggest external dependency of the feature.
+En la pantalla de consentimiento agrega el scope:
 
-### 1.4 Create the Pub/Sub topic + subscription
+```text
+https://www.googleapis.com/auth/gmail.readonly
+```
 
-Gmail pushes mailbox changes to Pub/Sub; Pub/Sub forwards them to our Edge
-Function.
+Mientras la app esté en **Testing**, agrega cada cuenta a **Test users**. Google
+expira normalmente a los 7 días los refresh tokens de apps externas en Testing
+que solicitan scopes de Gmail; para una prueba prolongada habrá que volver a
+vincular o publicar/verificar la app.
 
-1. **Pub/Sub → Topics → Create topic**, name it `gmail-receipts`.
-2. Grant publish rights: **topic → Permissions → Add member** →
-   `gmail-api-push@system.gserviceaccount.com` with role **Pub/Sub Publisher**.
-   (Without this, Gmail cannot publish.)
-3. **Create subscription** for the topic:
-   - Delivery type: **Push**.
-   - Endpoint URL: `https://<your-supabase-project>.functions.supabase.co/functions/v1/gmail-webhook`
-   - Ack deadline: 10s (the webhook ACKs immediately).
+`gmail.readonly` es un scope restringido. Un lanzamiento público requiere la
+verificación OAuth de Google y puede requerir evaluación de seguridad. Esto es
+un requisito externo, no un cambio de código.
 
----
+### 2.3 Crear topic y permisos
 
-## 2. Supabase setup
+1. Crea un topic Pub/Sub, por ejemplo `gmail-receipts`, en el mismo proyecto
+   Google Cloud que ejecuta el `watch()`/cliente OAuth de Gmail.
+2. En el topic, concede **Pub/Sub Publisher** a:
 
-### 2.1 Apply the migration
+```text
+gmail-api-push@system.gserviceaccount.com
+```
+
+El valor de `GOOGLE_PUBSUB_TOPIC` será:
+
+```text
+projects/<GCP_PROJECT_ID>/topics/gmail-receipts
+```
+
+### 2.4 Crear el push autenticado
+
+1. Crea una service account dedicada, por ejemplo
+   `gmail-push@<GCP_PROJECT_ID>.iam.gserviceaccount.com`.
+2. Permite al service agent de Pub/Sub generar tokens para esa cuenta
+   (`roles/iam.serviceAccountTokenCreator`). Quien crea la suscripción también
+   necesita permiso para actuar como ella (`iam.serviceAccounts.actAs`).
+3. Crea una suscripción push al topic con:
+
+```text
+Endpoint: https://<PROJECT_REF>.supabase.co/functions/v1/gmail-webhook
+Authentication: la service account dedicada
+Audience: https://<PROJECT_REF>.supabase.co/functions/v1/gmail-webhook
+Ack deadline: 120 segundos
+Expiration period: Never expire
+```
+
+Guarda el nombre completo de la suscripción:
+
+```text
+projects/<GCP_PROJECT_ID>/subscriptions/gmail-receipts-push
+```
+
+El webhook verifica firma OIDC, issuer, audience, email de la service account,
+`email_verified` y nombre exacto de la suscripción. No basta con que el JSON se
+parezca a un mensaje Pub/Sub.
+
+## 3. Supabase
+
+### 3.1 Aplicar migraciones
+
+Si el proyecto se administra con la CLI, ejecuta:
 
 ```bash
 supabase db push
-# or apply 0006_add_email_source.sql directly via the SQL editor
 ```
 
-This adds the `email` value to `expenses.source` and creates the `email_grants`
-table with RLS.
+Si las migraciones anteriores se aplicaron manualmente en SQL Editor, aplica
+también `0006` y `0007` allí o repara primero el historial remoto de migraciones;
+no mezcles ambos métodos sin reconciliarlo.
 
-### 2.2 Enable the Vault extension (for storing refresh tokens)
+Esto aplica `0006` y `0007`: tabla de grants, Vault, RLS de solo lectura para el
+cliente, cursores/renovación, deduplicación y RPCs privadas para `service_role`.
 
-The Google OAuth refresh token is stored encrypted in Supabase Vault, never in
-plaintext. Vault is on by default in recent Supabase versions; verify in the
-Dashboard → **Database → Extensions** → `vault` should be enabled.
+### 3.2 Configurar secretos
 
-> The `gmail-connect` function references `vault/secrets` and the
-> `decrypted_secret` RPC. If you see a Vault error, run
-> `create extension if not exists vault;` in the SQL editor.
+Copia `supabase/functions/.env.example` a
+`supabase/functions/.env.local` (ignorado por Git) y rellena:
 
-### 2.3 Set Edge Function secrets
-
-In the Dashboard → **Project Settings → Edge Functions → Secrets**, add:
-
-| Secret name | Value |
+| Variable | Uso |
 |---|---|
-| `GMAIL_CLIENT_ID` | (from step 1.2) |
-| `GMAIL_CLIENT_SECRET` | (from step 1.2) |
-| `GOOGLE_PUBSUB_TOPIC` | `projects/<gcp-project-id>/topics/gmail-receipts` |
+| `GMAIL_CLIENT_ID` | Cliente OAuth web de Gmail |
+| `GMAIL_CLIENT_SECRET` | Secreto del cliente OAuth |
+| `GOOGLE_PUBSUB_TOPIC` | Topic completo `projects/.../topics/...` |
+| `GMAIL_OAUTH_STATE_SECRET` | Aleatorio, mínimo 32 bytes; cifra el state OAuth |
+| `GMAIL_DEDUPE_SECRET` | Aleatorio, mínimo 32 bytes; identidad estable del buzón |
+| `GMAIL_CRON_SECRET` | Aleatorio distinto, mínimo 32 bytes |
+| `GOOGLE_PUBSUB_PUSH_AUDIENCE` | URL exacta del webhook |
+| `GOOGLE_PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL` | Identidad push exacta |
+| `GOOGLE_PUBSUB_SUBSCRIPTION` | Suscripción completa `projects/.../subscriptions/...` |
+| `GMAIL_OAUTH_ALLOWED_REDIRECT_URIS` | Opcional; por defecto `com.qolve.fluyo://gmail-callback` |
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically by
-Supabase for Edge Functions — no need to set them.
-
-### 2.4 Deploy the Edge Functions
+Genera los tres secretos de aplicación por separado, por ejemplo:
 
 ```bash
-supabase functions deploy gmail-webhook --no-verify-jwt
-supabase functions deploy gmail-connect
+openssl rand -base64 48
 ```
 
-> `gmail-webhook` is deployed with `--no-verify-jwt` because Pub/Sub calls it
-> with its own auth, not a Supabase user JWT. The function validates the Pub/Sub
-> payload structure instead.
->
-> `gmail-connect` keeps JWT verification **off** at the edge level too, because
-> the JWT travels in the `state` param through Google's redirect — it's checked
-> inside the function, not by Supabase's gateway.
+No rotes `GMAIL_DEDUPE_SECRET` sin migrar los fingerprints ya almacenados: una
+rotación sin backfill cambia las claves de idempotencia y podría reimportar un
+mensaje antiguo tras una reconexión.
 
----
+Supabase inyecta `SUPABASE_URL`, `SUPABASE_ANON_KEY` y
+`SUPABASE_SERVICE_ROLE_KEY`; no los agregues al archivo versionado.
 
-## 3. How a user links their Gmail (runtime flow)
+Carga el archivo local con:
 
-1. User opens **Profile → Importar boletas (Gmail)** and taps the row.
-2. The app opens the browser to `gmail-connect?token=<JWT>`.
-3. `gmail-connect` redirects to Google's consent screen (`gmail.readonly`).
-4. User consents → Google redirects back to `gmail-connect?code=...`.
-5. `gmail-connect` exchanges the code for a **refresh token**, stores it in
-   Vault, inserts a row in `email_grants`, and calls `gmail.users.watch()`.
-6. From now on, Gmail publishes to Pub/Sub on every inbox change → Pub/Sub
-   pushes to `gmail-webhook` → the function reads the new mail, parses
-   whitelisted receipts, and inserts expenses with `source = 'email'`.
+```bash
+supabase secrets set --env-file supabase/functions/.env.local
+```
 
----
+### 3.3 Desplegar funciones
 
-## 4. Which senders get parsed
+`supabase/config.toml` desactiva la validación JWT del gateway únicamente para
+estas tres funciones. Cada handler aplica su autenticación específica.
 
-Only emails from whitelisted senders become expenses — everything else is
-ignored (privacy: we never store non-receipt mail). The whitelist lives in
-`supabase/functions/_shared/receipt-parser.ts` (`SENDER_WHITELIST`). Add
-institutions there after verifying their exact sender domain against a real
-notification.
+```bash
+supabase functions deploy gmail-connect
+supabase functions deploy gmail-webhook
+supabase functions deploy gmail-renew
+```
 
-Current whitelist: Yape, BCP (`@viabcp.com`), Interbank, BBVA, Scotiabank.
+- `gmail-connect`: sesión Supabase para iniciar/finalizar por POST y para DELETE;
+  el callback GET público solo valida el `state` cifrado y redirige a la app, sin
+  intercambiar tokens ni escribir datos.
+- `gmail-webhook`: OIDC de Google Pub/Sub.
+- `gmail-renew`: bearer `GMAIL_CRON_SECRET` comparado en tiempo constante.
 
----
+### 3.4 Programar la renovación diaria
 
-## 5. Troubleshooting
+Gmail entrega una expiración con cada `watch`; Google recomienda renovarlo al
+menos cada 7 días. Fluyo selecciona grants próximos a vencer, así que ejecuta
+`gmail-renew` diariamente, por ejemplo a las 03:00 de Lima (08:00 UTC).
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| No expenses appear after linking | Refresh token not stored, or `watch()` failed | Check `gmail-connect` logs; re-link the account |
-| Webhook returns 200 but nothing inserts | Sender not whitelisted, or amount not parseable | Check `gmail-webhook` logs for the message id; add sender to whitelist or improve regex |
-| `vault` errors on connect | Vault extension not enabled | `create extension if not exists vault;` |
-| Pub/Sub not delivering | `gmail-api-push@…` lacks Publisher role | Re-check topic IAM (step 1.4) |
-| OAuth shows "access blocked" | Consent screen in Testing, user not in test list | Add the user under Test users (step 1.3) |
+En Supabase habilita `pg_cron`, `pg_net` y Vault. Guarda en Vault dos secretos:
 
----
+- `gmail_renew_url` = `https://<PROJECT_REF>.supabase.co/functions/v1/gmail-renew`
+- `gmail_cron_secret` = el mismo valor de `GMAIL_CRON_SECRET`
 
-## 6. Known limitations / future work
+Luego crea el job desde SQL Editor, leyendo ambos valores desde
+`vault.decrypted_secrets` para no escribirlos en el SQL ni en el historial:
 
-- **Regex parsing is fragile.** Different banks format receipts differently.
-  The v2 should replace `receipt-parser.ts` with an LLM call (OpenAI, same
-  account the WhatsApp bot uses) for robust extraction. The module is isolated
-  so this swap touches nothing else.
-- **Outlook/Microsoft Graph is not supported.** The architecture leaves room
-  for an `outlook-webhook/` later; Graph uses a different subscription model.
-- **No dedupe yet.** If a webhook retries mid-batch, the same message could be
-  inserted twice. The cursor (`email_grants.history_id`) advances only after
-  the batch, but a hard crash could replay. Add a `message_id` uniqueness
-  column to `expenses` (or a dedupe table) in v2.
+```sql
+select cron.schedule(
+  'renew-gmail-watch-daily',
+  '0 8 * * *',
+  $$
+  select net.http_post(
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'gmail_renew_url'),
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret
+        from vault.decrypted_secrets
+        where name = 'gmail_cron_secret'
+      )
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  );
+  $$
+);
+```
+
+Verifica que los nombres sean únicos en Vault y que el job aparezca en
+**Integrations → Cron**.
+
+## 4. Verificación antes de entrega
+
+### 4.1 Automatizada
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+cd supabase/functions
+deno task verify
+```
+
+CI ejecuta compilación, lint y tests Android, además de formato, lint,
+type-check y tests Deno.
+
+### 4.2 Smoke test real
+
+Usa una cuenta de prueba, nunca una bandeja personal de producción:
+
+1. En **Perfil → Importar gastos desde Gmail**, pulsa **Vincular**.
+2. Confirma que Google muestra solo `gmail.readonly` y regresa a Fluyo.
+3. Confirma en la app el estado **Vinculado**. En Dashboard/SQL, verifica que
+   `email_grants.watch_expiration > now()` para esa cuenta.
+4. Envía/recibe una notificación real soportada con DMARC válido y salida de
+   dinero; debe aparecer exactamente un gasto con origen correo.
+5. Fuerza el mismo push otra vez; no debe duplicar el gasto.
+6. Prueba correo ajeno, `From` falsificado, DMARC fallido y abono recibido; todos
+   deben ignorarse.
+7. Pulsa **Desvincular**; pushes posteriores no deben insertar gastos.
+8. Repite vinculación/desvinculación y revisa logs sin tokens, email completo ni
+   cuerpo del mensaje.
+9. Como prueba negativa, inicia un vínculo con un usuario Fluyo y abre su URL de
+   consentimiento en un dispositivo/sesión donde Fluyo tenga otro usuario. La
+   finalización debe responder `state_user_mismatch` y no crear ni modificar un
+   grant.
+
+Este smoke test solo puede declararse aprobado después de desplegar y configurar
+GCP/Supabase. Las pruebas locales no sustituyen OAuth/Pub/Sub reales.
+
+## 5. Comportamiento y límites deliberados
+
+- Solo se leen mensajes de Inbox notificados por Gmail. Si Gmail expira el
+  cursor, el fallback retoma desde cinco minutos antes del último sync conocido;
+  si nunca hubo sync, retoma desde cinco minutos antes de crear el grant. La
+  ventana de 7 días queda solo como último resguardo para metadata ausente o
+  inválida. Nunca avanza el cursor silenciosamente si la paginación quedó
+  truncada.
+- Solo remitentes permitidos con `Authentication-Results` de `mx.google.com`,
+  `dmarc=pass` y dominio alineado pueden llegar al parser.
+- El parser actual usa reglas conservadoras para PEN, pagos salientes y
+  plantillas conocidas. Un formato nuevo se ignora hasta agregar una fixture y
+  su prueba; no se recomienda un LLM sobre correo privado por defecto.
+- Outlook/Microsoft Graph no está soportado.
+- Fluyo guarda refresh tokens en Supabase Vault. Nunca guarda cuerpos de correo;
+  persiste únicamente los campos del gasto y una referencia HMAC de idempotencia.
+- **Desvincular** borra la fila y el secreto Vault antes de responder; desde ese
+  instante los pushes fallan cerrado y el watch vence por sí solo. El handler no
+  usa un token antiguo para llamar `stop/revoke`, ya que podría interferir con
+  una revinculación concurrente. Si se desea retirar también el permiso visible
+  en Google, hacerlo desde **Cuenta de Google → Seguridad → Conexiones con apps**.
+
+## 6. Diagnóstico
+
+| Síntoma | Revisión |
+|---|---|
+| Google muestra `redirect_uri_mismatch` | URI exacta del cliente web y URL de `gmail-connect` |
+| Callback vuelve con `invalid_state`/`state_expired` | `GMAIL_OAUTH_STATE_SECRET`, reloj y reinicio del flujo |
+| Finalización responde `state_user_mismatch` | La sesión Fluyo cambió durante OAuth; reiniciar el vínculo desde la cuenta correcta |
+| `account_conflict` | La misma cuenta Gmail ya está vinculada a otro usuario Fluyo |
+| El estado muestra atención requerida | `last_error`, expiración del watch y ejecución de `gmail-renew` |
+| Pub/Sub recibe 401 | Audience, service account, Token Creator y env de identidad/suscripción |
+| Pub/Sub recibe 503 | Logs sanitizados, Vault/token, Gmail API o error temporal de DB |
+| Mensaje legítimo se ignora | Inbox, remitente exacto, DMARC alineado, plantilla y monto PEN |
+| Error de Vault | Migración `0007`, extensión `supabase_vault` y permisos `service_role` |
+
+Referencias oficiales: [Gmail push notifications](https://developers.google.com/workspace/gmail/api/guides/push),
+[`users.watch`](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users/watch),
+[OAuth 2.0 de Google](https://developers.google.com/identity/protocols/oauth2),
+[push autenticado de Pub/Sub](https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions),
+[configuración de Edge Functions](https://supabase.com/docs/guides/functions/function-configuration)
+y [funciones programadas](https://supabase.com/docs/guides/functions/schedule-functions).

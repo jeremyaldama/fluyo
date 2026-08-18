@@ -4,11 +4,10 @@
 --    receipt emails, plus the Gmail historyId cursor for push incremental sync.
 --
 -- SECURITY: the Google OAuth refresh token is a long-lived credential. It is NOT
--- stored in plaintext here. We store only a Vault secret id (vault.secret_id())
--- in email_grants.google_refresh_token_secret_id; the Edge Function recovers the
--- token via `vault.decrypted_secret(<id>)`. The Vault extension must be enabled
--- on the project (it is on by default on Supabase >= 1.50). See
--- docs/GMAIL_PUSH_SETUP.md.
+-- stored in plaintext here. We store only a Vault secret UUID in
+-- email_grants.google_refresh_token_secret_id. Migration 0007 adds the
+-- service-role-only SECURITY DEFINER functions that create/decrypt/delete the
+-- Vault value without exposing it to Android. See docs/GMAIL_PUSH_SETUP.md.
 
 -- ============================================================
 -- 1) Extend expenses.source CHECK to include 'email'
@@ -47,22 +46,29 @@ create index if not exists idx_email_grants_user on public.email_grants(user_id)
 create index if not exists idx_email_grants_email on public.email_grants(email);
 
 -- ============================================================
--- RLS — a user only sees/edits their own grants.
+-- Transitional RLS — clients can only read safe metadata for their own grant.
+-- All grant/token writes are server-side from the first migration; 0007 narrows
+-- the final projection further and adds the service-role RPC contract.
 -- The service-role key used by the Edge Function bypasses these policies,
 -- exactly like the WhatsApp plugin (see SYSTEM_DESIGN.md §6.3).
 -- ============================================================
 alter table public.email_grants enable row level security;
 
 drop policy if exists email_grants_rw_own on public.email_grants;
-create policy email_grants_rw_own
+drop policy if exists email_grants_select_own on public.email_grants;
+create policy email_grants_select_own
     on public.email_grants
-    for all
+    for select
+    to authenticated
     using (
         user_id in (select id from public.users where auth_id = auth.uid())
-    )
-    with check (
-        user_id in (select id from public.users where auth_id = auth.uid())
     );
+
+revoke all on table public.email_grants from anon;
+revoke all on table public.email_grants from authenticated;
+grant select (email, created_at, updated_at)
+    on table public.email_grants to authenticated;
+grant all on table public.email_grants to service_role;
 
 -- updated_at touch (mirrors the users table trigger pattern).
 create or replace function public.touch_email_grants_updated_at()

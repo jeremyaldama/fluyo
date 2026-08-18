@@ -8,6 +8,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.qolve.fluyo.presentation.events.GmailOAuthCallbackParser
+import com.qolve.fluyo.presentation.events.GmailOAuthEvents
 import com.qolve.fluyo.presentation.events.SharedImageEvents
 import com.qolve.fluyo.presentation.navigation.FluyoNavHost
 import com.qolve.fluyo.presentation.theme.FluyoTheme
@@ -18,12 +20,13 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sharedImageEvents: SharedImageEvents
+    @Inject lateinit var gmailOAuthEvents: GmailOAuthEvents
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
             enableEdgeToEdge()
-            consumeSharedImageIfAny(intent)
+            consumeIncomingIntent(intent)
             setContent {
                 FluyoTheme {
                     FluyoNavHost()
@@ -38,7 +41,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        consumeIncomingIntent(intent)
+    }
+
+    private fun consumeIncomingIntent(intent: Intent?) {
         consumeSharedImageIfAny(intent)
+        consumeGmailOAuthCallbackIfAny(intent)
     }
 
     private fun consumeSharedImageIfAny(intent: Intent?) {
@@ -53,5 +61,23 @@ class MainActivity : ComponentActivity() {
             intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
         }
         uri?.let { sharedImageEvents.emit(it) }
+    }
+
+    private fun consumeGmailOAuthCallbackIfAny(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        val callback = runCatching {
+            GmailOAuthCallbackParser.parseParameters(
+                scheme = uri.scheme,
+                host = uri.host,
+                statuses = uri.getQueryParameters("status"),
+                codes = uri.getQueryParameters("code"),
+                states = uri.getQueryParameters("state"),
+            )
+        }.getOrNull() ?: return
+
+        gmailOAuthEvents.emit(callback)
+        // Prevent Activity recreation from re-delivering the same one-shot callback.
+        intent.data = null
     }
 }

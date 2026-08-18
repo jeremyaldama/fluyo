@@ -1,0 +1,16 @@
+project_id = "fluyo"
+
+# gmail-connect accepts authenticated app requests plus Google's public OAuth
+# callback. The callback only validates encrypted state and redirects to Android;
+# token exchange and persistence require a second, authenticated app request.
+[functions.gmail-connect]
+verify_jwt = false
+
+# Google Pub/Sub signs push requests with its own OIDC token. The webhook
+# validates issuer, audience and service-account identity inside the handler.
+[functions.gmail-webhook]
+verify_jwt = false
+
+# Scheduled watch renewal authenticates with GMAIL_CRON_SECRET in the handler.
+[functions.gmail-renew]
+verify_jwt = false

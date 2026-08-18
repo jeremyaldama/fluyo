@@ -61,9 +61,10 @@
 
             <!--
               Gmail OAuth callback: after the user consents in the browser, the
-              gmail-connect Edge Function redirects back here with ?success=1.
-              MainActivity receives it via onNewIntent and refreshes the profile
-              to show the linked Gmail address.
+              gmail-connect Edge Function redirects back here with a one-use Google
+              authorization code and encrypted opaque state. MainActivity validates
+              them, then the profile completes OAuth through an authenticated POST.
+              No JWT, email, access token or refresh token travels in the deep link.
             -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

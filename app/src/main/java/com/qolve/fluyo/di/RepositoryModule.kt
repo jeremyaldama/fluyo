@@ -5,6 +5,7 @@ import com.qolve.fluyo.data.repository.SupabaseBadgeRepository
 import com.qolve.fluyo.data.repository.SupabaseBudgetExtraRepository
 import com.qolve.fluyo.data.repository.SupabaseCategoryRepository
 import com.qolve.fluyo.data.repository.SupabaseExpenseRepository
+import com.qolve.fluyo.data.repository.SupabaseEmailGrantRepository
 import com.qolve.fluyo.data.repository.SupabaseGoalRepository
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.domain.repository.BadgeRepository

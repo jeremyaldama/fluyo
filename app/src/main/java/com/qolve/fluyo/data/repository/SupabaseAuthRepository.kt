@@ -50,9 +50,6 @@ class SupabaseAuthRepository @Inject constructor(
             }
         }
 
-    override suspend fun currentAccessToken(): String? =
-        client.auth.currentAccessTokenOrNull()
-
     override suspend fun signInWithEmail(email: String, password: String): Result<Unit> = runCatching {
         client.auth.signInWith(Email) {
             this.email = email.trim()

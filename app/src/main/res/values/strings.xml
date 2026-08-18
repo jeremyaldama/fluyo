@@ -198,8 +198,38 @@
     <!-- Gmail receipt auto-import (boletas → expenses automatically) -->
     <string name="profile_gmail_label">Importar boletas (Gmail)</string>
     <string name="profile_gmail_row_subtitle">Registro automático de pagos</string>
-    <string name="profile_gmail_linked">Vinculado: %1$s</string>
     <string name="profile_gmail_not_linked">No vinculado</string>
+    <string name="profile_gmail_loading">Consultando…</string>
+    <string name="profile_gmail_authorizing">Abriendo Gmail…</string>
+    <string name="profile_gmail_disconnecting">Desvinculando…</string>
+    <string name="profile_gmail_linked_status">Vinculado</string>
+    <string name="profile_gmail_needs_attention">Revisar</string>
+    <string name="profile_gmail_retry">Reintentar</string>
+    <string name="profile_gmail_manage_title">Gmail vinculado</string>
+    <string name="profile_gmail_attention_title">Revisa tu conexión con Gmail</string>
+    <string name="profile_gmail_manage_body">Fluyo registra automáticamente las boletas compatibles que llegan a esta cuenta.</string>
+    <string name="profile_gmail_relink">Volver a vincular</string>
+    <string name="profile_gmail_disconnect">Desvincular</string>
+    <string name="profile_gmail_disconnect_confirm_title">¿Desvincular Gmail?</string>
+    <string name="profile_gmail_disconnect_confirm_body">Fluyo dejará de importar boletas de %1$s. Tus gastos ya registrados no se eliminarán.</string>
+    <string name="profile_gmail_issue_watch_missing">La importación aún no está activa. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_issue_watch_expired">La importación venció. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_issue_watch_failed">No pudimos activar la importación. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_issue_auth_expired">Gmail retiró el acceso. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_issue_sync_failed">La última sincronización falló. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_issue_unknown">La conexión necesita atención. Vuelve a vincular la cuenta.</string>
+    <string name="profile_gmail_error_load">No pudimos consultar la conexión. Toca para reintentar.</string>
+    <string name="profile_gmail_error_start">No pudimos iniciar la conexión. Toca para reintentar.</string>
+    <string name="profile_gmail_error_invalid_url">La respuesta de conexión no fue válida.</string>
+    <string name="profile_gmail_error_browser">No encontramos un navegador para abrir Gmail.</string>
+    <string name="profile_gmail_error_denied">No autorizaste el acceso a Gmail.</string>
+    <string name="profile_gmail_error_expired">La autorización venció. Inténtalo de nuevo.</string>
+    <string name="profile_gmail_error_scope">Gmail no concedió el permiso necesario para importar boletas.</string>
+    <string name="profile_gmail_error_account_conflict">Esta cuenta de Gmail ya está vinculada a otro usuario de Fluyo.</string>
+    <string name="profile_gmail_error_session">Tu sesión de Fluyo venció. Inicia sesión nuevamente antes de vincular Gmail.</string>
+    <string name="profile_gmail_error_service_unavailable">Ahora no podemos conectar Gmail. Inténtalo más tarde.</string>
+    <string name="profile_gmail_error_oauth">No pudimos completar la conexión con Gmail.</string>
+    <string name="profile_gmail_error_disconnect">No pudimos desvincular Gmail. Inténtalo de nuevo.</string>
 
     <!-- Badges -->
     <string name="badge_first_expense">Primer gasto</string>

@@ -4,7 +4,7 @@
 
 Fluyo es el prototipo desarrollado como proyecto de tesis para la carrera de Ingeniería Informática de la **Pontificia Universidad Católica del Perú (PUCP)**. Aplica la metodología de **Diseño Centrado en el Usuario (DCU)** para resolver un problema concreto: los estudiantes de 18 a 26 años que usan Yape/Plin a diario abandonan el registro de sus gastos por lo tedioso del ingreso manual.
 
-La solución reduce esa fricción combinando **escaneo OCR de capturas de Yape/Plin**, **entrada por voz** y **registro conversacional por WhatsApp**, sumado a mecánicas de gamificación y metas de ahorro que refuerzan el hábito.
+La solución reduce esa fricción combinando **escaneo OCR de capturas de Yape/Plin**, **entrada por voz**, **importación automática de pagos desde Gmail** y **registro conversacional por WhatsApp**, sumado a mecánicas de gamificación y metas de ahorro que refuerzan el hábito.
 
 ---
 
@@ -27,10 +27,12 @@ La solución reduce esa fricción combinando **escaneo OCR de capturas de Yape/P
 
 ## Descripción general
 
-Fluyo tiene **dos puntos de entrada** que escriben sobre la **misma base de datos PostgreSQL (Supabase)**, garantizando una única fuente de verdad sin importar cómo el usuario registre el gasto:
+Fluyo reúne varias vías de registro sobre la **misma base de datos PostgreSQL
+(Supabase)**, manteniendo una única fuente de verdad:
 
 1. **App nativa Android** (Kotlin + Jetpack Compose) — interfaz principal. Registra gastos por OCR, entrada manual y voz; incluye gamificación, metas de ahorro y recordatorios de comportamiento (*nudges*).
-2. **Bot de WhatsApp** (sobre un backend NestJS existente) — interfaz secundaria. El usuario escribe o envía notas de voz para registrar gastos de forma conversacional (por ejemplo, *"Gasté 15 soles en almuerzo"*).
+2. **Importación Gmail** (Supabase Edge Functions + Google Pub/Sub) — ingesta automática de notificaciones de pago autenticadas y vinculadas por OAuth.
+3. **Bot de WhatsApp** (backend externo, no incluido en este repositorio) — interfaz secundaria para registrar gastos de forma conversacional.
 
 ## Características principales
 
@@ -39,6 +41,7 @@ Fluyo tiene **dos puntos de entrada** que escriben sobre la **misma base de dato
 | **Registro por OCR** | Escaneo de capturas de Yape/Plin con ML Kit **en el dispositivo** (sin subir datos financieros a servidores externos). Objetivo: ≤ 10 segundos por gasto. |
 | **Entrada manual rápida** | Teclado numérico y selección de categoría. Objetivo: ≤ 5 segundos. |
 | **Entrada por voz** | Transcripción de voz en español (`RecognizerIntent`) parseada a monto, categoría y descripción. |
+| **Importación Gmail** | OAuth seguro, push autenticado de Pub/Sub, validación DMARC y deduplicación de notificaciones de pago. |
 | **WhatsApp** | Registro conversacional; las notas de voz se transcriben con Whisper en el backend. |
 | **Metas de ahorro** | Creación de metas, depósitos, barra de progreso y animación de confeti al completarse. |
 | **Estadísticas** | Gráfico de dona por categoría (Vico) y comparaciones mensuales en tono positivo. |
@@ -50,22 +53,32 @@ Fluyo tiene **dos puntos de entrada** que escriben sobre la **misma base de dato
 La app Android sigue **Clean Architecture + MVVM**, donde la capa de dominio no tiene **ninguna** dependencia de Android.
 
 ```
-┌─────────────────────────────────────────────┐
-│                SUPABASE (Cloud)              │
-│   Auth  ·  PostgreSQL  ·  Storage  ·  Edge   │
-└──────────────┬────────────────┬──────────────┘
-               │                │
-        ┌──────┴──────┐   ┌─────┴───────────────┐
-        │ App Android │   │  Backend NestJS     │
-        │ (Compose)   │   │  (DigitalOcean VPS) │
-        │  OCR ML Kit │   │  WhatsApp Cloud API │
-        └─────────────┘   │  Whisper (voz)      │
-                          └─────────────────────┘
+              ┌────────────────────────┐
+              │ Gmail + Google Pub/Sub │
+              └───────────┬────────────┘
+                          │ push OIDC
+┌─────────────────────────▼────────────────────┐
+│                 SUPABASE (Cloud)              │
+│    Auth  ·  PostgreSQL  ·  Storage  ·  Edge   │
+└───────────────┬────────────────┬──────────────┘
+                │                │
+         ┌──────┴──────┐   ┌─────┴───────────────┐
+         │ App Android │   │  Backend NestJS     │
+         │ (Compose)   │   │  (externo al repo)  │
+         │  OCR ML Kit │   │  WhatsApp Cloud API │
+         └─────────────┘   │  Whisper (voz)      │
+                           └─────────────────────┘
 ```
 
 **Flujo de datos (app Android):** sesión de Supabase Auth → escaneo OCR en el dispositivo → escritura directa a PostgreSQL vía Supabase Kotlin SDK → recálculo local del presupuesto y actualización de la UI.
 
 **Flujo de datos (WhatsApp):** mensaje entrante → webhook al backend NestJS → (si es voz) transcripción con Whisper → parseo → escritura a la misma base con `source = 'whatsapp'` → respuesta de confirmación al usuario.
+
+**Flujo de datos (Gmail):** vínculo OAuth iniciado y finalizado por Android con
+sesión Supabase → `gmail-connect` (PKCE + identidad de sesión vinculada al
+`state`) → Gmail `watch()` → push OIDC de Pub/Sub → `gmail-webhook` → validación
+del remitente/DMARC y parser conservador → inserción idempotente con
+`source = 'email'`. El despliegue está en `docs/GMAIL_PUSH_SETUP.md`.
 
 **Vínculo de usuarios:** los usuarios de WhatsApp se enlazan a su cuenta de Android por número de teléfono (`users.phone_number`).
 
@@ -77,7 +90,7 @@ La app Android sigue **Clean Architecture + MVVM**, donde la capa de dominio no 
 | UI | Jetpack Compose (BOM 2026.02.01), Material 3 |
 | Arquitectura | Clean Architecture + MVVM, StateFlow |
 | Inyección de dependencias | Hilt (Dagger) 2.59.2 + KSP |
-| Backend / datos | Supabase Kotlin SDK 3.0.2 (Auth, Postgrest, Storage) |
+| Backend / datos | Supabase Kotlin SDK 3.0.2 (Auth, Postgrest, Functions, Storage) + Edge Functions Deno |
 | Autenticación | Credential Manager + Google ID (One Tap) |
 | OCR | Google ML Kit Text Recognition 16.0.1 (en el dispositivo) |
 | Gráficos | Vico (dona por categorías) |
@@ -175,6 +188,11 @@ El esquema se versiona como migraciones SQL ordenadas en `supabase/migrations/`,
 - `0002_rls_policies.sql` — políticas de Row Level Security (cada usuario accede solo a sus datos).
 - `0003_security_hardening.sql` — endurecimiento de seguridad.
 - `0004_category_ondelete_setnull.sql` — la FK `expenses.category_id` pasa a `ON DELETE SET NULL`, de modo que una categoría puede eliminarse sin fallar por gastos que la referencian.
+- `0005_budget_extras.sql` — configuración adicional del presupuesto.
+- `0006_add_email_source.sql` — origen de gastos por correo y grants de Gmail.
+- `0007_harden_email_ingestion.sql` — Vault, renovación, deduplicación e inserción atómica del correo.
+
+El despliegue de la importación Gmail está documentado en `docs/GMAIL_PUSH_SETUP.md`.
 
 **RLS:** los usuarios solo acceden a sus propios datos (`auth.uid() = user_id`). El backend NestJS usa la `service_role` key, que omite RLS para escribir en nombre de usuarios de WhatsApp.
 

@@ -8,6 +8,7 @@ import com.qolve.fluyo.domain.model.AuthState
 import com.qolve.fluyo.domain.repository.AuthRepository
 import com.qolve.fluyo.notifications.NudgeScheduler
 import com.qolve.fluyo.presentation.events.AppEvents
+import com.qolve.fluyo.presentation.events.GmailOAuthEvents
 import com.qolve.fluyo.presentation.events.SharedImageEvents
 import com.qolve.fluyo.presentation.util.CurrencyState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ class RootViewModel @Inject constructor(
     supabaseClient: SupabaseClient,
     val appEvents: AppEvents,
     val sharedImageEvents: SharedImageEvents,
+    val gmailOAuthEvents: GmailOAuthEvents,
     private val nudgeScheduler: NudgeScheduler,
     private val currencyState: CurrencyState,
 ) : ViewModel() {

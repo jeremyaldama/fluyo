@@ -47,6 +47,7 @@ import com.qolve.fluyo.domain.model.BadgeType
 import androidx.compose.runtime.CompositionLocalProvider
 import com.qolve.fluyo.presentation.events.AppEvent
 import com.qolve.fluyo.presentation.events.AppEvents
+import com.qolve.fluyo.presentation.events.GmailOAuthEvents
 import com.qolve.fluyo.presentation.util.LocalCurrencySymbol
 import com.qolve.fluyo.presentation.util.currencySymbolFor
 import com.qolve.fluyo.presentation.util.nameRes
@@ -116,6 +117,7 @@ fun FluyoNavHost(
         composable(Routes.MAIN) {
             MainShell(
                 appEvents = rootViewModel.appEvents,
+                gmailOAuthEvents = rootViewModel.gmailOAuthEvents,
                 onOpenManualEntry = { rootNav.navigate(Routes.MANUAL_ENTRY) },
                 onOpenScan = { uri ->
                     val encoded = Uri.encode(uri.toString())
@@ -184,6 +186,7 @@ private fun SplashRoute() {
 @Composable
 private fun MainShell(
     appEvents: AppEvents,
+    gmailOAuthEvents: GmailOAuthEvents,
     onOpenManualEntry: () -> Unit,
     onOpenScan: (Uri) -> Unit,
     onOpenGoalCreate: () -> Unit,
@@ -203,6 +206,19 @@ private fun MainShell(
     val voicePrompt = stringResource(R.string.add_option_voice_hint)
     // Precomputed badge names (stringResource can't be called from the event collector).
     val badgeNames = BadgeType.entries.associateWith { stringResource(it.nameRes()) }
+
+    // OAuth may return after Android has reclaimed the activity. In that cold-start
+    // case the nested NavHost defaults to Home, so bring the replayed callback to
+    // Profile where its ViewModel verifies the authenticated grant and consumes it.
+    LaunchedEffect(gmailOAuthEvents) {
+        gmailOAuthEvents.events.collect {
+            nav.navigate(Routes.PROFILE) {
+                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         appEvents.events.collect { event ->

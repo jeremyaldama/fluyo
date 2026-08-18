@@ -1,171 +1,149 @@
-# Email receipt import — estado real del feature
+# Importación de gastos por Gmail — estado real
 
-**Rama:** `feat/email-receipt-import`
-**Fecha:** 2026-08-05
+**Rama:** `feat/email-receipt-import`<br>
+**Fecha:** 2026-08-17
 
-Este documento refleja con honestidad en qué estado quedó el feature de import
-automático de boletas por Gmail. Lo que funciona, lo que falla, y lo que falta.
+## Resultado
 
----
+La implementación está cerrada y verificable en código: Android compila, el
+flujo OAuth ya no expone el JWT y vincula el callback a la sesión Fluyo que lo
+inició, los callbacks funcionan en arranque frío y caliente, las funciones Edge
+tienen type-check/lint/tests, y la base protege tokens, deduplicación y
+sincronización mediante RPCs privadas.
 
-## ✅ Funciona y está verificado
+Todavía no debe afirmarse que está validada en producción. Falta aplicar la
+migración, cargar secretos, desplegar las funciones y ejecutar el smoke test con
+una cuenta Gmail de prueba y Pub/Sub reales. Esos pasos requieren acceso a los
+proyectos externos y están en `docs/GMAIL_PUSH_SETUP.md`.
 
-| Pieza | Verificación |
+## Verificado localmente
+
+| Área | Estado |
 |---|---|
-| **Parser de boletas** (`supabase/functions/_shared/receipt-parser.ts`) | **28/28 tests Deno pasan.** Whitelist de remitentes (Yape, BCP, Interbank, BBVA, Scotiabank), extracción de monto/fecha/destinatario por regex. |
-| **Migración SQL `0006`** | Escrita: extiende `expenses.source` con `'email'`, crea tabla `email_grants` (Vault-backed, RLS). **No aplicada** a la base de datos real todavía (ver sección "Falta configuración manual"). |
-| **Edge Function `gmail-webhook`** | Código completo. **No desplegada ni probada** end-to-end (requiere proyecto GCP + secrets, ver setup). |
-| **Edge Function `gmail-connect`** | Código completo (OAuth + callback + watch). **No desplegada ni probada.** |
-| **Cliente Gmail API** (`_shared/gmail-client.ts`) | Código completo. No testeado en runtime (depende de tokens OAuth reales). |
-| **Cliente DB** (`_shared/db.ts`) | Código completo (service-role, patrón WhatsApp). No testeado en runtime. |
-| **Doc de setup** (`docs/GMAIL_PUSH_SETUP.md`) | Completa: pasos GCP + Supabase. |
+| Android unit tests | **PASS — 58 tests, 0 fallos** |
+| Android compilación debug | **PASS — APK generado** |
+| Android lint | **PASS** tras integrar el feature |
+| Edge format/lint/type-check/tests | **PASS — 85 tests, 0 fallos** mediante `deno task verify` |
+| SQL `0001`–`0007` | **PASS** en PostgreSQL de Supabase 17 |
+| Vault y RPCs | **PASS**: create/update/decrypt/delete, permisos y RLS |
+| Diff | `git diff --check` limpio en la verificación Android |
 
----
+La causa del antiguo error KSP era un import faltante de
+`SupabaseEmailGrantRepository` en `RepositoryModule.kt`; está corregida. No era
+una incompatibilidad de Kotlin/Hilt.
 
-## ❌ FALLA — bloqueador de build
+## Qué quedó implementado
 
-### `kspDebugKotlin` falla: Hilt no resuelve `SupabaseEmailGrantRepository`
+### Android
 
-```
-> Task :app:kspDebugKotlin FAILED
-e: [ksp] ModuleProcessingStep was unable to process 'com.qolve.fluyo.di.RepositoryModule'
-   because 'SupabaseEmailGrantRepository' could not be resolved.
-KSP failed with exit code: PROCESSING_ERROR
-```
+- Inicio OAuth autenticado con POST a `gmail-connect`; ningún token va en query.
+- Deep link `com.qolve.fluyo://gmail-callback` con un authorization code de un
+  solo uso y `state` cifrado; nunca contiene JWT, correo, access token ni refresh
+  token.
+- Finalización inmediata mediante un segundo POST autenticado. La app no
+  reintenta automáticamente el authorization code y siempre reconcilia el
+  resultado leyendo metadata pública del grant.
+- Callback en app abierta o cerrada, navegación a Perfil y refresh sin carreras.
+- Estados Loading, Disconnected, Authorizing, Linked, NeedsAttention, Failed y
+  Disconnecting.
+- Relink y unlink con confirmación.
+- SELECT limitado a `email`, `watch_expiration` y `last_error`.
+- Validadores y resolvers puros cubiertos por tests.
 
-**Qué sé:** el código Kotlin de la clase compila (no hay errores `e:` de
-compilador antes del de KSP). El binding en `RepositoryModule.kt` es idéntico
-al patrón de los otros 6 repositorios que sí funcionan. Limpié el caché de
-KSP/Kotlin/Gradle y el error persiste, así que **no es caché corrupta**.
+### OAuth, Gmail y Pub/Sub
 
-**Qué probé:**
-- Comparar anotaciones (`@Singleton class ... @Inject constructor`) contra repos que funcionan → idénticas.
-- Simplificar el `select{}` (quitar `Columns.list`) → mismo error.
-- `rm -rf app/build .kotlin .gradle build` + reconstruir → mismo error.
+- OAuth Authorization Code + PKCE.
+- `state` opaco cifrado con AES-GCM y TTL de 10 minutos.
+- El callback público no intercambia tokens ni escribe en Vault/base de datos:
+  devuelve el código a Android y la finalización exige que la sesión Supabase
+  autenticada sea exactamente el usuario sellado en `state`.
+- Identidad del buzón obtenida con `users.getProfile`, no desde un `id_token`
+  ausente.
+- Refresh token en Supabase Vault; nunca se entrega al cliente Android.
+- `watch()` con expiración persistida y renovación diaria en `gmail-renew`.
+- Webhook autenticado con OIDC de Google: issuer, audience, service account,
+  `email_verified` y suscripción exacta.
+- Historial paginado, manejo de cursor expirado y fallback que no avanza el
+  cursor si queda trabajo truncado.
+- Errores/reintentos sanitizados; logs sin cuerpo de correo ni tokens.
 
-**Qué falta probar (posibles causas):**
-1. **Incompatibilidad de versión KSP/Kotlin/Hilt** con algún detalle sutil de
-   este binding concreto. El proyecto usa KSP `2.2.10-2.0.2` + Hilt `2.59.2` +
-   Kotlin `2.2.10` (todos beta/recientes — ver `gradle/libs.versions.toml`).
-   Podría ser un bug de KSP con esta combinación.
-2. **El binding** `abstract fun bindEmailGrantRepository(impl: SupabaseEmailGrantRepository): EmailGrantRepository`
-   podría tener un problema que los otros no exhiben. Revisar si `EmailGrantRepository`
-   (la interfaz, en `domain/repository/`) está bien referenciada.
-3. **Orden de procesamiento de KSP** — a veces fallar en un módulo oculta el
-   error real en otro. Correr `./gradlew :app:kspDebugKotlin --info 2>&1 | grep -i error`
-   para ver el error oculto (no pude ejecutarlo: el `grep` del entorno tiene un
-   alias que rompe con múltiples patrones — ejecutar con `--stacktrace` o
-   redirigir a archivo y leer con `Read`).
+### Ingesta segura
 
-**Workaround temporal si necesitas compilar ya mismo:** comentar el binding de
-`EmailGrantRepository` en `RepositoryModule.kt` y la inyección en
-`ProfileViewModel.kt`. La app compila sin el feature de Gmail; el resto de
-funcionalidad queda intacta.
+- Remitente con límites exactos de dirección/dominio.
+- `Authentication-Results` de `mx.google.com` con `dmarc=pass` y dominio
+  `header.from` alineado; falla cerrado ante ausencia, spoofing o DMARC fallido.
+- Solo transacciones de salida; abonos/transferencias recibidas se ignoran.
+- MIME multipart, texto/HTML, fechas en Lima y límites de tamaño/profundidad.
+- Idempotencia estable por buzón y Gmail message ID usando HMAC, sin revelar el
+  email en la referencia.
+- Inserción atómica que bloquea el grant: un webhook no puede crear un gasto
+  después de que desvincular/revincular haya ganado la carrera.
+- Categoría `Otros` resuelta dentro de la misma operación de base de datos.
 
-**Por qué NO es un error de los otros archivos:** el error apunta exactamente a
-`SupabaseEmailGrantRepository` y desaparece si eliminas ese binding. Es el
-único bloqueador; el resto del código Android (enum, strings, UI, manifest) no
-genera errores de compilación.
+### Base de datos
 
----
+`0007_harden_email_ingestion.sql` agrega y prueba:
 
-## ⚠️ Falta configuración manual (no es código)
+- metadata de watch/sync/error;
+- fingerprint HMAC de buzón y `expenses.source_reference`;
+- índice único de idempotencia;
+- RLS y privilegios de columnas de solo lectura para Android;
+- RPCs `SECURITY DEFINER` ejecutables solo por `service_role`;
+- cursor monotónico y renovación de watch sin saltarse eventos;
+- limpieza del secreto Vault en unlink/cascade;
+- recuperación y desvinculación aun si un secreto Vault está ausente.
 
-Estos pasos los tienes que hacer tú en consolas externas; están detallados en
-`docs/GMAIL_PUSH_SETUP.md` pero los resumo:
+## Requisitos externos antes de decir “funciona end-to-end”
 
-1. **Google Cloud Console:**
-   - Habilitar Gmail API.
-   - Crear OAuth client Web (distinto al de sign-in) con scope `gmail.readonly`
-     y redirect URI a la Edge Function `gmail-connect`.
-   - Pantalla de consentimiento en modo **Testing** + añadir usuarios de prueba
-     (para producción pública: verificación de Google, 2-6 semanas).
-   - Crear Pub/Sub topic `gmail-receipts` + push subscription al webhook.
-   - Otorgar `roles/pubsub.publisher` a `gmail-api-push@system.gserviceaccount.com`.
+1. Aplicar `supabase db push` al proyecto objetivo.
+2. Configurar el cliente OAuth web y consentimiento de Gmail.
+3. Crear topic y push subscription autenticada en Pub/Sub.
+4. Cargar todos los secretos listados en
+   `supabase/functions/.env.example`.
+5. Desplegar `gmail-connect`, `gmail-webhook` y `gmail-renew`.
+6. Programar `gmail-renew` diariamente.
+7. Ejecutar completo el smoke test de `docs/GMAIL_PUSH_SETUP.md`.
 
-2. **Supabase:**
-   - Aplicar la migración `0006` (`supabase db push` o SQL editor).
-   - Verificar que la extensión `vault` esté habilitada.
-   - Setear secrets: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GOOGLE_PUBSUB_TOPIC`.
-   - Desplegar las 2 Edge Functions:
-     `supabase functions deploy gmail-webhook --no-verify-jwt`
-     `supabase functions deploy gmail-connect`
+Mientras OAuth esté en modo **Testing**, solo funcionan test users y Google
+puede expirar a los 7 días los refresh tokens con scopes Gmail. Para usuarios
+públicos, `gmail.readonly` requiere completar la verificación externa de Google.
 
-Ninguno de estos pasos se puede automatizar desde el código; son configuración
-de infraestructura externa.
+## Alcance y límites conocidos
 
----
+- El parser es deliberadamente conservador. Un banco o formato nuevo debe
+  entrar con correo anonimizado como fixture y tests; si no coincide, se ignora.
+- El historial inicial no importa toda la bandeja. El fallback de recuperación
+  retoma desde el último sync o, si todavía no hubo uno, desde la creación del
+  grant; se niega a perder silenciosamente resultados truncados.
+- Outlook/Microsoft Graph no está soportado.
+- El retorno Android actual usa un esquema privado `com.qolve.fluyo://`. Es
+  adecuado para la prueba interna, pero Android no puede reservarlo de forma
+  criptográfica frente a otra app instalada. Antes de una distribución pública,
+  migrar el callback a un Android App Link HTTPS verificado y publicar
+  `assetlinks.json` en un dominio controlado por Fluyo.
+- **Desvincular** elimina de forma atómica el grant y refresh token de Fluyo, por
+  lo que deja de leer/importar inmediatamente; el `watch` restante expira solo.
+  No llama a `stop/revoke` con un token leído antes del borrado, porque esa
+  compensación puede apagar un relink concurrente más nuevo. Hasta implementar
+  un protocolo durable de desconexión, el usuario puede retirar además el
+  permiso visible desde la seguridad de su cuenta Google.
+- El `state` tiene cifrado, TTL, nonce y PKCE. El authorization code de Google
+  es de un solo uso y solo puede consumirse con la sesión Fluyo que inició el
+  flujo; persistir/consumir además el nonce sería defensa adicional ante varios
+  consentimientos simultáneos, no un bloqueo del flujo actual.
+- No se deben rotar secretos de deduplicación sin una migración/backfill.
 
-## 🔮 Mejoras pendientes (no bloqueantes, marcadas para v2)
+## Criterio de entrega
 
-1. **Parser por regex es frágil.** Cada banco formatea distinto. La v2 debería
-   reemplazar `receipt-parser.ts` con un LLM (OpenAI, misma cuenta del bot de
-   WhatsApp) para extracción robusta. El módulo está aislado para que el cambio
-   no toque nada más.
+El código queda listo para revisión/push cuando vuelvan a pasar en una misma
+revisión final:
 
-2. **Sin deduplicación.** Si un webhook reintenta tras un crash, el mismo
-   mensaje podría insertarse dos veces. El cursor `email_grants.history_id`
-   avanza solo tras el batch, pero un crash intermedio repite. **Fix v2:**
-   añadir columna `message_id` UNIQUE a `expenses` (o tabla dedupe).
-
-3. **Sin cola de revisión humana.** Elegiste registro automático directo.
-   Para un producto vendible, considera un estado `pendiente` que el usuario
-   confirme/edite antes de impactar el presupuesto (protege contra errores de
-   parseo de monto).
-
-4. **Outlook/Microsoft Graph no soportado.** La arquitectura deja espacio para
-   `outlook-webhook/` pero Graph usa un modelo de suscripción distinto a Pub/Sub.
-
-5. **Verificación OAuth de Google.** `gmail.readonly` es scope restringido.
-   Para app pública necesitas pasar el proceso de verificación de Google
-   (security assessment, semanas). En desarrollo con "Test users" funciona sin
-   verificación.
-
-6. **El `gmail-connect` no verifica el JWT del `state`** — lo decodifica sin
-   validar firma. En producción deberías verificarlo con el JWT secret de
-   Supabase para evitar que alguien inyecte un `state` ajeno.
-
----
-
-## Archivos del feature (mapa rápido)
-
-```
-supabase/
-├── migrations/0006_add_email_source.sql          ✅ escrito
-└── functions/
-    ├── _shared/
-    │   ├── receipt-parser.ts                      ✅ 28 tests pasan
-    │   ├── receipt-parser.test.ts                 ✅
-    │   ├── gmail-client.ts                        ⚠️ no probado en runtime
-    │   └── db.ts                                  ⚠️ no probado en runtime
-    ├── gmail-webhook/index.ts                     ⚠️ no desplegado
-    └── gmail-connect/index.ts                     ⚠️ no desplegado
-
-app/src/main/java/com/qolve/fluyo/
-├── domain/model/ExpenseSource.kt                  ✅ +EMAIL
-├── domain/repository/EmailGrantRepository.kt      ✅ interfaz
-├── domain/repository/AuthRepository.kt            ✅ +currentAccessToken()
-├── data/repository/SupabaseEmailGrantRepository.kt ❌ FALLA en KSP
-├── data/repository/SupabaseAuthRepository.kt      ✅ +impl
-├── di/RepositoryModule.kt                         ❌ el binding que dispara el error
-├── presentation/screens/profile/ProfileScreen.kt  ✅ fila Gmail + OAuth launch
-├── presentation/screens/profile/ProfileViewModel.kt ✅ estado + linkGmail()
-├── presentation/screens/home/components/ExpenseRow.kt ✅ rama EMAIL
-└── (res/values/strings.xml)                       ✅ labels
-
-app/src/main/AndroidManifest.xml                   ✅ deep link
-docs/GMAIL_PUSH_SETUP.md                           ✅ setup externo
-docs/EMAIL_IMPORT_STATUS.md                        ← este documento
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+(cd supabase/functions && deno task verify)
+git diff --check
 ```
 
----
-
-## Resumen ejecutivo
-
-- **El feature está ~90% implementado** en código.
-- **1 bloqueador real:** el binding de Hilt de `SupabaseEmailGrantRepository`
-  falla en compilación KSP y no se ha resuelto todavía.
-- **0 cosas probadas end-to-end:** las Edge Functions necesitan infraestructura
-  externa (GCP + secrets) que no se ha configurado, así que el flujo completo
-  no se ha validado en runtime.
-- **El parser sí está probado** (28 tests), que es la pieza más frágil.
+La entrega operativa termina únicamente cuando el smoke test externo registra
+un gasto real una sola vez, ignora los casos negativos y deja de importar tras
+desvincular.

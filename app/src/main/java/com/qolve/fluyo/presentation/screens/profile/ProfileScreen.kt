@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -177,10 +179,12 @@ fun ProfileScreen(
                         // Open the OAuth flow in the user's browser (Custom Tab would also
                         // work, but a plain ACTION_VIEW Intent is simplest and survives the
                         // redirect round-trip through Google + back to our deep link).
-                        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
                 },
-                linkedGmail = state.linkedGmail,
+                emailLinkState = state.emailLinkState,
+                onDisconnectGmail = viewModel::disconnectGmail,
+                onRetryGmailStatus = viewModel::retryGmailStatus,
                 onExportCsv = viewModel::exportCsv,
                 onToggleNotificationsEnabled = viewModel::toggleNotificationsEnabled,
                 onHourChange = viewModel::setNotificationHour,
@@ -668,7 +672,9 @@ private fun AjustesCard(
     onEditCurrency: () -> Unit,
     onManageCategories: () -> Unit,
     onLinkGmail: () -> Unit,
-    linkedGmail: String?,
+    emailLinkState: EmailLinkState,
+    onDisconnectGmail: () -> Unit,
+    onRetryGmailStatus: () -> Unit,
     onExportCsv: () -> Unit,
     onToggleNotificationsEnabled: (Boolean) -> Unit,
     onHourChange: (Int) -> Unit,
@@ -677,6 +683,28 @@ private fun AjustesCard(
     onDeleteAccount: () -> Unit,
 ) {
     var notificationsOpen by remember { mutableStateOf(false) }
+    var gmailDialogOpen by remember { mutableStateOf(false) }
+    var confirmGmailDisconnect by remember { mutableStateOf(false) }
+
+    val linkedEmail = when (emailLinkState) {
+        is EmailLinkState.Linked -> emailLinkState.email
+        is EmailLinkState.NeedsAttention -> emailLinkState.email
+        is EmailLinkState.Disconnecting -> emailLinkState.email
+        is EmailLinkState.Failed -> emailLinkState.previousEmail
+        else -> null
+    }
+    val gmailBusy = emailLinkState is EmailLinkState.Loading ||
+        emailLinkState is EmailLinkState.Authorizing ||
+        emailLinkState is EmailLinkState.Disconnecting
+
+    LaunchedEffect(emailLinkState) {
+        if (emailLinkState is EmailLinkState.Disconnected ||
+            emailLinkState is EmailLinkState.Authorizing
+        ) {
+            gmailDialogOpen = false
+            confirmGmailDisconnect = false
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -728,11 +756,32 @@ private fun AjustesCard(
             SettingsRow(
                 icon = Icons.Outlined.Email,
                 title = stringResource(R.string.profile_gmail_label),
-                subtitle = stringResource(R.string.profile_gmail_row_subtitle),
-                value = linkedGmail?.takeIf { it.isNotBlank() }
-                    ?.let { stringResource(R.string.profile_gmail_linked, it) }
-                    ?: stringResource(R.string.profile_gmail_not_linked),
-                onClick = onLinkGmail,
+                subtitle = when (emailLinkState) {
+                    is EmailLinkState.Linked -> emailLinkState.email
+                    is EmailLinkState.NeedsAttention -> gmailIssueText(emailLinkState.issue)
+                    is EmailLinkState.Failed -> gmailFailureText(emailLinkState.reason)
+                    else -> stringResource(R.string.profile_gmail_row_subtitle)
+                },
+                value = when (emailLinkState) {
+                    EmailLinkState.Loading -> stringResource(R.string.profile_gmail_loading)
+                    is EmailLinkState.Authorizing -> stringResource(R.string.profile_gmail_authorizing)
+                    is EmailLinkState.Disconnecting -> stringResource(R.string.profile_gmail_disconnecting)
+                    is EmailLinkState.Linked -> stringResource(R.string.profile_gmail_linked_status)
+                    is EmailLinkState.NeedsAttention -> stringResource(R.string.profile_gmail_needs_attention)
+                    is EmailLinkState.Failed -> stringResource(R.string.profile_gmail_retry)
+                    EmailLinkState.Disconnected -> stringResource(R.string.profile_gmail_not_linked)
+                },
+                onClick = if (gmailBusy) null else {
+                    {
+                        when {
+                            emailLinkState is EmailLinkState.Failed &&
+                                emailLinkState.reason == EmailLinkFailure.LOAD_FAILED ->
+                                onRetryGmailStatus()
+                            linkedEmail == null -> onLinkGmail()
+                            else -> gmailDialogOpen = true
+                        }
+                    }
+                },
             )
             ThinDivider()
             // Notifications expander row
@@ -782,7 +831,130 @@ private fun AjustesCard(
             )
         }
     }
+
+    if (gmailDialogOpen && linkedEmail != null) {
+        GmailConnectionDialog(
+            email = linkedEmail,
+            state = emailLinkState,
+            onDismiss = { gmailDialogOpen = false },
+            onRelink = onLinkGmail,
+            onRequestDisconnect = { confirmGmailDisconnect = true },
+        )
+    }
+
+    if (confirmGmailDisconnect && linkedEmail != null) {
+        AlertDialog(
+            onDismissRequest = { confirmGmailDisconnect = false },
+            title = { Text(stringResource(R.string.profile_gmail_disconnect_confirm_title)) },
+            text = {
+                Text(stringResource(R.string.profile_gmail_disconnect_confirm_body, linkedEmail))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmGmailDisconnect = false
+                        gmailDialogOpen = false
+                        onDisconnectGmail()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text(stringResource(R.string.profile_gmail_disconnect))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmGmailDisconnect = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
 }
+
+@Composable
+private fun GmailConnectionDialog(
+    email: String,
+    state: EmailLinkState,
+    onDismiss: () -> Unit,
+    onRelink: () -> Unit,
+    onRequestDisconnect: () -> Unit,
+) {
+    val needsAttention = state is EmailLinkState.NeedsAttention || state is EmailLinkState.Failed
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(
+                    if (needsAttention) R.string.profile_gmail_attention_title
+                    else R.string.profile_gmail_manage_title,
+                )
+            )
+        },
+        text = {
+            Column {
+                Text(email, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = when (state) {
+                        is EmailLinkState.NeedsAttention -> gmailIssueText(state.issue)
+                        is EmailLinkState.Failed -> gmailFailureText(state.reason)
+                        else -> stringResource(R.string.profile_gmail_manage_body)
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRelink) {
+                Text(stringResource(R.string.profile_gmail_relink))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(
+                    onClick = onRequestDisconnect,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text(stringResource(R.string.profile_gmail_disconnect))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun gmailIssueText(issue: EmailLinkIssue): String = stringResource(
+    when (issue) {
+        EmailLinkIssue.WATCH_MISSING -> R.string.profile_gmail_issue_watch_missing
+        EmailLinkIssue.WATCH_EXPIRED -> R.string.profile_gmail_issue_watch_expired
+        EmailLinkIssue.WATCH_FAILED -> R.string.profile_gmail_issue_watch_failed
+        EmailLinkIssue.AUTHORIZATION_EXPIRED -> R.string.profile_gmail_issue_auth_expired
+        EmailLinkIssue.GMAIL_API_FAILED -> R.string.profile_gmail_issue_sync_failed
+        EmailLinkIssue.WEBHOOK_FAILED -> R.string.profile_gmail_issue_sync_failed
+        EmailLinkIssue.UNKNOWN -> R.string.profile_gmail_issue_unknown
+    }
+)
+
+@Composable
+private fun gmailFailureText(failure: EmailLinkFailure): String = stringResource(
+    when (failure) {
+        EmailLinkFailure.LOAD_FAILED -> R.string.profile_gmail_error_load
+        EmailLinkFailure.START_FAILED -> R.string.profile_gmail_error_start
+        EmailLinkFailure.INVALID_AUTHORIZATION_URL -> R.string.profile_gmail_error_invalid_url
+        EmailLinkFailure.BROWSER_UNAVAILABLE -> R.string.profile_gmail_error_browser
+        EmailLinkFailure.OAUTH_DENIED -> R.string.profile_gmail_error_denied
+        EmailLinkFailure.OAUTH_EXPIRED -> R.string.profile_gmail_error_expired
+        EmailLinkFailure.OAUTH_SCOPE_MISSING -> R.string.profile_gmail_error_scope
+        EmailLinkFailure.ACCOUNT_CONFLICT -> R.string.profile_gmail_error_account_conflict
+        EmailLinkFailure.WATCH_FAILED -> R.string.profile_gmail_issue_watch_failed
+        EmailLinkFailure.SESSION_EXPIRED -> R.string.profile_gmail_error_session
+        EmailLinkFailure.SERVICE_UNAVAILABLE -> R.string.profile_gmail_error_service_unavailable
+        EmailLinkFailure.OAUTH_FAILED -> R.string.profile_gmail_error_oauth
+        EmailLinkFailure.DISCONNECT_FAILED -> R.string.profile_gmail_error_disconnect
+    }
+)
 
 @Composable
 private fun SettingsRow(
@@ -832,6 +1004,9 @@ private fun SettingsRow(
                 text = value,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 140.dp),
             )
         }
         if (trailingChevron && onClick != null) {
@@ -944,4 +1119,3 @@ private fun PhoneEditDialog(
 }
 
 // BudgetEditDialog moved to presentation/components (shared with Home's ring tap).
-

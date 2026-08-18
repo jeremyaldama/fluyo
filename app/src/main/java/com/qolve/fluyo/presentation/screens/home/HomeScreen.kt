@@ -95,7 +95,7 @@ fun HomeScreen(
             .sortedByDescending { it.first }
     }
 
-    // External writes (WhatsApp bot, another device) land directly in Supabase — re-query
+    // External writes (Gmail, WhatsApp, another device) land directly in Supabase — re-query
     // whenever the user comes back to the app so Home never shows stale totals.
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
@@ -339,4 +339,3 @@ private fun monthlyDailyAverage(breakdown: MonthlyBreakdown): Double {
     val daysElapsed = today.dayOfMonth.coerceAtLeast(1)
     return breakdown.totalSpent / daysElapsed.toDouble()
 }
-
